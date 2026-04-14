@@ -103,6 +103,25 @@ describe('POST /api/friends (send friend request)', () => {
 
     expect(res.status).toBe(500)
   })
+
+  it('returns data.error response when RPC returns business logic error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({
+      data: { error: 'Already friends', message: 'You are already friends', status: 400 },
+      error: null,
+    })
+
+    const req = createNextRequest('http://localhost:3000/api/friends', {
+      method: 'POST',
+      body: { addressee_id: VALID_UUID },
+    })
+    const res = await POST(req)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toHaveProperty('error', 'Already friends')
+    expect(body).toHaveProperty('message', 'You are already friends')
+  })
 })
 
 describe('PATCH /api/friends/[friendshipId] (accept/decline)', () => {
@@ -120,6 +139,68 @@ describe('PATCH /api/friends/[friendshipId] (accept/decline)', () => {
     const body = await res.json()
     expect(body).toHaveProperty('success', true)
   })
+
+  it('returns 400 for invalid friendshipId UUID', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+
+    const req = createNextRequest('http://localhost:3000/api/friends/not-a-uuid', {
+      method: 'PATCH',
+      body: { status: 'accepted' },
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ friendshipId: 'not-a-uuid' }) })
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toHaveProperty('error')
+  })
+
+  it('sends declined action when status is not accepted', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: { success: true }, error: null })
+
+    const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, {
+      method: 'PATCH',
+      body: { status: 'declined' },
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ friendshipId: FRIENDSHIP_ID }) })
+
+    expect(res.status).toBe(200)
+    expect(mockClient.rpc).toHaveBeenCalledWith(
+      'respond_friend_request',
+      expect.objectContaining({ p_action: 'declined' })
+    )
+  })
+
+  it('returns 500 on RPC error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, {
+      method: 'PATCH',
+      body: { status: 'accepted' },
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ friendshipId: FRIENDSHIP_ID }) })
+
+    expect(res.status).toBe(500)
+  })
+
+  it('returns data.error response when RPC returns business logic error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({
+      data: { error: 'Not your request', message: 'Cannot respond to this request', status: 400 },
+      error: null,
+    })
+
+    const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, {
+      method: 'PATCH',
+      body: { status: 'accepted' },
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ friendshipId: FRIENDSHIP_ID }) })
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toHaveProperty('error', 'Not your request')
+  })
 })
 
 describe('DELETE /api/friends/[friendshipId] (unfriend)', () => {
@@ -135,5 +216,65 @@ describe('DELETE /api/friends/[friendshipId] (unfriend)', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('success', true)
+  })
+
+  it('returns 400 for invalid friendshipId UUID', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+
+    const req = createNextRequest('http://localhost:3000/api/friends/not-a-uuid', {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, { params: Promise.resolve({ friendshipId: 'not-a-uuid' }) })
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toHaveProperty('error')
+  })
+
+  it('returns 500 on RPC error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+    const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, { params: Promise.resolve({ friendshipId: FRIENDSHIP_ID }) })
+
+    expect(res.status).toBe(500)
+  })
+
+  it('returns data.error response when RPC returns business logic error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({
+      data: { error: 'Not friends', status: 400 },
+      error: null,
+    })
+
+    const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, { params: Promise.resolve({ friendshipId: FRIENDSHIP_ID }) })
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toHaveProperty('error', 'Not friends')
+  })
+
+  it('returns refunded=true and balance when unfriend triggers refund', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({
+      data: { success: true, refunded: true, balance: 50 },
+      error: null,
+    })
+
+    const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, { params: Promise.resolve({ friendshipId: FRIENDSHIP_ID }) })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toHaveProperty('refunded', true)
+    expect(body).toHaveProperty('balance', 50)
   })
 })

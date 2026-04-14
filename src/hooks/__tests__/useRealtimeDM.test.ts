@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { buildProfile, buildDMMessage } from '../../../test/helpers/factories'
 import { useAppStore } from '@/stores/appStore'
+import { fetchAndCacheProfile } from '@/hooks/useRealtimeDM'
 
 // vi.hoisted runs before imports — build mock inline
 const mockClient = vi.hoisted(() => ({
@@ -242,5 +243,83 @@ describe('useRealtimeDM', () => {
     })
 
     expect(updateMessage).toHaveBeenCalledWith('thread-u', msg.id, expect.objectContaining({ content: 'updated content' }))
+  })
+
+  it('does not refetch threads when visibility change is within throttle window', async () => {
+    renderHook(() => useRealtimeDM(defaultParams))
+    await act(async () => {})
+
+    // First visibility change — triggers fetch and sets lastVisibilityFetchRef
+    await act(async () => {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    const callCount = vi.mocked(fetch).mock.calls.filter(
+      (c) => c[0] === '/api/dm/threads'
+    ).length
+
+    // Second visibility change immediately — should be throttled
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    const newCallCount = vi.mocked(fetch).mock.calls.filter(
+      (c) => c[0] === '/api/dm/threads'
+    ).length
+
+    expect(newCallCount).toBe(callCount) // no additional call
+  })
+
+  it('does not refetch when visibility changes to hidden', async () => {
+    renderHook(() => useRealtimeDM(defaultParams))
+    await act(async () => {})
+
+    vi.mocked(fetch).mockClear()
+
+    await act(async () => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    expect(fetch).not.toHaveBeenCalledWith('/api/dm/threads')
+  })
+})
+
+describe('fetchAndCacheProfile', () => {
+  beforeEach(() => {
+    useAppStore.getState().clearStore()
+  })
+
+  it('returns null when fetch response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
+    const result = await fetchAndCacheProfile('unknown-sender')
+    expect(result).toBeNull()
+  })
+
+  it('returns null when fetch throws', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')))
+    const result = await fetchAndCacheProfile('unknown-sender')
+    expect(result).toBeNull()
+  })
+
+  it('returns null when response has no profile field', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ profile: null }),
+    }))
+    const result = await fetchAndCacheProfile('p-x')
+    expect(result).toBeNull()
+  })
+
+  it('caches and returns profile on success', async () => {
+    const profile = buildProfile({ id: 'p-cache' })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ profile }),
+    }))
+    const result = await fetchAndCacheProfile('p-cache')
+    expect(result?.id).toBe('p-cache')
+    expect(useAppStore.getState().profileCache['p-cache']).toBeDefined()
   })
 })

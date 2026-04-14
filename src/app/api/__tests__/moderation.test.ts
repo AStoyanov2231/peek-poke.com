@@ -83,6 +83,20 @@ describe('GET /api/moderation/photos', () => {
     expect(res.status).toBe(400)
     expect(json.error).toBeDefined()
   })
+
+  it('returns 500 when RPC call fails', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'mod-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB connection failed' } })
+
+    const req = createNextRequest('http://localhost:3000/api/moderation/photos', {
+      searchParams: { status: 'pending' },
+    })
+    const res = await GET(req)
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(json.error).toBeDefined()
+  })
 })
 
 describe('PATCH /api/moderation/photos/[photoId]', () => {
@@ -161,5 +175,46 @@ describe('PATCH /api/moderation/photos/[photoId]', () => {
 
     expect(res.status).toBe(400)
     expect(json.error).toBe('Invalid photo ID')
+  })
+
+  it('returns 500 when DB update fails', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'mod-123' } }, error: null })
+    mockClient.rpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: false, error: null })
+    mockClient.from.mockReturnValue(
+      createMockQueryBuilder(null, { message: 'DB error' })
+    )
+
+    const req = createNextRequest(`http://localhost:3000/api/moderation/photos/${VALID_PHOTO_ID}`, {
+      method: 'PATCH',
+      body: { action: 'approve' },
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(json.error).toBeDefined()
+  })
+
+  it('returns 404 when photo not found after update', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'mod-123' } }, error: null })
+    mockClient.rpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: false, error: null })
+    // data is null, error is null → photo not found
+    mockClient.from.mockReturnValue(
+      createMockQueryBuilder(null, null)
+    )
+
+    const req = createNextRequest(`http://localhost:3000/api/moderation/photos/${VALID_PHOTO_ID}`, {
+      method: 'PATCH',
+      body: { action: 'approve' },
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    const json = await res.json()
+
+    expect(res.status).toBe(404)
+    expect(json.error).toBe('Photo not found')
   })
 })

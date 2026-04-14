@@ -58,4 +58,9 @@ describe('postToNative', () => {
     vi.stubGlobal('window', { isNativeApp: true })
     expect(() => postToNative('TEST_ACTION')).not.toThrow()
   })
+
+  it('should be a no-op when window is undefined (SSR)', () => {
+    vi.stubGlobal('window', undefined)
+    expect(() => postToNative('TEST_ACTION', { key: 'value' })).not.toThrow()
+  })
 })

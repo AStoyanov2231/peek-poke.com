@@ -9,6 +9,8 @@ vi.mock('@/lib/native', () => ({
   postToNative: vi.fn(),
 }))
 
+import * as nativeLib from '@/lib/native'
+
 // vi.hoisted runs before imports — build mock inline
 const mockClient = vi.hoisted(() => ({
   auth: {
@@ -138,5 +140,97 @@ describe('useAuth', () => {
 
     expect(result.current.user).toBeNull()
     expect(result.current.loading).toBe(false)
+  })
+
+  it('calls clearStore on sign out', async () => {
+    setupSession(fakeUser)
+    const clearStore = vi.spyOn(useAppStore.getState(), 'clearStore')
+    const authChange = setupAuthStateChange()
+
+    renderHook(() => useAuth())
+    await act(async () => {})
+
+    await act(async () => {
+      authChange.fire('SIGNED_OUT', null)
+    })
+
+    expect(clearStore).toHaveBeenCalled()
+  })
+
+  it('calls postToNative with isAuthenticated:false on sign out when isNativeApp', async () => {
+    vi.mocked(nativeLib.isNativeApp).mockReturnValue(true)
+    setupSession(fakeUser)
+    const authChange = setupAuthStateChange()
+
+    renderHook(() => useAuth())
+    await act(async () => {})
+
+    await act(async () => {
+      authChange.fire('SIGNED_OUT', null)
+    })
+
+    expect(nativeLib.postToNative).toHaveBeenCalledWith('authStateChanged', { isAuthenticated: false })
+  })
+
+  it('calls postToNative with isAuthenticated:true on init when isNativeApp', async () => {
+    vi.mocked(nativeLib.isNativeApp).mockReturnValue(true)
+    setupSession(fakeUser)
+
+    renderHook(() => useAuth())
+    await act(async () => {})
+
+    expect(nativeLib.postToNative).toHaveBeenCalledWith('authStateChanged', { isAuthenticated: true })
+  })
+
+  it('skips profile fetch on token refresh (same user id)', async () => {
+    setupSession(fakeUser)
+    const authChange = setupAuthStateChange()
+
+    renderHook(() => useAuth())
+    await act(async () => {})
+
+    // fetch was called once during init; reset count
+    vi.mocked(fetch).mockClear()
+
+    // Fire TOKEN_REFRESHED with same user id — should NOT refetch profile
+    await act(async () => {
+      authChange.fire('TOKEN_REFRESHED', fakeUser)
+    })
+
+    expect(fetch).not.toHaveBeenCalledWith('/api/auth/profile', expect.anything())
+  })
+
+  it('fetches profile on auth state change when user id changes', async () => {
+    setupSession(null)
+    const authChange = setupAuthStateChange()
+
+    renderHook(() => useAuth())
+    await act(async () => {})
+
+    vi.mocked(fetch).mockClear()
+
+    // New user id arriving via auth change
+    const newUser = { id: 'user-002', email: 'new@example.com' }
+    await act(async () => {
+      authChange.fire('SIGNED_IN', newUser)
+    })
+
+    expect(fetch).toHaveBeenCalledWith('/api/auth/profile', { method: 'POST' })
+  })
+
+  it('calls postToNative on auth state change sign-in when isNativeApp', async () => {
+    vi.mocked(nativeLib.isNativeApp).mockReturnValue(true)
+    setupSession(null)
+    const authChange = setupAuthStateChange()
+
+    renderHook(() => useAuth())
+    await act(async () => {})
+
+    const newUser = { id: 'user-003', email: 'native@example.com' }
+    await act(async () => {
+      authChange.fire('SIGNED_IN', newUser)
+    })
+
+    expect(nativeLib.postToNative).toHaveBeenCalledWith('authStateChanged', { isAuthenticated: true })
   })
 })

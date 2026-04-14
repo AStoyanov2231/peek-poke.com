@@ -43,7 +43,9 @@
       "Bash(py --version)",
       "Bash(py -m scripts \"C:\\\\peek-poke.com\\\\CLAUDE.md\")",
       "Bash(rtk git:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(rtk npx:*)",
+      "Bash(./node_modules/.bin/vitest run:*)"
     ]
   },
   "enabledMcpjsonServers": [

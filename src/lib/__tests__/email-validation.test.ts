@@ -67,11 +67,37 @@ describe('validateEmail', () => {
     expect(result.error).toMatch(/disposable/i)
   })
 
+  it('should return invalid when local part exceeds 64 characters', () => {
+    const localPart = 'a'.repeat(65)
+    const result = validateEmail(`${localPart}@gmail.com`)
+    expect(result.isValid).toBe(false)
+    expect(result.error).toBe('Email address is too long.')
+  })
+
   it('should return invalid for email longer than 254 characters', () => {
     const localPart = 'a'.repeat(200)
     const result = validateEmail(`${localPart}@gmail.com`)
     expect(result.isValid).toBe(false)
     expect(result.error).toMatch(/too long/i)
+  })
+
+  it('should detect protonmial.com typo and suggest protonmail.com', () => {
+    const result = validateEmail('user@protonmial.com')
+    expect(result.isValid).toBe(false)
+    expect(result.suggestion).toBe('user@protonmail.com')
+    expect(result.error).toMatch(/protonmail\.com/)
+  })
+
+  it('should block disposable domain mailinator.net', () => {
+    const result = validateEmail('user@mailinator.net')
+    expect(result.isValid).toBe(false)
+    expect(result.error).toMatch(/disposable/i)
+  })
+
+  it('should block subdomain of a disposable domain', () => {
+    const result = validateEmail('user@sub.yopmail.com')
+    expect(result.isValid).toBe(false)
+    expect(result.error).toMatch(/disposable/i)
   })
 
   it('should normalize email to lowercase', () => {

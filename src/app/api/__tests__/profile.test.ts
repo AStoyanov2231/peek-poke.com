@@ -48,6 +48,33 @@ describe('GET /api/profile', () => {
     const body = await res.json()
     expect(body).toHaveProperty('error', 'Unauthorized')
   })
+
+  it('should return null profile when DB returns no data', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.from.mockReturnValue(createMockQueryBuilder(null))
+    mockClient.rpc.mockResolvedValue({ data: ['user'], error: null })
+
+    const req = createNextRequest('http://localhost:3000/api/profile')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.profile).toBeNull()
+  })
+
+  it('should fall back to ["user"] when roles RPC returns null', async () => {
+    const profile = buildProfile({ id: 'user-123' })
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.from.mockReturnValue(createMockQueryBuilder(profile))
+    mockClient.rpc.mockResolvedValue({ data: null, error: null })
+
+    const req = createNextRequest('http://localhost:3000/api/profile')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.profile.roles).toEqual(['user'])
+  })
 })
 
 describe('PATCH /api/profile', () => {
@@ -137,5 +164,22 @@ describe('PATCH /api/profile', () => {
     const res = await PATCH(req)
 
     expect(res.status).toBe(401)
+  })
+
+  it('should fall back to ["user"] when roles RPC returns null', async () => {
+    const updatedProfile = buildProfile({ id: 'user-123', display_name: 'New Name' })
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.from.mockReturnValue(createMockQueryBuilder(updatedProfile))
+    mockClient.rpc.mockResolvedValue({ data: null, error: null })
+
+    const req = createNextRequest('http://localhost:3000/api/profile', {
+      method: 'PATCH',
+      body: { display_name: 'New Name' },
+    })
+    const res = await PATCH(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.profile.roles).toEqual(['user'])
   })
 })

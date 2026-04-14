@@ -149,4 +149,55 @@ describe('usePresence', () => {
 
     expect(mockClient.channel).not.toHaveBeenCalled()
   })
+
+  it('tracks presence when document becomes visible', async () => {
+    vi.mocked(useIsPreloading).mockReturnValue(false)
+
+    const channelMock = {
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn((cb?: (status: string) => void) => { cb?.('SUBSCRIBED'); return { unsubscribe: vi.fn() } }),
+      untrack: vi.fn(() => Promise.resolve()),
+      track: vi.fn(() => Promise.resolve()),
+      presenceState: vi.fn(() => ({})),
+    }
+    mockClient.channel = vi.fn(() => channelMock)
+
+    const { unmount } = renderHook(() => usePresence(USER_ID))
+    await act(async () => {})
+
+    channelMock.track.mockClear()
+
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+      await Promise.resolve()
+    })
+
+    expect(channelMock.track).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: USER_ID })
+    )
+    unmount()
+  })
+
+  it('untracks presence on beforeunload', async () => {
+    vi.mocked(useIsPreloading).mockReturnValue(false)
+
+    const channelMock = {
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn((cb?: (status: string) => void) => { cb?.('SUBSCRIBED'); return { unsubscribe: vi.fn() } }),
+      untrack: vi.fn(() => Promise.resolve()),
+      track: vi.fn(() => Promise.resolve()),
+      presenceState: vi.fn(() => ({})),
+    }
+    mockClient.channel = vi.fn(() => channelMock)
+
+    const { unmount } = renderHook(() => usePresence(USER_ID))
+    await act(async () => {})
+
+    window.dispatchEvent(new Event('beforeunload'))
+
+    expect(channelMock.untrack).toHaveBeenCalled()
+    unmount()
+  })
 })

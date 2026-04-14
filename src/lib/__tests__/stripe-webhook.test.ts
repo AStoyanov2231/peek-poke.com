@@ -116,6 +116,20 @@ describe('handleCheckoutCompleted', () => {
     expect(result).not.toBeNull()
     expect(result!.status).toBe(500)
   })
+
+  it('returns 500 when role grant fails after successful DB upsert', async () => {
+    const sub = makeSubscription()
+    mockStripe.subscriptions.retrieve.mockResolvedValue(sub)
+    mockFromUpdate(null)
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'RPC error' } })
+
+    const result = await handleCheckoutCompleted(makeSession(), mockClient as never)
+
+    expect(result).not.toBeNull()
+    expect(result!.status).toBe(500)
+    const json = await result!.json()
+    expect(json.error).toMatch(/grant subscriber role/)
+  })
 })
 
 describe('handleSubscriptionUpdated', () => {
@@ -127,6 +141,28 @@ describe('handleSubscriptionUpdated', () => {
 
     expect(result).toBeNull()
     expect(mockClient.rpc).toHaveBeenCalledWith('grant_role', expect.objectContaining({ p_role_name: 'subscriber' }))
+  })
+
+  it('grants subscriber role when status is trialing', async () => {
+    mockFromUpdate(null)
+    mockClient.rpc.mockResolvedValue({ data: null, error: null })
+
+    const result = await handleSubscriptionUpdated(makeSubscription({ status: 'trialing' }), mockClient as never)
+
+    expect(result).toBeNull()
+    expect(mockClient.rpc).toHaveBeenCalledWith('grant_role', expect.objectContaining({ p_role_name: 'subscriber' }))
+  })
+
+  it('returns 500 when role grant/revoke fails after DB update succeeds', async () => {
+    mockFromUpdate(null)
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'RPC error' } })
+
+    const result = await handleSubscriptionUpdated(makeSubscription({ status: 'active' }), mockClient as never)
+
+    expect(result).not.toBeNull()
+    expect(result!.status).toBe(500)
+    const json = await result!.json()
+    expect(json.error).toMatch(/grant subscriber role/)
   })
 
   it('revokes subscriber role when status is canceled', async () => {
@@ -154,6 +190,20 @@ describe('handleSubscriptionUpdated', () => {
 
     expect(result).not.toBeNull()
     expect(result!.status).toBe(500)
+  })
+})
+
+describe('handleSubscriptionDeleted', () => {
+  it('returns 500 when role revoke fails after DB update succeeds', async () => {
+    mockFromUpdate(null)
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'RPC error' } })
+
+    const result = await handleSubscriptionDeleted(makeSubscription(), mockClient as never)
+
+    expect(result).not.toBeNull()
+    expect(result!.status).toBe(500)
+    const json = await result!.json()
+    expect(json.error).toMatch(/revoke subscriber role/)
   })
 })
 

@@ -283,3 +283,246 @@ describe('DELETE /api/dm/[threadId]/[messageId] (delete message)', () => {
     expect(body.error).toMatch(/already deleted/i)
   })
 })
+
+// ─── Additional branch coverage ─────────────────────────────────────────────
+
+describe('GET /api/dm/[threadId] — missing branches', () => {
+  it('should return 500 when RPC returns error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'db error' } })
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}`)
+    const res = await GET(req, makeThreadParams())
+
+    expect(res.status).toBe(500)
+  })
+
+  it('should return 404 when RPC returns data.error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: { error: 'Thread not found' }, error: null })
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}`)
+    const res = await GET(req, makeThreadParams())
+
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /api/dm/[threadId] — missing branches', () => {
+  it('should return 400 for invalid thread ID', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+
+    const req = createNextRequest('http://localhost:3000/api/dm/not-a-uuid', {
+      method: 'POST',
+      body: { content: 'Hello!' },
+    })
+    const res = await POST(req, { params: Promise.resolve({ threadId: 'not-a-uuid' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('should return 500 when RPC returns error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'db error' } })
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}`, {
+      method: 'POST',
+      body: { content: 'Hello!' },
+    })
+    const res = await POST(req, makeThreadParams())
+
+    expect(res.status).toBe(500)
+  })
+
+  it('should return 403 when RPC returns data.error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    mockClient.rpc.mockResolvedValue({ data: { error: 'Not a participant' }, error: null })
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}`, {
+      method: 'POST',
+      body: { content: 'Hello!' },
+    })
+    const res = await POST(req, makeThreadParams())
+
+    expect(res.status).toBe(403)
+  })
+
+  it('should send message with media_url present', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    const VALID_MEDIA_URL = 'https://ttojvnwpnpuhkyjncwxn.supabase.co/storage/v1/object/public/media/img.png'
+    const message = buildDMMessage({ sender_id: USER_ID, content: 'pic', media_url: VALID_MEDIA_URL })
+    mockClient.rpc.mockResolvedValue({ data: message, error: null })
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}`, {
+      method: 'POST',
+      body: { content: 'pic', media_url: VALID_MEDIA_URL },
+    })
+    const res = await POST(req, makeThreadParams())
+
+    expect(res.status).toBe(200)
+    // Verify media_url was forwarded (not collapsed to null)
+    expect(mockClient.rpc).toHaveBeenCalledWith('send_message', expect.objectContaining({
+      p_media_url: VALID_MEDIA_URL,
+    }))
+  })
+})
+
+describe('PATCH /api/dm/[threadId]/[messageId] — missing branches', () => {
+  it('should return 400 for invalid thread or message ID', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/not-a-uuid/${MESSAGE_ID}`, {
+      method: 'PATCH',
+      body: { content: 'Hi' },
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ threadId: 'not-a-uuid', messageId: MESSAGE_ID }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('should return 404 when not a thread participant', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    // verifyThreadParticipant uses supabase.from("dm_threads").select().eq().single()
+    // Returning null data causes it to return null (falsy)
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null))
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
+      method: 'PATCH',
+      body: { content: 'Hi' },
+    })
+    const res = await PATCH(req, makeMessageParams())
+
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error).toMatch(/thread not found/i)
+  })
+
+  it('should return 404 when message fetch returns error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
+
+    mockClient.from
+      .mockReturnValueOnce(createMockQueryBuilder(thread))
+      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'not found' }))
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
+      method: 'PATCH',
+      body: { content: 'Hi' },
+    })
+    const res = await PATCH(req, makeMessageParams())
+
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error).toMatch(/message not found/i)
+  })
+
+  it('should return 404 when message is null (not found)', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
+
+    mockClient.from
+      .mockReturnValueOnce(createMockQueryBuilder(thread))
+      .mockReturnValueOnce(createMockQueryBuilder(null, null))
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
+      method: 'PATCH',
+      body: { content: 'Hi' },
+    })
+    const res = await PATCH(req, makeMessageParams())
+
+    expect(res.status).toBe(404)
+  })
+
+  it('should return 500 when DB update fails', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
+    const message = buildDMMessage({
+      id: MESSAGE_ID,
+      sender_id: USER_ID,
+      thread_id: THREAD_ID,
+      is_deleted: false,
+      created_at: new Date().toISOString(),
+    })
+
+    mockClient.from
+      .mockReturnValueOnce(createMockQueryBuilder(thread))
+      .mockReturnValueOnce(createMockQueryBuilder(message))
+      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'update failed' }))
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
+      method: 'PATCH',
+      body: { content: 'Edited!' },
+    })
+    const res = await PATCH(req, makeMessageParams())
+
+    expect(res.status).toBe(500)
+  })
+})
+
+describe('DELETE /api/dm/[threadId]/[messageId] — missing branches', () => {
+  it('should return 400 for invalid thread or message ID', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/not-a-uuid/${MESSAGE_ID}`, {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, { params: Promise.resolve({ threadId: 'not-a-uuid', messageId: MESSAGE_ID }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('should return 404 when not a thread participant', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null))
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, makeMessageParams())
+
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error).toMatch(/thread not found/i)
+  })
+
+  it('should return 404 when message fetch returns error', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
+
+    mockClient.from
+      .mockReturnValueOnce(createMockQueryBuilder(thread))
+      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'not found' }))
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, makeMessageParams())
+
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error).toMatch(/message not found/i)
+  })
+
+  it('should return 500 when DB soft-delete update fails', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
+    const message = buildDMMessage({
+      id: MESSAGE_ID,
+      sender_id: USER_ID,
+      thread_id: THREAD_ID,
+      is_deleted: false,
+    })
+
+    mockClient.from
+      .mockReturnValueOnce(createMockQueryBuilder(thread))
+      .mockReturnValueOnce(createMockQueryBuilder(message))
+      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'update failed' }))
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
+      method: 'DELETE',
+    })
+    const res = await DELETE(req, makeMessageParams())
+
+    expect(res.status).toBe(500)
+  })
+})

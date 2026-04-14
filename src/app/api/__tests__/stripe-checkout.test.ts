@@ -124,6 +124,27 @@ describe('POST /api/stripe/checkout', () => {
     expect(json.error).toBe('Profile not found')
   })
 
+  it('returns 500 when saving new Stripe customer ID to profile fails', async () => {
+    mockClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: 'user-123', email: 'test@example.com' } },
+      error: null,
+    })
+    // first from(): fetch profile — no existing customer
+    mockClient.from
+      .mockReturnValueOnce(createMockQueryBuilder({ stripe_customer_id: null, username: 'testuser' }, null))
+      // second from(): update profile — DB error
+      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'DB write error' }))
+    mockClient.rpc.mockResolvedValue({ data: false, error: null })
+    mockStripe.customers.create.mockResolvedValue({ id: 'cus_new123' })
+
+    const req = createNextRequest('http://localhost:3000/api/stripe/checkout', { method: 'POST' })
+    const res = await POST(req)
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(json.error).toBe('Failed to set up payment')
+  })
+
   it('returns 500 on Stripe API error', async () => {
     mockClient.auth.getUser.mockResolvedValue({
       data: { user: { id: 'user-123', email: 'test@example.com' } },

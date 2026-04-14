@@ -197,4 +197,66 @@ describe('useNearbyPresence', () => {
     unmount()
     expect(mockClient.removeChannel).toHaveBeenCalled()
   })
+
+  it('calls channel.track on SUBSCRIBED when userLocation is set', async () => {
+    // userLocation is set in beforeEach via appStore
+    render(USER_ID)
+    await act(async () => {})
+
+    expect(channelInstance.track).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, lat: baseLocation.lat, lng: baseLocation.lng })
+    )
+  })
+
+  it('does not call channel.track on SUBSCRIBED when userLocation is null', async () => {
+    vi.mocked(useUserLocation).mockReturnValue(null)
+    useAppStore.setState({ userLocation: null })
+
+    render(USER_ID)
+    await act(async () => {})
+
+    // track should not have been called (no location available)
+    expect(channelInstance.track).not.toHaveBeenCalled()
+  })
+
+  it('tracks location update via location tracking effect when channel is ready', async () => {
+    vi.useFakeTimers()
+
+    const { rerender } = render(USER_ID)
+    await act(async () => {})
+
+    // track called once from SUBSCRIBED; reset
+    channelInstance.track.mockClear()
+
+    // Advance time past TRACK_DEBOUNCE_MS (mocked as 10000ms) so debounce passes
+    vi.advanceTimersByTime(15000)
+
+    // Simulate userLocation change in store after channel is set up
+    const newLocation = { lat: 51.5074, lng: -0.1278 }
+    await act(async () => {
+      useAppStore.setState({ userLocation: newLocation })
+      vi.mocked(useUserLocation).mockReturnValue(newLocation)
+      rerender()
+    })
+
+    expect(channelInstance.track).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, lat: newLocation.lat, lng: newLocation.lng })
+    )
+
+    vi.useRealTimers()
+  })
+
+  it('uses empty string for username when profile has no username', async () => {
+    useAppStore.setState({
+      userLocation: baseLocation,
+      profile: { id: USER_ID, username: null, avatar_url: null, display_name: null } as Parameters<typeof useAppStore.setState>[0]['profile'],
+    })
+
+    render(USER_ID)
+    await act(async () => {})
+
+    expect(channelInstance.track).toHaveBeenCalledWith(
+      expect.objectContaining({ username: '' })
+    )
+  })
 })

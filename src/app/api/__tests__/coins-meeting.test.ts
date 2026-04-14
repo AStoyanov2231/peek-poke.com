@@ -132,4 +132,24 @@ describe('POST /api/coins/meeting', () => {
     expect(res.status).toBe(401)
     expect(json.error).toBe('Unauthorized')
   })
+
+  it('defaults awarded/already_met/balance to falsy values when not in response', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.rpc.mockResolvedValue({
+      data: { success: true }, // no awarded, no already_met, no balance_a
+      error: null,
+    })
+
+    const req = createNextRequest('http://localhost:3000/api/coins/meeting', {
+      method: 'POST',
+      body: { friend_id: VALID_FRIEND_ID },
+    })
+    const res = await POST(req)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.awarded).toBe(false)      // ?? false
+    expect(json.already_met).toBe(false)  // ?? false
+    expect(json.balance).toBeNull()       // ?? null
+  })
 })
