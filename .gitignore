@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Supabase
+supabase/.temp/
+/supabase_alerts
+supabase-schema.sql
+.env*.local
+
+# MCP Configuration (contains sensitive tokens)
+.mcp.json
+
+#cursor stuffs
+.cursor/
+.worktrees/
