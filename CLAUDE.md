@@ -26,6 +26,17 @@ IMPORTANT: Staff-level engineer. Every decision reflect that.
 - **Read before writing.** Read file before editing. Check similar component exists before creating. Check `package.json` before adding dependency.
 - **One example > 100 words.** Similar pattern exists → follow it. Check `src/components/`, `src/hooks/`, `src/stores/`.
 
+## Git Workflow
+
+- **Base branch:** `dev` (mirrors `master`). All branches split from `dev`, never from `master`.
+- **Branch naming:**
+  - `feature/short-name` — new functionality
+  - `bugfix/short-name` — bug fixes
+  - `hotfix/short-name` — urgent prod fixes
+  - `chore/short-name` — non-code tasks (deps, config, docs)
+- Names: lowercase, hyphens, no more than 3-4 words. Self-explanatory without context.
+- Before starting any task: confirm on `dev`, pull latest, then create branch.
+
 ## Planning
 
 - Enter **plan mode** for tasks touching 3+ files or architectural decisions.
