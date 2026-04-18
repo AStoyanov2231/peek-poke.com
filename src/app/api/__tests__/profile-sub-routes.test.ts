@@ -33,7 +33,8 @@ import { POST as completeOnboardingPost } from '@/app/api/profile/complete-onboa
 import { GET as interestsGet, POST as interestsPost } from '@/app/api/profile/interests/route'
 import { DELETE as interestDelete } from '@/app/api/profile/interests/[interestId]/route'
 import { GET as photosGet, POST as photosPost } from '@/app/api/profile/photos/route'
-import { DELETE as photoDelete } from '@/app/api/profile/photos/[photoId]/route'
+import { PATCH as photoPatch, DELETE as photoDelete } from '@/app/api/profile/photos/[photoId]/route'
+import { validateImageFile, uploadFile } from '@/lib/upload'
 import { PATCH as usernamePatch } from '@/app/api/profile/username/route'
 import * as supabaseServer from '@/lib/supabase/server'
 
@@ -388,6 +389,105 @@ describe('POST /api/profile/photos', () => {
     expect(body.code).toBe('UPLOAD_FAILED')
   })
 
+  it('returns 400 when file fails validation', async () => {
+    authUser()
+    vi.mocked(validateImageFile).mockReturnValueOnce('File too large')
+    mockClient.from.mockReturnValue(createCountBuilder(0))
+    const fd = new FormData()
+    fd.append('file', new File([new Uint8Array(1024)], 'photo.jpg', { type: 'image/jpeg' }))
+    const req = new (await import('next/server')).NextRequest(
+      'http://localhost:3000/api/profile/photos', { method: 'POST', body: 'placeholder' }
+    )
+    req.formData = vi.fn().mockResolvedValue(fd)
+    const res = await photosPost(req as never, { params: Promise.resolve({}) })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('UPLOAD_FAILED')
+  })
+
+  it('returns 500 when file upload fails', async () => {
+    authUser()
+    vi.mocked(uploadFile).mockResolvedValueOnce({ error: new Error('storage error') } as never)
+    mockClient.from.mockReturnValue(createCountBuilder(0))
+    const fd = new FormData()
+    fd.append('file', new File([new Uint8Array(1024)], 'photo.jpg', { type: 'image/jpeg' }))
+    const req = new (await import('next/server')).NextRequest(
+      'http://localhost:3000/api/profile/photos', { method: 'POST', body: 'placeholder' }
+    )
+    req.formData = vi.fn().mockResolvedValue(fd)
+    const res = await photosPost(req as never, { params: Promise.resolve({}) })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.code).toBe('UPLOAD_FAILED')
+  })
+
+  it('returns 500 on generic DB insert error', async () => {
+    authUser()
+    vi.mocked(uploadFile).mockResolvedValueOnce({ url: 'https://example.com/photo.jpg' })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createCountBuilder(0)
+      if (callCount === 2) return createMockQueryBuilder({ display_order: 0 })
+      return createMockQueryBuilder(null, { code: '50000', message: 'db error' })
+    })
+    const fd = new FormData()
+    fd.append('file', new File([new Uint8Array(1024)], 'photo.jpg', { type: 'image/jpeg' }))
+    const req = new (await import('next/server')).NextRequest(
+      'http://localhost:3000/api/profile/photos', { method: 'POST', body: 'placeholder' }
+    )
+    req.formData = vi.fn().mockResolvedValue(fd)
+    const res = await photosPost(req as never, { params: Promise.resolve({}) })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.code).toBe('UPLOAD_FAILED')
+  })
+
+  it('returns 400 on P0001 DB error (photo limit via trigger)', async () => {
+    authUser()
+    vi.mocked(uploadFile).mockResolvedValueOnce({ url: 'https://example.com/photo.jpg' })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createCountBuilder(0)
+      if (callCount === 2) return createMockQueryBuilder({ display_order: 0 })
+      return createMockQueryBuilder(null, { code: 'P0001', message: 'PHOTO_LIMIT_REACHED' })
+    })
+    const fd = new FormData()
+    fd.append('file', new File([new Uint8Array(1024)], 'photo.jpg', { type: 'image/jpeg' }))
+    const req = new (await import('next/server')).NextRequest(
+      'http://localhost:3000/api/profile/photos', { method: 'POST', body: 'placeholder' }
+    )
+    req.formData = vi.fn().mockResolvedValue(fd)
+    const res = await photosPost(req as never, { params: Promise.resolve({}) })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_LIMIT_REACHED')
+  })
+
+  it('sets display_order to 0 when no existing photos', async () => {
+    authUser()
+    vi.mocked(uploadFile).mockResolvedValueOnce({ url: 'https://example.com/photo.jpg' })
+    const photo = buildProfilePhoto({ display_order: 0 })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createCountBuilder(0)
+      if (callCount === 2) return createMockQueryBuilder(null) // no existing photos
+      return createMockQueryBuilder(photo)
+    })
+    const fd = new FormData()
+    fd.append('file', new File([new Uint8Array(1024)], 'photo.jpg', { type: 'image/jpeg' }))
+    const req = new (await import('next/server')).NextRequest(
+      'http://localhost:3000/api/profile/photos', { method: 'POST', body: 'placeholder' }
+    )
+    req.formData = vi.fn().mockResolvedValue(fd)
+    const res = await photosPost(req as never, { params: Promise.resolve({}) })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.photo.display_order).toBe(0)
+  })
+
   it('returns 201 on successful upload', async () => {
     authUser()
     const photo = buildProfilePhoto()
@@ -483,6 +583,39 @@ describe('DELETE /api/profile/photos/[photoId]', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
   })
+
+  it('clears profile avatar_url when deleted photo was the avatar', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: true, thumbnail_url: null })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)  // select
+      if (callCount === 2) return createMockQueryBuilder(null)    // delete
+      return createMockQueryBuilder(null)                          // clear avatar_url on profiles
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'DELETE' })
+    const res = await photoDelete(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(200)
+    expect(mockClient.from).toHaveBeenCalledTimes(3)
+  })
+
+  it('attempts thumbnail cleanup when thumbnail_url exists', async () => {
+    authUser()
+    const removeMock = vi.fn(() => Promise.resolve({ data: null, error: null }))
+    mockClient.storage.from.mockReturnValue({ upload: vi.fn(), getPublicUrl: vi.fn(), remove: removeMock })
+    const photo = buildProfilePhoto({ is_avatar: false, thumbnail_url: 'https://example.com/thumb.jpg', storage_path: 'user/123.jpg' })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)
+      return createMockQueryBuilder(null)
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'DELETE' })
+    const res = await photoDelete(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(200)
+    expect(removeMock).toHaveBeenCalledTimes(2)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -539,5 +672,205 @@ describe('PATCH /api/profile/username', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.profile.username).toBe('validuser')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 8. PATCH /api/profile/photos/[photoId]
+// ---------------------------------------------------------------------------
+describe('PATCH /api/profile/photos/[photoId]', () => {
+  const VALID_PHOTO_ID = UUID4
+
+  it('returns 401 when unauthenticated', async () => {
+    noAuth()
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { display_order: 1 } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 400 for invalid UUID', async () => {
+    authUser()
+    const req = createNextRequest('/api/profile/photos/bad-id', { method: 'PATCH', body: { display_order: 1 } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: 'bad-id' }) })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_NOT_FOUND')
+  })
+
+  it('returns 404 when photo not found or not owned', async () => {
+    authUser()
+    mockClient.from.mockReturnValue(createMockQueryBuilder(null))
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { display_order: 1 } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_NOT_FOUND')
+  })
+
+  it('returns existing photo when no updatable fields provided', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false })
+    mockClient.from.mockReturnValue(createMockQueryBuilder(photo))
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: {} })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.photo).toEqual(photo)
+  })
+
+  it('updates display_order successfully', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false })
+    const updated = { ...photo, display_order: 3 }
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)
+      return createMockQueryBuilder(updated)
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { display_order: 3 } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.photo.display_order).toBe(3)
+  })
+
+  it('returns 500 on update DB error', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)
+      return createMockQueryBuilder(null, { message: 'db error' })
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { display_order: 3 } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_UPDATE_FAILED')
+  })
+
+  it('makes non-avatar photo private', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false })
+    const updated = { ...photo, is_private: true }
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)
+      return createMockQueryBuilder(updated)
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_private: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(200)
+  })
+
+  it('clears profile avatar_url when making avatar photo private', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: true, is_private: false })
+    const updated = { ...photo, is_private: true, is_avatar: false }
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)   // ownership
+      if (callCount === 2) return createMockQueryBuilder(null)     // clear profile avatar_url
+      return createMockQueryBuilder(updated)                        // photo update
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_private: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.photo.is_avatar).toBe(false)
+  })
+
+  it('returns 500 when clearing profile avatar_url fails', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: true, is_private: false })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)
+      return createMockQueryBuilder(null, { message: 'db error' })
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_private: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_UPDATE_FAILED')
+  })
+
+  it('returns 400 when setting non-approved photo as avatar', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false, approval_status: 'pending' })
+    mockClient.from.mockReturnValue(createMockQueryBuilder(photo))
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_UPDATE_FAILED')
+  })
+
+  it('returns 400 when setting private photo as avatar', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: true, approval_status: 'approved' })
+    mockClient.from.mockReturnValue(createMockQueryBuilder(photo))
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_UPDATE_FAILED')
+  })
+
+  it('returns 500 when clearing other avatars fails', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false, approval_status: 'approved' })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)
+      return createMockQueryBuilder(null, { message: 'db error' })
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_UPDATE_FAILED')
+  })
+
+  it('returns 500 when updating profile avatar_url fails', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false, approval_status: 'approved' })
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)    // ownership
+      if (callCount === 2) return createMockQueryBuilder(null)      // clear other avatars OK
+      return createMockQueryBuilder(null, { message: 'db error' }) // profiles update fails
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.code).toBe('PHOTO_UPDATE_FAILED')
+  })
+
+  it('sets photo as avatar successfully', async () => {
+    authUser()
+    const photo = buildProfilePhoto({ is_avatar: false, is_private: false, approval_status: 'approved' })
+    const updated = { ...photo, is_avatar: true }
+    let callCount = 0
+    mockClient.from.mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return createMockQueryBuilder(photo)    // ownership
+      if (callCount === 2) return createMockQueryBuilder(null)      // clear other avatars
+      if (callCount === 3) return createMockQueryBuilder(null)      // profiles update
+      return createMockQueryBuilder(updated)                         // photo update
+    })
+    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
+    const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.photo.is_avatar).toBe(true)
   })
 })
