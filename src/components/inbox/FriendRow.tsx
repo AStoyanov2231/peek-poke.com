@@ -28,8 +28,8 @@ export function FriendRow({
   return (
     <div className="bg-background rounded-xl">
       <SwipeableFriendCard onSwipeComplete={onSwipeComplete} disabled={isProcessing}>
-        <div className="flex items-center gap-3 p-3 bg-background rounded-xl cursor-pointer select-none transition-all md:hover:shadow-neu-inset">
-          <div className="relative flex-shrink-0" onClick={(e) => { e.stopPropagation(); onClickProfile(); }}>
+        <div className="flex items-center gap-3 p-3 bg-background rounded-xl cursor-pointer select-none transition-all md:hover:shadow-neu-inset" onClick={onClickProfile}>
+          <div className="relative flex-shrink-0">
             <Avatar className="h-12 w-12">
               <AvatarImage src={friend.avatar_url || undefined} alt={friend.display_name || friend.username} />
               <AvatarFallback className="bg-primary text-white">
@@ -40,7 +40,7 @@ export function FriendRow({
               <div className="absolute bottom-0 right-0 h-3.5 w-3.5 bg-success rounded-full border-2 border-background" />
             )}
           </div>
-          <div className="flex-1 min-w-0" onClick={onOpenChat}>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="font-semibold text-[15px] text-foreground truncate">
                 {friend.display_name || friend.username}
