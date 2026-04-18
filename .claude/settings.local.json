@@ -47,7 +47,8 @@
       "Bash(rtk npx:*)",
       "Bash(./node_modules/.bin/vitest run:*)",
       "Skill(update-config)",
-      "Bash(rtk npm *)"
+      "Bash(rtk npm *)",
+      "Bash(rtk lint *)"
     ]
   },
   "enabledMcpjsonServers": [
