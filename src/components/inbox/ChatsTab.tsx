@@ -72,11 +72,11 @@ export function ChatsTab({ onSelectThread, activeThreadId }: ChatsTabProps) {
             key={thread.id}
             onClick={() => handleThreadClick(thread.id)}
             className={cn(
-              "w-full flex items-center gap-3 px-2 py-3 text-left transition-all rounded-xl",
+              "w-full flex items-center gap-3 px-2 py-3 text-left transition-all rounded-xl border border-primary/20 md:hover:scale-[1.02] md:hover:-translate-y-0.5 active:scale-[0.98]",
               isActive ? "md:shadow-neu-inset" : "md:hover:shadow-neu-inset"
             )}
           >
-            <div className="relative flex-shrink-0">
+            <div className="relative flex-shrink-0" onClick={(e) => { e.stopPropagation(); if (otherUser?.id) router.push(`/profile/${otherUser.id}`); }}>
               <Avatar className="h-[52px] w-[52px]">
                 <AvatarImage src={avatarSrc || undefined} alt={name} />
                 <AvatarFallback className="bg-primary text-white text-lg">

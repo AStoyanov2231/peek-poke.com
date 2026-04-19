@@ -35,7 +35,7 @@ function DesktopNavInner() {
   const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;
 
   return (
-    <aside aria-label="Main navigation" className="group fixed left-3 top-1/2 -translate-y-1/2 z-40 hidden md:flex flex-col w-16 hover:w-[220px] transition-[width] duration-200 ease-in-out overflow-hidden bg-background/70 backdrop-blur-sm rounded-3xl shadow-lg py-3">
+    <aside aria-label="Main navigation" className="group fixed left-3 top-1/2 -translate-y-1/2 z-40 hidden md:flex flex-col w-16 hover:w-[220px] transition-[width] duration-200 ease-in-out overflow-x-hidden bg-background/70 backdrop-blur-sm rounded-3xl shadow-lg border border-primary/20 py-3">
       <nav className="flex flex-col gap-3 px-2">
         {navItems.map((item) => {
           const isActive = item.href === "/" ? activeHref === "/" : activeHref.startsWith(item.href);
@@ -53,8 +53,7 @@ function DesktopNavInner() {
                 router.push(item.href);
               }}
               className={cn(
-                "flex items-center gap-3 px-3 py-3 w-full",
-                !isActive && "hover:bg-black/5"
+                "flex items-center gap-3 px-3 py-3 w-full"
               )}
             >
               <span aria-hidden="true" className="relative z-10 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">

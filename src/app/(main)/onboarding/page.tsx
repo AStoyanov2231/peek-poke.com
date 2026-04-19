@@ -258,7 +258,7 @@ export default function OnboardingPage() {
                       maxLength={20}
                       className="w-full h-14 pl-11 pr-12 text-lg rounded-xl text-foreground placeholder:text-muted-foreground border-none outline-none transition-shadow duration-300 bg-background shadow-neu-inset"
                       style={{
-                        boxShadow: username.length > 0 ? "inset 4px 4px 8px #A3B1C6, inset -4px -4px 8px #FFFFFF, 0 0 0 2px hsl(var(--primary) / 0.4)" : undefined,
+                        boxShadow: username.length > 0 ? "inset 4px 4px 8px #94B1AF, inset -4px -4px 8px #E5F4F3, 0 0 0 2px hsl(var(--primary) / 0.4)" : undefined,
                       }}
                       autoFocus
                     />

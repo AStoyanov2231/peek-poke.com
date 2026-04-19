@@ -20,7 +20,7 @@ export function InterestPicker({
   makeTagRef,
 }: InterestPickerProps) {
   return (
-    <div className="mt-4 pt-4 border-t border-muted-foreground/20 space-y-4">
+    <div className="mt-2 space-y-4">
       {Object.entries(tagsByCategory).map(([category, tags]) => (
         <div key={category}>
           <h4 className="text-xs font-medium text-muted-foreground mb-2">
