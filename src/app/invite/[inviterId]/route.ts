@@ -14,9 +14,10 @@ export async function GET(
     return NextResponse.redirect(`${origin}/login?invite=${inviterId}`);
   }
 
-  if (user.id !== inviterId) {
-    await supabase.rpc("accept_invite_link", { p_inviter_id: inviterId });
+  if (user.id === inviterId) {
+    return NextResponse.redirect(`${origin}/profile`);
   }
 
+  await supabase.rpc("accept_invite_link", { p_inviter_id: inviterId });
   return NextResponse.redirect(`${origin}/profile/${inviterId}`);
 }
