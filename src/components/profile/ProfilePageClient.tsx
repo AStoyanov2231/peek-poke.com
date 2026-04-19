@@ -282,17 +282,139 @@ export function ProfilePageClient({
 
   const displayName = profile.display_name || profile.username;
 
+  const statsRow = (
+    <div className="flex justify-around w-full pt-3">
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="font-display text-[22px] font-bold text-primary">{stats.friends_count}</span>
+        <span className="text-xs text-muted-foreground">Friends</span>
+      </div>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="font-display text-[22px] font-bold text-primary">{stats.photos_count}</span>
+        <span className="text-xs text-muted-foreground">Photos</span>
+      </div>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="font-display text-[22px] font-bold text-primary">{profile.location_text || "—"}</span>
+        <span className="text-xs text-muted-foreground">Location</span>
+      </div>
+    </div>
+  );
+
+  const aboutCard = (
+    <Card className="rounded-md p-4 flex flex-col gap-2.5">
+      <div className="flex justify-between items-center">
+        <h3 className="text-[16px] font-semibold text-foreground">About</h3>
+        {!isBioEditing && (
+          <button
+            onClick={() => { setEditBioText(profile.bio || ""); setIsBioEditing(true); }}
+            className="bg-primary rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 shadow-neu-raised-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </button>
+        )}
+      </div>
+      {isBioEditing ? (
+        <div className="flex flex-col gap-2">
+          <textarea
+            value={editBioText}
+            onChange={(e) => setEditBioText(e.target.value.slice(0, 500))}
+            maxLength={500}
+            rows={3}
+            autoFocus
+            placeholder="Write something about yourself..."
+            className="w-full bg-background shadow-neu-inset rounded-sm px-3 py-2 text-sm text-foreground resize-none focus:outline-none"
+          />
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-muted-foreground">{editBioText.length}/500</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setEditBioText(profile.bio || ""); setIsBioEditing(false); }}
+                className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-background shadow-neu-raised-sm rounded-[10px]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try { await handleBioSave(editBioText); setIsBioEditing(false); } catch { /* keep editing */ }
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-primary shadow-neu-raised-sm rounded-[10px]"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {profile.bio || "Tap the pencil to add bio!"}
+        </p>
+      )}
+    </Card>
+  );
+
+  const interestsCard = (
+    <Card className="rounded-md p-4 flex flex-col gap-3">
+      <ProfileInterests
+        interests={interests}
+        allTags={allTags}
+        isOwner={true}
+        onAddInterest={handleAddInterest}
+        onRemoveInterest={handleRemoveInterest}
+        className="!p-0"
+      />
+    </Card>
+  );
+
   return (
-    <div className="pb-16">
-      {/* Header — avatar as full-bleed background */}
-      <div
-        className="relative flex flex-col items-center gap-4 px-6 pt-12 pb-6 bg-cover bg-top bg-no-repeat"
-        style={profile.avatar_url ? { backgroundImage: `url(${profile.avatar_url})` } : {}}
-      >
-        {profile.avatar_url && <div className="absolute inset-0 bg-background/80" />}
-        <div className="relative z-10 flex flex-col items-center gap-4 w-full">
-          {/* Settings button */}
-          <div className="flex justify-start w-full">
+    <>
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+
+      {/* ── MOBILE ── */}
+      <div className="md:hidden pb-16">
+        <div
+          className="relative flex flex-col items-center gap-4 px-6 pt-12 pb-6 bg-cover bg-top bg-no-repeat"
+          style={profile.avatar_url ? { backgroundImage: `url(${profile.avatar_url})` } : {}}
+        >
+          {profile.avatar_url && <div className="absolute inset-0 bg-background/80" />}
+          <div className="relative z-10 flex flex-col items-center gap-4 w-full">
+            <div className="flex justify-start w-full">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+              >
+                <Settings className="h-[18px] w-[18px] text-muted-foreground" />
+              </button>
+            </div>
+            <h1 className="font-display text-2xl font-bold text-foreground">{displayName}</h1>
+            {isPremium(profile) && <PremiumBadge showText />}
+            <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            {!isPremium(profile) && <PremiumUpgradeButton />}
+            {statsRow}
+          </div>
+        </div>
+        <div className="flex flex-col gap-6 p-6">
+          {aboutCard}
+          {interestsCard}
+          <Card className="rounded-md p-4 flex flex-col gap-3">
+            <PhotoGallery
+              photos={photos}
+              isOwner={true}
+              maxPhotos={12}
+              onUpload={handlePhotoUpload}
+              onDelete={handlePhotoDelete}
+              onSetAvatar={handleSetAvatar}
+              onTogglePrivate={handleTogglePrivate}
+              className="!p-0"
+            />
+          </Card>
+        </div>
+      </div>
+
+      {/* ── DESKTOP ── */}
+      <div className="hidden md:flex h-[100svh] overflow-hidden">
+        {/* Left column */}
+        <div className="w-1/2 flex-shrink-0 flex flex-col gap-4 p-6 border-r border-border overflow-hidden">
+          <div className="flex justify-end">
             <button
               onClick={() => setShowSettings(true)}
               className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
@@ -301,137 +423,47 @@ export function ProfilePageClient({
             </button>
           </div>
 
-          {/* Hidden file input for avatar upload via PhotoGallery */}
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-
-          {/* Name */}
-          <h1 className="font-display text-2xl font-bold text-foreground">{displayName}</h1>
-
-          {/* Premium badge */}
-          {isPremium(profile) && <PremiumBadge showText />}
-
-          {/* Username */}
-          <p className="text-sm text-muted-foreground">@{profile.username}</p>
-
-          {/* Premium CTA for non-premium users */}
-          {!isPremium(profile) && <PremiumUpgradeButton />}
-
-          {/* Stats row */}
-          <div className="flex justify-around w-full pt-3">
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="font-display text-[22px] font-bold text-primary">{stats.friends_count}</span>
-              <span className="text-xs text-muted-foreground">Friends</span>
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-32 h-32 rounded-full overflow-hidden flex-shrink-0 shadow-neu-raised-sm">
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                  <span className="text-4xl font-bold text-primary">{displayName.charAt(0).toUpperCase()}</span>
+                </div>
+              )}
             </div>
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="font-display text-[22px] font-bold text-primary">{stats.photos_count}</span>
-              <span className="text-xs text-muted-foreground">Photos</span>
-            </div>
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="font-display text-[22px] font-bold text-primary">{profile.location_text || "—"}</span>
-              <span className="text-xs text-muted-foreground">Location</span>
-            </div>
+            <h1 className="font-display text-2xl font-bold text-foreground">{displayName}</h1>
+            {isPremium(profile) && <PremiumBadge showText />}
+            <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            {!isPremium(profile) && <PremiumUpgradeButton />}
           </div>
+
+          {statsRow}
+          <div className="flex gap-4 flex-1 min-h-0">
+            <div className="flex-1 min-w-0 p-1">{aboutCard}</div>
+            <div className="flex-1 min-w-0 p-1">{interestsCard}</div>
+          </div>
+        </div>
+
+        {/* Right column — gallery */}
+        <div className="flex-1 flex flex-col min-h-0 p-6">
+          <Card className="flex-1 min-h-0 flex flex-col rounded-md p-4">
+            <PhotoGallery
+              photos={photos}
+              isOwner={true}
+              maxPhotos={12}
+              onUpload={handlePhotoUpload}
+              onDelete={handlePhotoDelete}
+              onSetAvatar={handleSetAvatar}
+              onTogglePrivate={handleTogglePrivate}
+              className="!p-0 flex-1 min-h-0 overflow-y-auto"
+            />
+          </Card>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex flex-col gap-6 p-6">
-        {/* About card with inline editing */}
-        <Card className="rounded-md p-4 flex flex-col gap-2.5">
-          <div className="flex justify-between items-center">
-            <h3 className="text-[16px] font-semibold text-foreground">About</h3>
-            {!isBioEditing && (
-              <button
-                onClick={() => {
-                  setEditBioText(profile.bio || "");
-                  setIsBioEditing(true);
-                }}
-                className="bg-primary rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 shadow-neu-raised-sm"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
-              </button>
-            )}
-          </div>
-
-          {isBioEditing ? (
-            <div className="flex flex-col gap-2">
-              <textarea
-                value={editBioText}
-                onChange={(e) => setEditBioText(e.target.value.slice(0, 500))}
-                maxLength={500}
-                rows={3}
-                autoFocus
-                placeholder="Write something about yourself..."
-                className="w-full bg-background shadow-neu-inset rounded-sm px-3 py-2 text-sm text-foreground resize-none focus:outline-none"
-              />
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">{editBioText.length}/500</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setEditBioText(profile.bio || "");
-                      setIsBioEditing(false);
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-background shadow-neu-raised-sm rounded-[10px]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await handleBioSave(editBioText);
-                        setIsBioEditing(false);
-                      } catch {
-                        // keep editing on error
-                      }
-                    }}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-primary shadow-neu-raised-sm rounded-[10px]"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {profile.bio || "Tap the pencil to add bio!"}
-            </p>
-          )}
-        </Card>
-
-        {/* Interests card */}
-        <Card className="rounded-md p-4 flex flex-col gap-3">
-          <ProfileInterests
-            interests={interests}
-            allTags={allTags}
-            isOwner={true}
-            onAddInterest={handleAddInterest}
-            onRemoveInterest={handleRemoveInterest}
-            className="!p-0"
-          />
-        </Card>
-
-        {/* Photos card */}
-        <Card className="rounded-md p-4 flex flex-col gap-3">
-          <PhotoGallery
-            photos={photos}
-            isOwner={true}
-            maxPhotos={12}
-            onUpload={handlePhotoUpload}
-            onDelete={handlePhotoDelete}
-            onSetAvatar={handleSetAvatar}
-            onTogglePrivate={handleTogglePrivate}
-            className="!p-0"
-          />
-        </Card>
-      </div>
-
-      {/* Settings sheet */}
-      <SettingsSheet
-        open={showSettings}
-        onOpenChange={setShowSettings}
-      />
-    </div>
+      <SettingsSheet open={showSettings} onOpenChange={setShowSettings} />
+    </>
   );
 }

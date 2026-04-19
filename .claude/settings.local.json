@@ -48,7 +48,8 @@
       "Bash(./node_modules/.bin/vitest run:*)",
       "Skill(update-config)",
       "Bash(rtk npm *)",
-      "Bash(rtk lint *)"
+      "Bash(rtk lint *)",
+      "mcp__ide__getDiagnostics"
     ]
   },
   "enabledMcpjsonServers": [

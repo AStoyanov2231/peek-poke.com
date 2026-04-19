@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect } from "react";
-import { X, Loader2, Pencil } from "lucide-react";
+import { useState, useRef, useLayoutEffect, useEffect } from "react";
+import { X, Loader2, Pencil, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InterestPicker } from "@/components/profile/InterestPicker";
 import type { ProfileInterest, InterestTag } from "@/types/database";
@@ -43,9 +43,27 @@ export function ProfileInterests({
 
   const tagRefs = useRef<Map<string, HTMLElement>>(new Map());
   const pendingFlips = useRef<Map<string, DOMRect>>(new Map());
+  const enteringId = useRef<string | null>(null);
   const animatingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickerScrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollHint, setShowScrollHint] = useState(false);
 
-  // FLIP: apply inverse transform then animate to natural position
+  const checkPickerScroll = () => {
+    const el = pickerScrollRef.current;
+    if (!el) return;
+    setShowScrollHint(el.scrollHeight > el.clientHeight + 8 && el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+  };
+
+  useEffect(() => {
+    if (isExpanded) {
+      const t = setTimeout(checkPickerScroll, 320);
+      return () => clearTimeout(t);
+    } else {
+      setShowScrollHint(false);
+    }
+  }, [isExpanded]);
+
+  // FLIP all tags that moved; scale-in the newly entered tag
   useLayoutEffect(() => {
     pendingFlips.current.forEach((firstRect, tagId) => {
       const el = tagRefs.current.get(tagId);
@@ -53,16 +71,44 @@ export function ProfileInterests({
       const lastRect = el.getBoundingClientRect();
       const dx = firstRect.left - lastRect.left;
       const dy = firstRect.top - lastRect.top;
+      if (dx === 0 && dy === 0) return;
       el.style.transition = "none";
       el.style.transform = `translate(${dx}px, ${dy}px)`;
-      el.getBoundingClientRect(); // force reflow
+      el.getBoundingClientRect();
       requestAnimationFrame(() => {
         el.style.transition = "transform 350ms cubic-bezier(0.4, 0, 0.2, 1)";
         el.style.transform = "";
       });
     });
+
+    // Scale-in for the newly added tag (not in pendingFlips = wasn't in DOM before)
+    if (enteringId.current) {
+      const id = enteringId.current;
+      if (!pendingFlips.current.has(id)) {
+        const el = tagRefs.current.get(id);
+        if (el) {
+          el.style.transition = "none";
+          el.style.transform = "scale(0.4)";
+          el.style.opacity = "0";
+          el.getBoundingClientRect();
+          requestAnimationFrame(() => {
+            el.style.transition = "transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 250ms ease";
+            el.style.transform = "";
+            el.style.opacity = "";
+          });
+        }
+      }
+      enteringId.current = null;
+    }
+
     pendingFlips.current.clear();
   });
+
+  const captureAll = () => {
+    tagRefs.current.forEach((el, tagId) => {
+      pendingFlips.current.set(tagId, el.getBoundingClientRect());
+    });
+  };
 
   const scheduleAnimatingClear = () => {
     if (animatingTimeout.current) clearTimeout(animatingTimeout.current);
@@ -72,8 +118,8 @@ export function ProfileInterests({
   // Purely local — no DB call, animation only
   const handleAdd = (tag: InterestTag) => {
     if (animatingId || localSelectedIds.size >= 5) return;
-    const el = tagRefs.current.get(tag.id);
-    if (el) pendingFlips.current.set(tag.id, el.getBoundingClientRect());
+    captureAll();
+    enteringId.current = tag.id;
     setAnimatingId(tag.id);
     setLocalSelectedIds((prev) => new Set([...prev, tag.id]));
     scheduleAnimatingClear();
@@ -82,8 +128,7 @@ export function ProfileInterests({
   // Purely local — no DB call, animation only
   const handleRemove = (tagId: string) => {
     if (animatingId) return;
-    const el = tagRefs.current.get(tagId);
-    if (el) pendingFlips.current.set(tagId, el.getBoundingClientRect());
+    captureAll();
     setAnimatingId(tagId);
     setLocalSelectedIds((prev) => {
       const next = new Set(prev);
@@ -180,7 +225,7 @@ export function ProfileInterests({
       </div>
 
       {/* Selected tags */}
-      <div className="flex flex-wrap gap-2 min-h-[28px]">
+      <div className="flex flex-wrap gap-2 min-h-[28px] p-1">
         {selectedTags.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
             Add interests to help others connect with you
@@ -227,17 +272,35 @@ export function ProfileInterests({
             display: "grid",
             gridTemplateRows: isExpanded ? "1fr" : "0fr",
             transition: "grid-template-rows 300ms ease",
+            overflow: "hidden",
           }}
         >
-          <div style={{ minHeight: 0, overflow: "hidden" }}>
-            {/* InterestPicker: tags available in edit mode */}
-            <InterestPicker
-              tagsByCategory={tagsByCategory}
-              canAddMore={canAddMore}
-              animatingId={animatingId}
-              onAdd={handleAdd}
-              makeTagRef={makeTagRef}
-            />
+          <div style={{ minHeight: 0 }} className="relative pt-1">
+            <div
+              ref={pickerScrollRef}
+              onScroll={checkPickerScroll}
+              className="overflow-y-auto max-h-[240px] pt-3 px-1 pb-1 scrollbar-hide"
+              style={{
+                maskImage: "linear-gradient(to bottom, transparent 0%, black 18%)",
+                WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 18%)",
+              }}
+            >
+              <InterestPicker
+                tagsByCategory={tagsByCategory}
+                canAddMore={canAddMore}
+                animatingId={animatingId}
+                onAdd={handleAdd}
+                makeTagRef={makeTagRef}
+              />
+            </div>
+            <div className={cn(
+              "sticky bottom-0 flex justify-center py-2 pointer-events-none transition-opacity duration-300",
+              showScrollHint ? "opacity-100" : "opacity-0"
+            )}>
+              <div className="w-8 h-8 rounded-full bg-background border border-border shadow-neu-raised-sm flex items-center justify-center animate-pulse">
+                <ChevronDown className="h-4 w-4 text-foreground" />
+              </div>
+            </div>
           </div>
         </div>
       )}

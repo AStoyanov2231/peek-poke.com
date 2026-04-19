@@ -87,7 +87,7 @@ export function RequestsTab() {
     <>
       <div className="space-y-2 p-3">
         {optimisticRequests.map((req) => (
-          <div key={req.id} className="flex items-center gap-3 p-3 bg-background rounded-xl transition-all md:hover:shadow-neu-inset">
+          <div key={req.id} className="flex items-center gap-3 p-3 bg-background rounded-xl transition-all md:hover:shadow-neu-inset border border-primary/20">
             <Avatar className="h-12 w-12 flex-shrink-0">
               <AvatarImage
                 src={req.requester.avatar_url || undefined}
@@ -114,7 +114,7 @@ export function RequestsTab() {
                 aria-label="Accept friend request"
                 onClick={() => handleRequest(req.id, "accepted")}
                 disabled={processingIds.has(req.id)}
-                className="w-9 h-9 rounded-full bg-primary text-white shadow-neu-raised-sm flex items-center justify-center disabled:opacity-50"
+                className="w-9 h-9 rounded-full bg-primary text-white shadow-neu-raised-sm flex items-center justify-center disabled:opacity-50 transition-transform md:hover:scale-110"
               >
                 {processingIds.has(req.id)
                   ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -124,7 +124,7 @@ export function RequestsTab() {
                 aria-label="Reject friend request"
                 onClick={() => handleRequest(req.id, "declined")}
                 disabled={processingIds.has(req.id)}
-                className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm text-muted-foreground flex items-center justify-center"
+                className="w-9 h-9 rounded-full bg-destructive shadow-neu-raised-sm text-white flex items-center justify-center transition-all md:hover:scale-110"
               >
                 <X className="h-4 w-4" />
               </button>

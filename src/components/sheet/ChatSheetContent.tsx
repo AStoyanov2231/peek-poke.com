@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Loader2, MoreVertical, Pencil, Trash2, X, Check, ChevronDown, ChevronLeft } from "lucide-react";
+import { ArrowUp, Loader2, Trash2, ChevronDown, ChevronLeft, Reply, Forward, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -15,10 +16,6 @@ import { useIsUserOnline } from "@/hooks/usePresence";
 import { useAppStore } from "@/stores/appStore";
 import { useThreadMessages } from "@/stores/selectors";
 import { isPremium, type DMThread, type DMMessage, type Profile } from "@/types/database";
-import { formatDistanceToNow, differenceInMinutes } from "date-fns";
-
-const EDIT_WINDOW_MINUTES = 15;
-
 
 type ThreadWithParticipants = DMThread & {
   participant_1: Profile;
@@ -30,6 +27,13 @@ type ThreadData = {
   messages: DMMessage[];
 };
 
+type ContextMenuState = {
+  messageId: string;
+  message: DMMessage;
+  rect: DOMRect;
+  isOwn: boolean;
+};
+
 interface ChatSheetContentProps {
   threadId: string;
 }
@@ -39,13 +43,13 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   const router = useRouter();
   const rqClient = useQueryClient();
   const [input, setInput] = useState("");
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const hasSeeded = useRef(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const storeMessages = useThreadMessages(threadId);
   const setThreadMessages = useAppStore((s) => s.setThreadMessages);
@@ -94,12 +98,27 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Close context menu on scroll
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
     const { scrollTop, scrollHeight, clientHeight } = container;
     setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
-  }, []);
+    if (contextMenu) setContextMenu(null);
+  }, [contextMenu]);
+
+  // Close context menu on Esc
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setContextMenu(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [contextMenu]);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // Cleanup long press timer on unmount
+  useEffect(() => () => clearTimeout(longPressTimer.current), []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,45 +154,33 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     sendMutation.mutate(content);
   };
 
-  const canEditMessage = (msg: DMMessage) => {
-    if (msg.sender_id !== user?.id || msg.is_deleted) return false;
-    return differenceInMinutes(new Date(), new Date(msg.created_at)) <= EDIT_WINDOW_MINUTES;
-  };
-
-  const handleStartEdit = (msg: DMMessage) => {
-    setEditingMessageId(msg.id);
-    setEditContent(msg.content || "");
-    setMenuOpenId(null);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingMessageId(null);
-    setEditContent("");
-  };
-
-  const handleSaveEdit = async (messageId: string) => {
-    if (!editContent.trim()) return;
-    try {
-      await fetch(`/api/dm/${threadId}/${messageId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editContent.trim() }),
-      });
-    } catch (error) {
-      console.error("Failed to edit message:", error);
-    }
-    setEditingMessageId(null);
-    setEditContent("");
-  };
-
   const handleDelete = async (messageId: string) => {
-    setMenuOpenId(null);
     try {
       await fetch(`/api/dm/${threadId}/${messageId}`, { method: "DELETE" });
     } catch (error) {
       console.error("Failed to delete message:", error);
     }
   };
+
+  const openContextMenu = useCallback((el: HTMLElement, msg: DMMessage, isOwn: boolean) => {
+    if (!isOwn || msg.is_deleted) return;
+    const rect = el.getBoundingClientRect();
+    setContextMenu({ messageId: msg.id, message: msg, rect, isOwn });
+  }, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, msg: DMMessage, isOwn: boolean) => {
+    e.preventDefault();
+    openContextMenu(e.currentTarget as HTMLElement, msg, isOwn);
+  }, [openContextMenu]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent, msg: DMMessage, isOwn: boolean) => {
+    const el = e.currentTarget as HTMLElement;
+    longPressTimer.current = setTimeout(() => openContextMenu(el, msg, isOwn), 500);
+  }, [openContextMenu]);
+
+  const cancelLongPress = useCallback(() => {
+    clearTimeout(longPressTimer.current);
+  }, []);
 
   if (isLoading || !thread) {
     return (
@@ -232,56 +239,32 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         >
           {messages.map((msg) => {
             const isOwn = msg.sender_id === user?.id;
-            const isEditing = editingMessageId === msg.id;
-            const showMenu = menuOpenId === msg.id;
 
             return (
-              <div key={msg.id} className={cn("flex gap-2 group", isOwn ? "justify-end" : "justify-start")}>
-                <div className={cn("flex items-start gap-1", isOwn && "flex-row-reverse")}>
-                  <div className={cn("max-w-[75%] px-5 py-3.5", isOwn ? "message-bubble-sent animate-message-send" : "message-bubble-received animate-message-receive")}>
-                    {msg.is_deleted ? (
-                      <p className="italic opacity-60 text-[15px]">This message was deleted</p>
-                    ) : isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <Input value={editContent} onChange={(e) => setEditContent(e.target.value)} className="h-8 text-sm bg-background text-foreground" autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveEdit(msg.id); }
-                            else if (e.key === "Escape") handleCancelEdit();
-                          }}
-                        />
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleSaveEdit(msg.id)}><Check className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={handleCancelEdit}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ) : (
-                      <>
-                        {msg.media_url && <img src={msg.media_url} alt="" loading="lazy" decoding="async" className="rounded mb-2 max-w-full" />}
-                        <p className="text-[15px] leading-relaxed">{msg.content}</p>
-                      </>
-                    )}
-                    <p className={cn("text-xs mt-1.5", isOwn ? "text-white/70" : "text-muted-foreground")}>
-                      {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                      {msg.is_edited && !msg.is_deleted && <span className="ml-1">(edited)</span>}
-                    </p>
-                  </div>
-                  {isOwn && !msg.is_deleted && !isEditing && (
-                    <div className="relative">
-                      <Button size="sm" variant="ghost" className={cn("h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity", showMenu && "opacity-100")}
-                        onClick={() => setMenuOpenId(showMenu ? null : msg.id)}>
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                      {showMenu && (
-                        <div className="absolute top-8 right-0 z-10 bg-background shadow-neu-floating rounded-md border-0 py-1 min-w-[120px]">
-                          {canEditMessage(msg) && (
-                            <button className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2" onClick={() => handleStartEdit(msg)}>
-                              <Pencil className="h-4 w-4" /> Edit
-                            </button>
-                          )}
-                          <button className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2 text-destructive" onClick={() => handleDelete(msg.id)}>
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
+              <div key={msg.id} className={cn("flex gap-2", isOwn ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "max-w-[75%] px-5 py-3.5 select-none",
+                    contextMenu?.messageId === msg.id && "opacity-0",
+                    isOwn ? "message-bubble-sent animate-message-send" : "message-bubble-received animate-message-receive"
+                  )}
+                  style={{ WebkitTouchCallout: "none", WebkitUserSelect: "none" } as React.CSSProperties}
+                  onContextMenu={(e) => handleContextMenu(e, msg, isOwn)}
+                  onTouchStart={(e) => handleTouchStart(e, msg, isOwn)}
+                  onTouchEnd={cancelLongPress}
+                  onTouchMove={cancelLongPress}
+                  onTouchCancel={cancelLongPress}
+                >
+                  {msg.is_deleted ? (
+                    <p className="italic opacity-60 text-[15px]">This message was deleted</p>
+                  ) : (
+                    <>
+                      {msg.media_url && <img src={msg.media_url} alt="" loading="lazy" decoding="async" className="rounded mb-2 max-w-full" />}
+                      <p className="text-[15px] leading-relaxed">{msg.content}</p>
+                    </>
+                  )}
+                  {msg.is_edited && !msg.is_deleted && (
+                    <p className={cn("text-xs mt-1.5", isOwn ? "text-white/70" : "text-muted-foreground")}>(edited)</p>
                   )}
                 </div>
               </div>
@@ -305,6 +288,70 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
           </Button>
         </div>
       </form>
+
+      {/* Context menu portal */}
+      {contextMenu && mounted && createPortal(
+        (() => {
+          const vh = window.innerHeight;
+          const r = contextMenu.rect;
+          const isBottomHalf = r.top > vh / 2;
+          const ghostTop = isBottomHalf ? vh / 2 - r.height / 2 : r.top;
+          const menuTop = ghostTop + r.height + 8;
+          const menuAlign = contextMenu.isOwn
+            ? { right: window.innerWidth - r.right }
+            : { left: r.left };
+          return (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                onClick={() => setContextMenu(null)}
+              />
+              {/* Ghost bubble - same bubble, floats above backdrop */}
+              <div
+                className="fixed z-50 pointer-events-none transition-all duration-200"
+                style={{ top: ghostTop, left: r.left, width: r.width }}
+              >
+                <div className={cn(
+                  "w-full px-5 py-3.5",
+                  contextMenu.isOwn ? "message-bubble-sent" : "message-bubble-received"
+                )} style={{ boxShadow: "none" }}>
+                  {contextMenu.message.media_url && (
+                    <img src={contextMenu.message.media_url} alt="" loading="lazy" className="rounded mb-2 max-w-full" />
+                  )}
+                  <p className="text-[15px] leading-relaxed">{contextMenu.message.content}</p>
+                  {contextMenu.message.is_edited && (
+                    <p className={cn("text-xs mt-1.5", contextMenu.isOwn ? "text-white/70" : "text-muted-foreground")}>(edited)</p>
+                  )}
+                </div>
+              </div>
+              {/* Action menu — Instagram vertical list, below the bubble */}
+              <div className="fixed z-50" style={{ top: menuTop, ...menuAlign }}>
+                <div className="bg-background/95 rounded-2xl border border-border overflow-hidden min-w-[180px]">
+                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-foreground">
+                    <Reply className="h-5 w-5" /><span className="text-sm">Reply</span>
+                  </button>
+                  <div className="border-t border-border/50" />
+                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-foreground">
+                    <Forward className="h-5 w-5" /><span className="text-sm">Forward</span>
+                  </button>
+                  <div className="border-t border-border/50" />
+                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-foreground">
+                    <Copy className="h-5 w-5" /><span className="text-sm">Copy</span>
+                  </button>
+                  <div className="border-t border-border/50" />
+                  <button
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-destructive"
+                    onClick={() => { handleDelete(contextMenu.messageId); setContextMenu(null); }}
+                  >
+                    <Trash2 className="h-5 w-5" /><span className="text-sm">Delete</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          );
+        })(),
+        document.body
+      )}
     </div>
   );
 }

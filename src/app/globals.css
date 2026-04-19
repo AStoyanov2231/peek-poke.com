@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
@@ -26,7 +36,7 @@ body {
     /* Mobile nav height */
     --mobile-nav-height: 4rem;
 
-    --background: 220 14% 90%;
+    --background: 177 17% 80%;
     --neu-sunken: 220 14% 85%;
     --foreground: 220 26% 14%;
     --card: 220 14% 90%;
@@ -93,7 +103,7 @@ body {
     @apply transition-all duration-300 ease-out;
   }
   .card-interactive:hover {
-    box-shadow: 8px 8px 16px #A3B1C6, -8px -8px 16px #FFFFFF;
+    box-shadow: 8px 8px 16px #94B1AF, -8px -8px 16px #E5F4F3;
     @apply -translate-y-0.5;
   }
 
@@ -130,7 +140,7 @@ body {
   .skeleton-shimmer {
     @apply relative overflow-hidden;
     background: hsl(var(--neu-sunken));
-    box-shadow: inset 2px 2px 4px #A3B1C6, inset -2px -2px 4px #FFFFFF;
+    box-shadow: inset 2px 2px 4px #94B1AF, inset -2px -2px 4px #E5F4F3;
   }
   .skeleton-shimmer::after {
     content: '';
@@ -180,14 +190,14 @@ body {
     @apply relative overflow-hidden text-white;
     border-radius: 22px 22px 4px 22px;
     background: hsl(var(--primary));
-    box-shadow: 3px 3px 6px #A3B1C6, -3px -3px 6px #FFFFFF;
+    box-shadow: 3px 3px 6px #94B1AF, -3px -3px 6px #E5F4F3;
   }
 
   .message-bubble-received {
     @apply relative overflow-hidden text-foreground;
     border-radius: 22px 22px 22px 4px;
     background: hsl(var(--background));
-    box-shadow: inset 2px 2px 4px #A3B1C6, inset -2px -2px 4px #FFFFFF;
+    box-shadow: inset 2px 2px 4px #94B1AF, inset -2px -2px 4px #E5F4F3;
   }
 
   /* Chat input field - transparent inside capsule */
@@ -327,7 +337,7 @@ body {
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid hsl(var(--primary));
-  box-shadow: 3px 3px 6px #A3B1C6, -3px -3px 6px #FFFFFF;
+  box-shadow: 3px 3px 6px #94B1AF, -3px -3px 6px #E5F4F3;
 }
 
 .user-pin-avatar-self,
@@ -352,7 +362,7 @@ body {
   background: hsl(var(--background));
   border-radius: 16px;
   border: 1px solid hsl(var(--border));
-  box-shadow: 10px 10px 20px #A3B1C6;
+  box-shadow: 10px 10px 20px #94B1AF;
   overflow: visible;
   position: relative;
   animation: hp-slide-out 0.35s ease-out 0.1s both;
@@ -400,13 +410,13 @@ body {
   border-radius: 50%;
   border: none;
   background: hsl(var(--neu-sunken));
-  box-shadow: 2px 2px 4px #A3B1C6, -2px -2px 4px #FFFFFF;
+  box-shadow: 2px 2px 4px #94B1AF, -2px -2px 4px #E5F4F3;
   color: #4A5568;
   cursor: pointer;
   transition: box-shadow 0.15s;
 }
 .hp-close-btn:hover {
-  box-shadow: inset 2px 2px 4px #A3B1C6, inset -2px -2px 4px #FFFFFF;
+  box-shadow: inset 2px 2px 4px #94B1AF, inset -2px -2px 4px #E5F4F3;
 }
 
 /* Divider */
@@ -432,7 +442,7 @@ body {
   border-radius: 100px;
   border: none;
   background: hsl(var(--neu-sunken));
-  box-shadow: 2px 2px 4px #A3B1C6, -2px -2px 4px #FFFFFF;
+  box-shadow: 2px 2px 4px #94B1AF, -2px -2px 4px #E5F4F3;
   color: #2D3748;
   font-size: 12px;
   font-weight: 600;
@@ -441,10 +451,10 @@ body {
   white-space: nowrap;
 }
 .hp-action-btn:hover {
-  box-shadow: inset 2px 2px 4px #A3B1C6, inset -2px -2px 4px #FFFFFF;
+  box-shadow: inset 2px 2px 4px #94B1AF, inset -2px -2px 4px #E5F4F3;
 }
 .hp-action-btn:active {
-  box-shadow: inset 2px 2px 4px #A3B1C6, inset -2px -2px 4px #FFFFFF;
+  box-shadow: inset 2px 2px 4px #94B1AF, inset -2px -2px 4px #E5F4F3;
 }
 .hp-action-btn-disabled {
   opacity: 0.35;
@@ -496,7 +506,7 @@ body {
   font-weight: 500;
   color: #2D3748;
   background: hsl(var(--neu-sunken));
-  box-shadow: 2px 2px 4px #A3B1C6, -2px -2px 4px #FFFFFF;
+  box-shadow: 2px 2px 4px #94B1AF, -2px -2px 4px #E5F4F3;
   border-radius: 20px;
   padding: 3px 10px;
 }
@@ -572,7 +582,7 @@ body {
   font-weight: 700;
   font-size: 14px;
   border: 3px solid hsl(var(--background));
-  box-shadow: 3px 3px 6px #A3B1C6, -3px -3px 6px #FFFFFF;
+  box-shadow: 3px 3px 6px #94B1AF, -3px -3px 6px #E5F4F3;
   transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 

@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/navigation";
 
-const NEU_RAISED_SM = "3px 3px 6px #A3B1C6, -3px -3px 6px #FFFFFF";
-const NEU_INSET = "inset 4px 4px 8px #A3B1C6, inset -4px -4px 8px #FFFFFF";
+const NEU_RAISED_SM = "3px 3px 6px #94B1AF, -3px -3px 6px #E5F4F3";
+const NEU_INSET = "inset 4px 4px 8px #94B1AF, inset -4px -4px 8px #E5F4F3";
 
 interface NavButtonProps {
   item: NavItem;
@@ -22,18 +22,11 @@ export function NavButton({ item, isActive, badgeCount, onClick, className, chil
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
 
-  const buttonStyle = variant === "subtle"
-    ? {
-        background: "hsl(var(--background))",
-        transition: "box-shadow 150ms ease-out",
-      }
-    : {
-        background: isActive ? "hsl(var(--background))" : "hsl(var(--primary))",
-        boxShadow: isActive
-          ? NEU_INSET
-          : NEU_RAISED_SM,
-        transition: "box-shadow 300ms ease-out, background 300ms ease-out",
-      };
+  const buttonStyle = {
+    background: "transparent",
+    boxShadow: isActive || isHovered || isPressed ? NEU_INSET : "none",
+    transition: "box-shadow 150ms ease-out",
+  };
 
   return (
     <button
@@ -45,8 +38,7 @@ export function NavButton({ item, isActive, badgeCount, onClick, className, chil
       onMouseDown={() => setIsPressed(true)}
       onMouseUp={() => setIsPressed(false)}
       className={cn(
-        "relative overflow-hidden rounded-xl",
-        variant === "subtle" && (isHovered || isActive || isPressed) && "shadow-neu-inset-sm",
+        "relative rounded-xl",
         className
       )}
       style={buttonStyle}
@@ -56,7 +48,7 @@ export function NavButton({ item, isActive, badgeCount, onClick, className, chil
         {/* Clip container keeps sliding icons inside the 24×24 box */}
         <div className="absolute inset-0 overflow-hidden">
           <Icon
-            className={cn("absolute inset-0 h-6 w-6", variant === "subtle" ? "text-muted-foreground" : "text-white")}
+            className={cn("absolute inset-0 h-6 w-6", "text-foreground")}
             style={{
               transform: isActive ? "translateY(12px)" : "translateY(0)",
               opacity: isActive ? 0 : 1,

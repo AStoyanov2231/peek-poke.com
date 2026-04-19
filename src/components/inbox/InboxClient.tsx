@@ -76,7 +76,7 @@ export function InboxClient() {
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                   isActive
                     ? "bg-primary text-white shadow-neu-raised-sm"
-                    : "text-muted-foreground hover:text-foreground hover:shadow-neu-raised-sm"
+                    : "text-foreground hover:text-foreground active:bg-primary active:text-white hover:shadow-neu-raised-sm"
                 )}
               >
                 {label}
