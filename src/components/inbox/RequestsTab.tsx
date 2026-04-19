@@ -93,7 +93,7 @@ export function RequestsTab() {
                 src={req.requester.avatar_url || undefined}
                 alt={req.requester.display_name || req.requester.username}
               />
-              <AvatarFallback className="bg-primary text-white">
+              <AvatarFallback className="bg-primary-gradient text-white">
                 {getInitials(req.requester.display_name || req.requester.username)}
               </AvatarFallback>
             </Avatar>
@@ -114,7 +114,7 @@ export function RequestsTab() {
                 aria-label="Accept friend request"
                 onClick={() => handleRequest(req.id, "accepted")}
                 disabled={processingIds.has(req.id)}
-                className="w-9 h-9 rounded-full bg-primary text-white shadow-neu-raised-sm flex items-center justify-center disabled:opacity-50 transition-transform md:hover:scale-110"
+                className="w-9 h-9 rounded-full bg-primary-gradient text-white shadow-neu-raised-sm flex items-center justify-center disabled:opacity-50 transition-transform md:hover:scale-110"
               >
                 {processingIds.has(req.id)
                   ? <Loader2 className="h-4 w-4 animate-spin" />

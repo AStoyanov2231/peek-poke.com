@@ -48,6 +48,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const mapReady = useAppStore((s) => s.mapReady);
   const splashStart = useRef(0);
+  const [invite, setInvite] = useState<string | null>(null);
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState("");
   const [usernameError, setUsernameError] = useState("");
@@ -60,6 +61,11 @@ export default function OnboardingPage() {
   const [interestError, setInterestError] = useState("");
   const [tagsLoading, setTagsLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setInvite(params.get("invite"));
+  }, []);
 
   useEffect(() => {
     async function fetchTags() {
@@ -96,9 +102,9 @@ export default function OnboardingPage() {
     if (step !== 3 || !mapReady) return;
     const elapsed = Date.now() - splashStart.current;
     const remaining = Math.max(0, 1500 - elapsed);
-    const t = setTimeout(() => router.replace("/"), remaining);
+    const t = setTimeout(() => router.replace(invite ? `/invite/${invite}` : "/"), remaining);
     return () => clearTimeout(t);
-  }, [step, mapReady, router]);
+  }, [step, mapReady, router, invite]);
 
   const handleUsernameSubmit = async () => {
     if (username.length < MIN_USERNAME_LENGTH) {
@@ -211,7 +217,7 @@ export default function OnboardingPage() {
           <div className="mb-8 mx-auto max-w-xs">
             <div className="h-1 rounded-full overflow-hidden bg-neu-sunken shadow-neu-inset">
               <motion.div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-primary-gradient"
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.5, ease: "easeInOut" }}
               />
@@ -297,7 +303,7 @@ export default function OnboardingPage() {
                     className={cn(
                       "w-full h-12 rounded-full font-semibold text-base flex items-center justify-center gap-2 transition-all duration-300",
                       canSubmitUsername
-                        ? "bg-primary text-white shadow-neu-raised-sm cursor-pointer"
+                        ? "bg-primary-gradient text-white shadow-neu-raised-sm cursor-pointer"
                         : "bg-neu-sunken text-muted-foreground shadow-neu-inset cursor-not-allowed"
                     )}
                   >
@@ -394,7 +400,7 @@ export default function OnboardingPage() {
                               className={cn(
                                 "px-4 py-2 text-sm rounded-full border-0 transition-all duration-200 flex items-center gap-1",
                                 isSelected
-                                  ? "bg-primary text-white shadow-neu-raised-sm"
+                                  ? "bg-primary-gradient text-white shadow-neu-raised-sm"
                                   : "bg-background shadow-neu-raised-sm text-foreground",
                                 isDisabled && !isSelected && "opacity-40 cursor-not-allowed",
                                 isLoading && "opacity-50"
@@ -437,7 +443,7 @@ export default function OnboardingPage() {
                       className={cn(
                         "flex-1 h-12 rounded-full font-semibold flex items-center justify-center gap-2 transition-all duration-300",
                         canFinish
-                          ? "bg-primary text-white shadow-neu-raised-sm cursor-pointer"
+                          ? "bg-primary-gradient text-white shadow-neu-raised-sm cursor-pointer"
                           : "bg-neu-sunken text-muted-foreground shadow-neu-inset cursor-not-allowed"
                       )}
                     >

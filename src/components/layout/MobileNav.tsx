@@ -38,7 +38,7 @@ function MobileNavInner() {
   return (
     <>
     <nav
-      className="md:hidden fixed bottom-1 left-1/2 -translate-x-1/2 z-40 bg-background rounded-xl flex justify-around items-center px-6 py-3 w-[280px] border border-border shadow-neu-floating"
+      className="md:hidden fixed bottom-1 left-1/2 -translate-x-1/2 z-40 bg-gradient-to-br from-violet-700 to-purple-500 rounded-xl flex justify-around items-center px-6 py-3 w-[280px] border border-white/10 shadow-neu-floating"
     >
       {navItems.map((item) => {
         const isActive = item.href === "/" ? activeHref === "/" : activeHref.startsWith(item.href);

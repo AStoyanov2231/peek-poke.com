@@ -63,8 +63,12 @@ export async function GET(request: Request) {
           // Continue anyway - profile creation will be retried on next login
         }
 
-        // New user - redirect to onboarding
-        return NextResponse.redirect(`${origin}/onboarding`);
+        // New user - redirect to onboarding, preserving invite if present
+        const inviteMatch = next.match(/^\/invite\/([a-zA-Z0-9-]+)$/);
+        const onboardingUrl = inviteMatch
+          ? `${origin}/onboarding?invite=${inviteMatch[1]}`
+          : `${origin}/onboarding`;
+        return NextResponse.redirect(onboardingUrl);
       }
     }
   }

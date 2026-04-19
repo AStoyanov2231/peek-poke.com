@@ -215,7 +215,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         </button>
         <Avatar className="h-10 w-10">
           <AvatarImage src={other.avatar_url || undefined} alt={other.display_name || other.username} />
-          <AvatarFallback className="bg-primary text-white">
+          <AvatarFallback className="bg-primary-gradient text-white">
             {getInitials(other.display_name || other.username)}
           </AvatarFallback>
         </Avatar>

@@ -32,7 +32,7 @@ export function FriendRow({
           <div className="relative flex-shrink-0" onClick={(e) => { e.stopPropagation(); onClickProfile(); }}>
             <Avatar className="h-[52px] w-[52px]">
               <AvatarImage src={friend.avatar_url || undefined} alt={friend.display_name || friend.username} />
-              <AvatarFallback className="bg-primary text-white">
+              <AvatarFallback className="bg-primary-gradient text-white">
                 {getInitials(friend.display_name || friend.username)}
               </AvatarFallback>
             </Avatar>

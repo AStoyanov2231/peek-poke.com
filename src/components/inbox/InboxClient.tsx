@@ -75,8 +75,8 @@ export function InboxClient() {
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                   isActive
-                    ? "bg-primary text-white shadow-neu-raised-sm"
-                    : "text-foreground hover:text-foreground active:bg-primary active:text-white hover:shadow-neu-raised-sm"
+                    ? "bg-primary-gradient text-white shadow-neu-raised-sm"
+                    : "text-foreground hover:text-foreground active:bg-primary-gradient active:text-white hover:shadow-neu-raised-sm"
                 )}
               >
                 {label}

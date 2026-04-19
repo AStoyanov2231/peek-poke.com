@@ -207,7 +207,7 @@ export function ProfileInterests({
             <button
               onClick={handleDone}
               disabled={isSaving}
-              className="bg-primary rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 disabled:opacity-50 shadow-neu-raised-sm"
+              className="bg-primary-gradient rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 disabled:opacity-50 shadow-neu-raised-sm"
             >
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               Done
@@ -215,7 +215,7 @@ export function ProfileInterests({
           ) : (
             <button
               onClick={handleOpen}
-              className="bg-primary rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 shadow-neu-raised-sm"
+              className="bg-primary-gradient rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 shadow-neu-raised-sm"
             >
               <Pencil className="h-3.5 w-3.5" />
               Edit
@@ -297,8 +297,8 @@ export function ProfileInterests({
               "sticky bottom-0 flex justify-center py-2 pointer-events-none transition-opacity duration-300",
               showScrollHint ? "opacity-100" : "opacity-0"
             )}>
-              <div className="w-8 h-8 rounded-full bg-background border border-border shadow-neu-raised-sm flex items-center justify-center animate-pulse">
-                <ChevronDown className="h-4 w-4 text-foreground" />
+              <div className="w-11 h-11 rounded-full bg-primary-gradient shadow-neu-raised-sm flex items-center justify-center">
+                <ChevronDown className="h-5 w-5 text-white" />
               </div>
             </div>
           </div>
