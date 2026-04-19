@@ -8,7 +8,6 @@ import { RefreshCw } from "lucide-react";
 export function SplashScreen() {
   const isPreloading = useIsPreloading();
   const preloadError = usePreloadError();
-  const mapReady = useAppStore((state) => state.mapReady);
   const preloadAll = useAppStore((state) => state.preloadAll);
 
   if (!isPreloading && !preloadError) {

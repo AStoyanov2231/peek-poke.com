@@ -8,6 +8,7 @@ import { PremiumBadge } from "@/components/ui/premium-badge";
 import { OtherUserGallery } from "@/components/profile/OtherUserGallery";
 import { ProfileInterests } from "@/components/profile/ProfileInterests";
 import { useIsPremium } from "@/stores/selectors";
+import { useAuth } from "@/hooks/useAuth";
 import { useAppStore } from "@/stores/appStore";
 import { isPremium as checkPremium } from "@/types/database";
 import { InsufficientCoinsDialog } from "@/components/coins/InsufficientCoinsDialog";
@@ -25,7 +26,12 @@ export default function PublicProfilePage() {
   const params = useParams();
   const router = useRouter();
   const viewerIsPremium = useIsPremium();
+  const { user } = useAuth();
   const userId = params.userId as string;
+
+  useEffect(() => {
+    if (user?.id && user.id === userId) router.replace("/profile");
+  }, [user?.id, userId, router]);
   const addSentRequestFull = useAppStore((s) => s.addSentRequestFull);
   const setCoins = useAppStore((s) => s.setCoins);
   const coins = useAppStore((s) => s.coins);

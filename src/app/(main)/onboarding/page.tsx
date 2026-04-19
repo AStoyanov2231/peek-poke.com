@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Check, AtSign } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores/appStore";
 import type { InterestTag } from "@/types/database";
 
 const MIN_USERNAME_LENGTH = 3;
@@ -46,7 +45,6 @@ function ShakeError({ message, className }: { message: string; className?: strin
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const mapReady = useAppStore((s) => s.mapReady);
   const splashStart = useRef(0);
   const [invite, setInvite] = useState<string | null>(null);
   const [step, setStep] = useState(1);
@@ -97,14 +95,13 @@ export default function OnboardingPage() {
     fetchUserInterests();
   }, []);
 
-  // Navigate away once map is ready (with minimum 1.5s display)
   useEffect(() => {
-    if (step !== 3 || !mapReady) return;
+    if (step !== 3) return;
     const elapsed = Date.now() - splashStart.current;
     const remaining = Math.max(0, 1500 - elapsed);
     const t = setTimeout(() => router.replace(invite ? `/invite/${invite}` : "/"), remaining);
     return () => clearTimeout(t);
-  }, [step, mapReady, router, invite]);
+  }, [step, router, invite]);
 
   const handleUsernameSubmit = async () => {
     if (username.length < MIN_USERNAME_LENGTH) {
