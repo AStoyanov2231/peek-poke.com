@@ -49,7 +49,10 @@
       "Skill(update-config)",
       "Bash(rtk npm *)",
       "Bash(rtk lint *)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(perl *)",
+      "Bash(rtk pnpm *)",
+      "Bash(node_modules/.bin/next lint *)"
     ]
   },
   "enabledMcpjsonServers": [

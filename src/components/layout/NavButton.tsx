@@ -4,8 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/navigation";
 
-const NEU_RAISED_SM = "3px 3px 6px #94B1AF, -3px -3px 6px #E5F4F3";
-const NEU_INSET = "inset 4px 4px 8px #94B1AF, inset -4px -4px 8px #E5F4F3";
+const NEU_INSET = "inset 4px 4px 10px rgba(0,0,0,0.5), inset -3px -3px 8px rgba(255,255,255,0.25)";
 
 interface NavButtonProps {
   item: NavItem;
@@ -22,9 +21,13 @@ export function NavButton({ item, isActive, badgeCount, onClick, className, chil
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
 
+  const showDent = variant === "subtle"
+    ? isActive || isHovered || isPressed
+    : isActive || isPressed;
+
   const buttonStyle = {
     background: "transparent",
-    boxShadow: isActive || isHovered || isPressed ? NEU_INSET : "none",
+    boxShadow: showDent ? NEU_INSET : "none",
     transition: "box-shadow 150ms ease-out",
   };
 
@@ -48,7 +51,7 @@ export function NavButton({ item, isActive, badgeCount, onClick, className, chil
         {/* Clip container keeps sliding icons inside the 24×24 box */}
         <div className="absolute inset-0 overflow-hidden">
           <Icon
-            className={cn("absolute inset-0 h-6 w-6", "text-foreground")}
+            className="absolute inset-0 h-6 w-6 text-white"
             style={{
               transform: isActive ? "translateY(12px)" : "translateY(0)",
               opacity: isActive ? 0 : 1,
@@ -57,7 +60,7 @@ export function NavButton({ item, isActive, badgeCount, onClick, className, chil
             strokeWidth={2}
           />
           <ActiveIcon
-            className="absolute inset-0 h-6 w-6 text-primary"
+            className="absolute inset-0 h-6 w-6 text-white"
             style={{
               transform: isActive ? "translateY(0)" : "translateY(12px)",
               opacity: isActive ? 1 : 0,

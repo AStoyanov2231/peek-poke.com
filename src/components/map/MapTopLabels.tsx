@@ -17,7 +17,7 @@ const PersonIcon = () => (
   </svg>
 );
 
-const pill = "flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-primary text-primary-foreground text-sm font-semibold select-none whitespace-nowrap relative";
+const containerCls = "bg-primary-gradient rounded-2xl shadow-lg text-white text-sm font-semibold select-none whitespace-nowrap";
 
 export function MapTopLabels() {
   const coins = useCoins();
@@ -30,21 +30,20 @@ export function MapTopLabels() {
 
   return (
     <>
-      {/* Logo — desktop only, top-left overlay container */}
-      <div className="absolute top-3 left-3 z-30 hidden md:flex items-center bg-background/80 backdrop-blur-sm rounded-2xl shadow-lg px-3 py-2">
-        <span className="text-lg font-bold whitespace-nowrap text-brand-gradient">Peek &amp; Poke</span>
+      {/* Logo — desktop only */}
+      <div className={`absolute top-3 left-3 z-30 hidden md:flex items-center px-3 py-2 ${containerCls}`}>
+        <span className="text-lg font-bold">Peek &amp; Poke</span>
       </div>
 
-      {/* Coins + online counter — centered on mobile, top-right overlay container on desktop */}
-      <div className="absolute top-3 right-4 z-30 flex gap-2 max-md:right-auto max-md:left-1/2 max-md:-translate-x-1/2 bg-background/80 backdrop-blur-sm rounded-2xl shadow-lg p-2">
-        <div className={pill}>
+      {/* Coins + online counter */}
+      <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-6 py-3 text-base ${containerCls}`}>
+        <div className="flex items-center gap-1.5 relative">
           <CoinIcon />
           <span className="tabular-nums">{coins}/5 coins</span>
-          {coinSpent && (
-            <span key={coinSpentCount} className="coin-spent-anim">-1</span>
-          )}
+          {coinSpent && <span key={coinSpentCount} className="coin-spent-anim">-1</span>}
         </div>
-        <div className={pill}>
+        <div className="w-px h-4 bg-white/30" />
+        <div className="flex items-center gap-1.5">
           <PersonIcon />
           <span className="tabular-nums">{friendsOnline} online</span>
         </div>

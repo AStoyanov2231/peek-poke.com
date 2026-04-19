@@ -64,11 +64,11 @@ const config: Config = {
 				pill: '100px',
 			},
 			boxShadow: {
-				'neu-raised': '6px 6px 12px #A3B1C6, -3px -3px 6px #FFFFFF',
-				'neu-raised-sm': '3px 3px 6px #A3B1C6, -3px -3px 6px #FFFFFF',
-				'neu-inset': 'inset 4px 4px 8px #A3B1C6, inset -2px -2px 4px #FFFFFF',
-				'neu-floating': '10px 10px 20px #A3B1C6, -5px -5px 10px #FFFFFF',
-				'neu-inset-sm': 'inset 2px 2px 4px #A3B1C6, inset -2px -2px 4px #FFFFFF',
+				'neu-raised': '6px 6px 12px #A3B1C6',
+				'neu-raised-sm': '3px 3px 6px #A3B1C6',
+				'neu-inset': 'inset 4px 4px 8px #A3B1C6',
+				'neu-floating': '10px 10px 20px #A3B1C6',
+				'neu-inset-sm': 'inset 2px 2px 4px #A3B1C6',
 			},
 			animation: {
 				'pulse-soft': 'pulse-soft 2s ease-in-out infinite',

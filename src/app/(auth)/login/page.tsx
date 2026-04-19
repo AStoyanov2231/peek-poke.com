@@ -40,6 +40,7 @@ const hoverTap = { whileHover: { scale: 1.02 }, whileTap: { scale: 0.97 } };
 function LoginContent() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo");
+  const invite = searchParams.get("invite");
 
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -89,7 +90,7 @@ function LoginContent() {
   async function handleAppleSignIn() {
     setOauthLoading("apple");
     setError("");
-    const result = await signInWithApple(redirectTo || undefined);
+    const result = await signInWithApple(invite ? `/invite/${invite}` : (redirectTo || undefined));
     if (result?.error) {
       setError(result.error);
       setOauthLoading(null);
@@ -99,7 +100,7 @@ function LoginContent() {
   async function handleGoogleSignIn() {
     setOauthLoading("google");
     setError("");
-    const result = await signInWithGoogle(redirectTo || undefined);
+    const result = await signInWithGoogle(invite ? `/invite/${invite}` : (redirectTo || undefined));
     if (result?.error) {
       setError(result.error);
       setOauthLoading(null);
@@ -124,7 +125,7 @@ function LoginContent() {
         <motion.button
           {...hoverTap}
           onClick={() => setEmailNotConfirmed(false)}
-          className="px-6 py-3 rounded-full bg-primary text-white font-semibold shadow-neu-raised-sm"
+          className="px-6 py-3 rounded-full bg-primary-gradient text-white font-semibold shadow-neu-raised-sm"
         >
           Try again
         </motion.button>
@@ -150,7 +151,7 @@ function LoginContent() {
         <motion.button
           {...hoverTap}
           onClick={() => { setEmailSent(false); setMode("signin"); }}
-          className="px-6 py-3 rounded-full bg-primary text-white font-semibold shadow-neu-raised-sm"
+          className="px-6 py-3 rounded-full bg-primary-gradient text-white font-semibold shadow-neu-raised-sm"
         >
           Back to Sign In
         </motion.button>

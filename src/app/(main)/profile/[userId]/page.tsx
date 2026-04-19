@@ -198,7 +198,7 @@ export default function PublicProfilePage() {
               ) : (
                 <button
                   onClick={handleAddFriend}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary text-white shadow-neu-raised-sm"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary-gradient text-white shadow-neu-raised-sm"
                 >
                   <UserPlus className="h-4 w-4" />
                   <span className="text-sm font-medium">Add Friend</span>

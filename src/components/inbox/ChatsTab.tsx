@@ -79,7 +79,7 @@ export function ChatsTab({ onSelectThread, activeThreadId }: ChatsTabProps) {
             <div className="relative flex-shrink-0" onClick={(e) => { e.stopPropagation(); if (otherUser?.id) router.push(`/profile/${otherUser.id}`); }}>
               <Avatar className="h-[52px] w-[52px]">
                 <AvatarImage src={avatarSrc || undefined} alt={name} />
-                <AvatarFallback className="bg-primary text-white text-lg">
+                <AvatarFallback className="bg-primary-gradient text-white text-lg">
                   {getInitials(name)}
                 </AvatarFallback>
               </Avatar>
@@ -102,7 +102,7 @@ export function ChatsTab({ onSelectThread, activeThreadId }: ChatsTabProps) {
                 </span>
               )}
               {thread.unread_count ? (
-                <div className="h-[22px] min-w-[22px] bg-primary rounded-full flex items-center justify-center px-1">
+                <div className="h-[22px] min-w-[22px] bg-primary-gradient rounded-full flex items-center justify-center px-1">
                   <span className="text-[11px] font-bold text-white">
                     {thread.unread_count > 9 ? "9+" : thread.unread_count}
                   </span>

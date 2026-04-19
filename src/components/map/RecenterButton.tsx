@@ -11,7 +11,7 @@ export function RecenterButton() {
       <button
         onClick={() => window.dispatchEvent(new Event("recenter-map"))}
         disabled={!userLocation}
-        className={`h-11 w-11 rounded-full bg-primary shadow-neu-raised-sm flex items-center justify-center active:scale-95 transition-transform ${
+        className={`h-11 w-11 rounded-full bg-primary-gradient shadow-neu-raised-sm flex items-center justify-center active:scale-95 transition-transform ${
           !userLocation ? "opacity-50" : ""
         }`}
         aria-label="Center map on my location"

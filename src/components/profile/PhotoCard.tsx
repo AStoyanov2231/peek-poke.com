@@ -68,7 +68,7 @@ export function PhotoCard({
 
       {/* Avatar indicator */}
       {photo.is_avatar && (
-        <div className="absolute top-1 left-1 bg-primary text-primary-foreground p-1 rounded-full">
+        <div className="absolute top-1 left-1 bg-primary-gradient text-primary-foreground p-1 rounded-full">
           <Star className="h-3 w-3" />
         </div>
       )}

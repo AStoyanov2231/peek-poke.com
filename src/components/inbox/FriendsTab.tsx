@@ -217,7 +217,7 @@ export function FriendsTab() {
                     <div key={req.id} className="flex items-center gap-3 p-3 bg-background rounded-xl transition-all md:hover:shadow-neu-inset">
                       <Avatar className="h-12 w-12 flex-shrink-0">
                         <AvatarImage src={req.addressee.avatar_url || undefined} alt={req.addressee.display_name || req.addressee.username} />
-                        <AvatarFallback className="bg-primary text-white/70">
+                        <AvatarFallback className="bg-primary-gradient text-white/70">
                           {getInitials(req.addressee.display_name || req.addressee.username)}
                         </AvatarFallback>
                       </Avatar>

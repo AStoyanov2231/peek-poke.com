@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Settings, Pencil } from "lucide-react";
+import { Settings, Pencil, Share2 } from "lucide-react";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { Card } from "@/components/ui/card";
 import { ProfileInterests } from "./ProfileInterests";
 import { PhotoGallery } from "./PhotoGallery";
 import { PremiumUpgradeButton } from "./PremiumUpgradeButton";
 import { SettingsSheet } from "./SettingsSheet";
+import { ShareSheet } from "./ShareSheet";
 import { compressImage, createThumbnail } from "@/lib/image-compression";
 import { useAppStore } from "@/stores/appStore";
 import {
@@ -273,6 +274,7 @@ export function ProfilePageClient({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -306,7 +308,7 @@ export function ProfilePageClient({
         {!isBioEditing && (
           <button
             onClick={() => { setEditBioText(profile.bio || ""); setIsBioEditing(true); }}
-            className="bg-primary rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 shadow-neu-raised-sm"
+            className="bg-primary-gradient rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 shadow-neu-raised-sm"
           >
             <Pencil className="h-3.5 w-3.5" />
             Edit
@@ -337,7 +339,7 @@ export function ProfilePageClient({
                 onClick={async () => {
                   try { await handleBioSave(editBioText); setIsBioEditing(false); } catch { /* keep editing */ }
                 }}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-primary shadow-neu-raised-sm rounded-[10px]"
+                className="px-3 py-1.5 text-xs font-medium text-white bg-primary-gradient shadow-neu-raised-sm rounded-[10px]"
               >
                 Save
               </button>
@@ -377,12 +379,18 @@ export function ProfilePageClient({
         >
           {profile.avatar_url && <div className="absolute inset-0 bg-background/80" />}
           <div className="relative z-10 flex flex-col items-center gap-4 w-full">
-            <div className="flex justify-start w-full">
+            <div className="flex justify-between w-full">
               <button
                 onClick={() => setShowSettings(true)}
                 className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
               >
                 <Settings className="h-[18px] w-[18px] text-muted-foreground" />
+              </button>
+              <button
+                onClick={() => setShowShare(true)}
+                className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+              >
+                <Share2 className="h-[18px] w-[18px] text-muted-foreground" />
               </button>
             </div>
             <h1 className="font-display text-2xl font-bold text-foreground">{displayName}</h1>
@@ -414,7 +422,13 @@ export function ProfilePageClient({
       <div className="hidden md:flex h-[100svh] overflow-hidden">
         {/* Left column */}
         <div className="w-1/2 flex-shrink-0 flex flex-col gap-4 p-6 border-r border-border overflow-hidden">
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            <button
+              onClick={() => setShowShare(true)}
+              className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+            >
+              <Share2 className="h-[18px] w-[18px] text-muted-foreground" />
+            </button>
             <button
               onClick={() => setShowSettings(true)}
               className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
@@ -457,13 +471,14 @@ export function ProfilePageClient({
               onDelete={handlePhotoDelete}
               onSetAvatar={handleSetAvatar}
               onTogglePrivate={handleTogglePrivate}
-              className="!p-0 flex-1 min-h-0 overflow-y-auto"
+              className="!p-0 flex-1 min-h-0 overflow-y-auto scrollbar-hide"
             />
           </Card>
         </div>
       </div>
 
       <SettingsSheet open={showSettings} onOpenChange={setShowSettings} />
+      <ShareSheet open={showShare} onOpenChange={setShowShare} userId={profile.id} />
     </>
   );
 }
