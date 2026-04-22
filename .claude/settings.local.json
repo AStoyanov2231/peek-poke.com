@@ -52,7 +52,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(perl *)",
       "Bash(rtk pnpm *)",
-      "Bash(node_modules/.bin/next lint *)"
+      "Bash(node_modules/.bin/next lint *)",
+      "Bash(rtk next *)",
+      "Bash(npx vercel *)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -438,22 +438,35 @@ export function ProfilePageClient({
           </div>
 
           <div className="flex flex-col items-center gap-3">
-            <div className="w-32 h-32 rounded-full overflow-hidden flex-shrink-0 shadow-neu-raised-sm">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                  <span className="text-4xl font-bold text-primary">{displayName.charAt(0).toUpperCase()}</span>
-                </div>
-              )}
+            <div className="relative mb-5">
+              <div className="w-32 h-32 rounded-full overflow-hidden flex-shrink-0 shadow-neu-raised-sm">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                    <span className="text-4xl font-bold text-primary">{displayName.charAt(0).toUpperCase()}</span>
+                  </div>
+                )}
+              </div>
+              <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-background shadow-neu-raised-sm rounded-full px-3 py-1 text-xs whitespace-nowrap z-10">
+                <span className="font-semibold text-primary">{stats.friends_count}</span>
+                <span className="text-muted-foreground">Friends</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="font-semibold text-primary">{stats.photos_count}</span>
+                <span className="text-muted-foreground">Photos</span>
+                {profile.location_text && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="font-semibold text-primary">{profile.location_text}</span>
+                  </>
+                )}
+              </div>
             </div>
             <h1 className="font-display text-2xl font-bold text-foreground">{displayName}</h1>
             {isPremium(profile) && <PremiumBadge showText />}
             <p className="text-sm text-muted-foreground">@{profile.username}</p>
             {!isPremium(profile) && <PremiumUpgradeButton />}
           </div>
-
-          {statsRow}
           <div className="flex gap-4 flex-1 min-h-0">
             <div className="flex-1 min-w-0 p-1">{aboutCard}</div>
             <div className="flex-1 min-w-0 p-1">{interestsCard}</div>

@@ -143,12 +143,29 @@ export default function PublicProfilePage() {
             </button>
           </div>
 
-          {/* Avatar */}
-          <div className="w-20 h-20 rounded-full bg-background shadow-neu-raised flex items-center justify-center overflow-hidden">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-3xl font-bold text-primary">{initial}</span>
+          {/* Avatar + halo */}
+          <div className="relative mb-5">
+            <div className="w-20 h-20 rounded-full bg-background shadow-neu-raised flex items-center justify-center overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-3xl font-bold text-primary">{initial}</span>
+              )}
+            </div>
+            {!loading && data && (
+              <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-background shadow-neu-raised-sm rounded-full px-3 py-1 text-xs whitespace-nowrap z-10">
+                <span className="font-semibold text-primary">{data.stats.friends_count}</span>
+                <span className="text-muted-foreground">Friends</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="font-semibold text-primary">{data.stats.photos_count}</span>
+                <span className="text-muted-foreground">Photos</span>
+                {profile?.location_text && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="font-semibold text-primary">{profile.location_text}</span>
+                  </>
+                )}
+              </div>
             )}
           </div>
 
@@ -166,26 +183,6 @@ export default function PublicProfilePage() {
             <p className="text-sm text-muted-foreground text-center max-w-xs leading-relaxed">
               {profile.bio}
             </p>
-          )}
-
-          {/* Stats row */}
-          {!loading && data && (
-            <div className="flex justify-around w-full pt-3">
-              <div className="flex flex-col items-center gap-0.5">
-                <span className="font-display text-[22px] font-bold text-primary">{data.stats.friends_count}</span>
-                <span className="text-xs text-muted-foreground">Friends</span>
-              </div>
-              <div className="flex flex-col items-center gap-0.5">
-                <span className="font-display text-[22px] font-bold text-primary">{data.stats.photos_count}</span>
-                <span className="text-xs text-muted-foreground">Photos</span>
-              </div>
-              {profile?.location_text && (
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="font-display text-[22px] font-bold text-primary">{profile.location_text}</span>
-                  <span className="text-xs text-muted-foreground">Location</span>
-                </div>
-              )}
-            </div>
           )}
 
           {/* Action buttons */}
