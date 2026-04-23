@@ -113,9 +113,9 @@ function LoginContent() {
         variants={cardVariants}
         initial="hidden"
         animate="visible"
-        className="w-full max-w-md bg-background shadow-neu-raised rounded-lg p-8 text-center"
+        className="w-full max-w-md bg-background shadow-e-2 rounded-lg p-8 text-center"
       >
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 shadow-neu-inset rounded-full mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100  rounded-full mb-4">
           <Mail className="w-8 h-8 text-amber-500" />
         </div>
         <h2 className="text-2xl font-bold text-foreground mb-2">Confirm your email</h2>
@@ -125,7 +125,7 @@ function LoginContent() {
         <motion.button
           {...hoverTap}
           onClick={() => setEmailNotConfirmed(false)}
-          className="px-6 py-3 rounded-full bg-primary-gradient text-white font-semibold shadow-neu-raised-sm"
+          className="px-6 py-3 rounded-full bg-ink-9 text-white font-semibold shadow-e-1"
         >
           Try again
         </motion.button>
@@ -139,9 +139,9 @@ function LoginContent() {
         variants={cardVariants}
         initial="hidden"
         animate="visible"
-        className="w-full max-w-md bg-background shadow-neu-raised rounded-lg p-8 text-center"
+        className="w-full max-w-md bg-background shadow-e-2 rounded-lg p-8 text-center"
       >
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 shadow-neu-inset rounded-full mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10  rounded-full mb-4">
           <Mail className="w-8 h-8 text-primary" />
         </div>
         <h2 className="text-2xl font-bold text-foreground mb-2">Check your email</h2>
@@ -151,7 +151,7 @@ function LoginContent() {
         <motion.button
           {...hoverTap}
           onClick={() => { setEmailSent(false); setMode("signin"); }}
-          className="px-6 py-3 rounded-full bg-primary-gradient text-white font-semibold shadow-neu-raised-sm"
+          className="px-6 py-3 rounded-full bg-ink-9 text-white font-semibold shadow-e-1"
         >
           Back to Sign In
         </motion.button>
@@ -164,7 +164,7 @@ function LoginContent() {
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      className="w-full max-w-md bg-background shadow-neu-raised rounded-lg p-6 lg:p-8"
+      className="w-full max-w-md bg-background shadow-e-2 rounded-lg p-6 lg:p-8"
     >
       <AnimatePresence mode="wait">
         <motion.h1
@@ -234,7 +234,7 @@ function LoginContent() {
         <button
           type="button"
           onClick={toggleMode}
-          className="w-full rounded-full bg-background shadow-neu-raised-sm text-primary font-semibold h-11 text-sm transition-all hover:shadow-neu-inset"
+          className="w-full rounded-full bg-background shadow-e-1 text-primary font-semibold h-11 text-sm transition-all hover:"
         >
           {mode === "signin" ? "Create Account" : "Sign In Instead"}
         </button>

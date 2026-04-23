@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,17 +23,17 @@ export function UpgradeDialog({ open, onOpenChange, message }: UpgradeDialogProp
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-amber-500" />
+            <Sparkles className="h-5 w-5" style={{ color: "var(--primary-500)" }} />
             Upgrade to Premium
           </DialogTitle>
           <DialogDescription>{message}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Maybe Later
           </Button>
           <Button
-            variant="primary"
+            variant="accent"
             onClick={async () => {
               const res = await fetch("/api/stripe/checkout", { method: "POST" });
               const data = await res.json();

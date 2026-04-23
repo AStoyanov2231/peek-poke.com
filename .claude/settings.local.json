@@ -54,7 +54,17 @@
       "Bash(rtk pnpm *)",
       "Bash(node_modules/.bin/next lint *)",
       "Bash(rtk next *)",
-      "Bash(npx vercel *)"
+      "Bash(npx vercel *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(rtk curl *)",
+      "Bash(rtk wc *)",
+      "Read(//tmp/**)",
+      "Bash(gunzip -c \"/Users/andy/.claude/projects/-Applications-Coding-peek-poke-com-peek-poke-com/6e4c8f40-c452-4e1c-9c69-6aa1a1ee5ae1/tool-results/webfetch-1776961554040-lmrqmx.bin\")",
+      "Read(//private/tmp/**)",
+      "Bash(mkdir -p design_extract)",
+      "Bash(tar -xf design_system.html -C design_extract)",
+      "Bash(rtk read *)",
+      "Bash(/usr/bin/find *)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -33,7 +33,7 @@ function ShakeError({ message, className }: { message: string; className?: strin
     <AnimatePresence>
       {message && (
         <motion.div variants={shakeVariants} animate="shake" exit={{ opacity: 0, height: 0 }} className={className}>
-          <div className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm bg-red-50 text-destructive">
+          <div className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm bg-[var(--danger-50,oklch(0.97_0.02_27))] text-[var(--danger-600,oklch(0.55_0.18_27))]">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {message}
           </div>
@@ -206,20 +206,20 @@ export default function OnboardingPage() {
   const canFinish = selectedInterests.size >= MIN_INTERESTS && !completing;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-background">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-ink-1">
 
       <div className="relative w-full max-w-lg px-4 z-10">
         {/* Progress bar */}
         {step < 3 && (
           <div className="mb-8 mx-auto max-w-xs">
-            <div className="h-1 rounded-full overflow-hidden bg-neu-sunken shadow-neu-inset">
+            <div className="h-1 rounded-full overflow-hidden bg-ink-2">
               <motion.div
-                className="h-full rounded-full bg-primary-gradient"
+                className="h-full rounded-full bg-ink-9"
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.5, ease: "easeInOut" }}
               />
             </div>
-            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+            <div className="flex justify-between mt-2 text-xs text-ink-5">
               <span>Username</span>
               <span>Interests</span>
             </div>
@@ -230,25 +230,25 @@ export default function OnboardingPage() {
           {/* Step 1: Username */}
           {step === 1 && (
             <motion.div key="username" variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <div className="rounded-3xl p-6 lg:p-8 bg-background shadow-neu-raised">
+              <div className="rounded-3xl p-6 lg:p-8 bg-[var(--surface)] shadow-e-2">
                 <div className="text-center mb-8">
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring" as const, damping: 15, stiffness: 200, delay: 0.1 }}
-                    className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 bg-background shadow-neu-inset"
+                    className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 bg-ink-1"
                   >
-                    <AtSign className="w-8 h-8 text-primary" />
+                    <AtSign className="w-8 h-8 text-[var(--primary-500)]" />
                   </motion.div>
-                  <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-                    <span className="text-brand-gradient">Welcome to Peek &amp; Poke!</span>
+                  <h1 className="text-2xl lg:text-3xl font-bold mb-2 text-ink-9">
+                    Welcome to Peek &amp; Poke!
                   </h1>
-                  <p className="text-muted-foreground">Choose a username to get started</p>
+                  <p className="text-ink-5">Choose a username to get started</p>
                 </div>
 
                 <div className="space-y-4">
                   <div className="relative">
-                    <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ink-5" />
                     <input
                       value={username}
                       onChange={(e) => {
@@ -259,10 +259,7 @@ export default function OnboardingPage() {
                       onKeyDown={(e) => { if (e.key === "Enter" && canSubmitUsername) handleUsernameSubmit(); }}
                       placeholder="username"
                       maxLength={20}
-                      className="w-full h-14 pl-11 pr-12 text-lg rounded-xl text-foreground placeholder:text-muted-foreground border-none outline-none transition-shadow duration-300 bg-background shadow-neu-inset"
-                      style={{
-                        boxShadow: username.length > 0 ? "inset 4px 4px 8px #94B1AF, inset -4px -4px 8px #E5F4F3, 0 0 0 2px hsl(var(--primary) / 0.4)" : undefined,
-                      }}
+                      className="w-full h-14 pl-11 pr-12 text-lg rounded-xl text-ink-9 placeholder:text-ink-4 border border-[var(--ink-3)] bg-[var(--surface)] outline-none focus:ring-2 focus:ring-[var(--primary-500)] transition-shadow duration-200"
                       autoFocus
                     />
                     <AnimatePresence>
@@ -282,10 +279,10 @@ export default function OnboardingPage() {
 
                   {/* Character counter */}
                   <div className="flex items-center justify-between px-1">
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-ink-5">
                       Letters, numbers, underscores
                     </span>
-                    <span className={cn("text-xs", username.length >= MIN_USERNAME_LENGTH ? "text-primary" : "text-muted-foreground")}>
+                    <span className={cn("text-xs", username.length >= MIN_USERNAME_LENGTH ? "text-[var(--primary-500)]" : "text-ink-5")}>
                       {username.length}/20
                     </span>
                   </div>
@@ -300,8 +297,8 @@ export default function OnboardingPage() {
                     className={cn(
                       "w-full h-12 rounded-full font-semibold text-base flex items-center justify-center gap-2 transition-all duration-300",
                       canSubmitUsername
-                        ? "bg-primary-gradient text-white shadow-neu-raised-sm cursor-pointer"
-                        : "bg-neu-sunken text-muted-foreground shadow-neu-inset cursor-not-allowed"
+                        ? "bg-ink-9 text-white shadow-e-1 cursor-pointer"
+                        : "bg-ink-2 text-ink-4 cursor-not-allowed"
                     )}
                   >
                     {usernameLoading ? (
@@ -326,32 +323,32 @@ export default function OnboardingPage() {
               initial="enter"
               animate="center"
               exit="exit"
-              className="fixed inset-0 overflow-y-auto bg-background"
+              className="fixed inset-0 overflow-y-auto bg-ink-1"
             >
               {/* Sticky header */}
-              <div className="sticky top-0 z-20 pt-6 pb-4 px-4 bg-background">
+              <div className="sticky top-0 z-20 pt-6 pb-4 px-4 bg-ink-1">
                 <div className="max-w-lg mx-auto text-center">
-                  <h1 className="text-2xl font-bold text-foreground mb-1">Pick your interests</h1>
-                  <p className="text-sm text-muted-foreground">
+                  <h1 className="text-2xl font-bold text-ink-9 mb-1">Pick your interests</h1>
+                  <p className="text-sm text-ink-5">
                     Select at least {MIN_INTERESTS} things you love
                   </p>
                   <div className="flex items-center justify-center gap-2 mt-3">
                     <motion.span
                       key={selectedInterests.size}
-                      initial={{ scale: 1.4, color: "hsl(var(--primary))" }}
-                      animate={{ scale: 1, color: "hsl(var(--foreground))" }}
+                      initial={{ scale: 1.4, color: "var(--primary-500)" }}
+                      animate={{ scale: 1, color: "var(--ink-9)" }}
                       className="font-semibold text-sm"
                     >
                       {selectedInterests.size}
                     </motion.span>
-                    <span className="text-sm text-muted-foreground">/</span>
-                    <span className="text-sm text-muted-foreground">{MIN_INTERESTS}</span>
+                    <span className="text-sm text-ink-5">/</span>
+                    <span className="text-sm text-ink-5">{MIN_INTERESTS}</span>
                     <div className="flex gap-1 ml-1">
                       {[...Array(MIN_INTERESTS)].map((_, i) => (
                         <motion.div
                           key={i}
                           animate={{
-                            background: i < selectedInterests.size ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            background: i < selectedInterests.size ? "var(--primary-500)" : "var(--ink-3)",
                             scale: i < selectedInterests.size ? 1.2 : 1,
                           }}
                           transition={{ type: "spring" as const, damping: 20, stiffness: 300 }}
@@ -367,7 +364,7 @@ export default function OnboardingPage() {
               <div className="max-w-lg mx-auto px-4 pb-28 space-y-6">
                 {tagsLoading ? (
                   <div className="flex justify-center py-16">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <Loader2 className="h-8 w-8 animate-spin text-[var(--primary-500)]" />
                   </div>
                 ) : (
                   Object.entries(groupedTags).map(([category, tags], catIdx) => (
@@ -377,7 +374,7 @@ export default function OnboardingPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: catIdx * 0.06, duration: 0.3 }}
                     >
-                      <h3 className="font-medium mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                      <h3 className="font-medium mb-3 flex items-center gap-2 text-sm text-ink-5">
                         <span>{categoryEmojis[category] || "📌"}</span>
                         {category}
                       </h3>
@@ -397,8 +394,8 @@ export default function OnboardingPage() {
                               className={cn(
                                 "px-4 py-2 text-sm rounded-full border-0 transition-all duration-200 flex items-center gap-1",
                                 isSelected
-                                  ? "bg-primary-gradient text-white shadow-neu-raised-sm"
-                                  : "bg-background shadow-neu-raised-sm text-foreground",
+                                  ? "bg-ink-9 text-white shadow-e-1"
+                                  : "bg-[var(--surface)] shadow-e-1 text-ink-9",
                                 isDisabled && !isSelected && "opacity-40 cursor-not-allowed",
                                 isLoading && "opacity-50"
                               )}
@@ -419,7 +416,7 @@ export default function OnboardingPage() {
               </div>
 
               {/* Sticky bottom bar */}
-              <div className="fixed bottom-0 left-0 right-0 z-20 px-4 pb-6 pt-4 bg-background">
+              <div className="fixed bottom-0 left-0 right-0 z-20 px-4 pb-6 pt-4 bg-ink-1">
                 <div className="max-w-lg mx-auto">
                   <ShakeError message={interestError} className="mb-3" />
                   <div className="flex gap-3">
@@ -427,7 +424,7 @@ export default function OnboardingPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => setStep(1)}
-                      className="flex-1 h-12 rounded-full font-medium flex items-center justify-center gap-2 bg-background shadow-neu-raised text-muted-foreground"
+                      className="flex-1 h-12 rounded-full font-medium flex items-center justify-center gap-2 bg-[var(--surface)] shadow-e-2 text-ink-6"
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Back
@@ -440,8 +437,8 @@ export default function OnboardingPage() {
                       className={cn(
                         "flex-1 h-12 rounded-full font-semibold flex items-center justify-center gap-2 transition-all duration-300",
                         canFinish
-                          ? "bg-primary-gradient text-white shadow-neu-raised-sm cursor-pointer"
-                          : "bg-neu-sunken text-muted-foreground shadow-neu-inset cursor-not-allowed"
+                          ? "bg-ink-9 text-white shadow-e-1 cursor-pointer"
+                          : "bg-ink-2 text-ink-4 cursor-not-allowed"
                       )}
                     >
                       {completing ? (
@@ -477,7 +474,7 @@ export default function OnboardingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4, duration: 0.4 }}
-                className="text-3xl font-bold text-foreground mb-3"
+                className="text-3xl font-bold text-ink-9 mb-3"
               >
                 You&apos;re all set, @{username}
               </motion.h1>
@@ -485,7 +482,7 @@ export default function OnboardingPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.7, duration: 0.4 }}
-                className="text-muted-foreground"
+                className="text-ink-5"
               >
                 Taking you to the map...
               </motion.p>
@@ -495,7 +492,7 @@ export default function OnboardingPage() {
                 transition={{ delay: 0.9 }}
                 className="mt-8 flex justify-center"
               >
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--primary-500)]" />
               </motion.div>
             </motion.div>
           )}

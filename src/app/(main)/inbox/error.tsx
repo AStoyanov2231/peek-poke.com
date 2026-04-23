@@ -1,6 +1,6 @@
 "use client";
 
-export default function GlobalError({
+export default function InboxError({
   error,
   reset,
 }: {
@@ -8,17 +8,16 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
-      <h2 className="text-lg font-semibold text-foreground">Something went wrong</h2>
-      <p className="text-sm text-muted-foreground text-center max-w-sm">
-        {error.digest ? `Error ID: ${error.digest}` : "An unexpected error occurred."}
-      </p>
-      <button
-        onClick={reset}
-        className="px-4 py-2 bg-primary-gradient text-primary-foreground rounded-md text-sm font-medium"
-      >
-        Try again
-      </button>
+    <div className="flex flex-col items-center justify-center h-full gap-4 p-4">
+      <div className="card-flat rounded-lg p-6 flex flex-col items-center gap-3 max-w-sm w-full text-center">
+        <h2 className="t-title-2 text-ink-9">Couldn&apos;t load inbox</h2>
+        <p className="t-body muted">
+          {error.digest ? `Error ID: ${error.digest}` : "An unexpected error occurred."}
+        </p>
+        <button onClick={reset} className="btn btn-secondary btn-md mt-1">
+          Try again
+        </button>
+      </div>
     </div>
   );
 }

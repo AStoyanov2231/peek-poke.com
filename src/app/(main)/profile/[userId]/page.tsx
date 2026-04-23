@@ -137,7 +137,7 @@ export default function PublicProfilePage() {
           <div className="flex justify-start w-full">
             <button
               onClick={() => router.back()}
-              className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+              className="w-9 h-9 rounded-full bg-background shadow-e-1 flex items-center justify-center"
             >
               <ArrowLeft className="h-[18px] w-[18px] text-muted-foreground" />
             </button>
@@ -145,7 +145,7 @@ export default function PublicProfilePage() {
 
           {/* Avatar + halo */}
           <div className="relative mb-5">
-            <div className="w-20 h-20 rounded-full bg-background shadow-neu-raised flex items-center justify-center overflow-hidden">
+            <div className="w-20 h-20 rounded-full bg-background shadow-e-2 flex items-center justify-center overflow-hidden">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
               ) : (
@@ -153,7 +153,7 @@ export default function PublicProfilePage() {
               )}
             </div>
             {!loading && data && (
-              <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-background shadow-neu-raised-sm rounded-full px-3 py-1 text-xs whitespace-nowrap z-10">
+              <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-background shadow-e-1 rounded-full px-3 py-1 text-xs whitespace-nowrap z-10">
                 <span className="font-semibold text-primary">{data.stats.friends_count}</span>
                 <span className="text-muted-foreground">Friends</span>
                 <span className="text-muted-foreground/40">·</span>
@@ -189,19 +189,19 @@ export default function PublicProfilePage() {
           {!loading && data && (
             <div className="flex gap-3 pt-2">
               {isFriend ? (
-                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-neu-raised-sm">
+                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1">
                   <UserCheck className="h-4 w-4 text-green-600" />
                   <span className="text-sm font-medium text-green-600">Friends</span>
                 </div>
               ) : isPending ? (
-                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-neu-raised-sm">
+                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium text-muted-foreground">Requested</span>
                 </div>
               ) : (
                 <button
                   onClick={handleAddFriend}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary-gradient text-white shadow-neu-raised-sm"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-ink-9 text-white shadow-e-1"
                 >
                   <UserPlus className="h-4 w-4" />
                   <span className="text-sm font-medium">Add Friend</span>
@@ -210,7 +210,7 @@ export default function PublicProfilePage() {
               {(isFriend || viewerIsPremium) && (
                 <button
                   onClick={handleSendMessage}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-neu-raised-sm"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1"
                 >
                   <MessageCircle className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium text-primary">Message</span>

@@ -2,18 +2,21 @@
 
 import { useState, useOptimistic, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X, Loader2 } from "lucide-react";
+import { Loader2, UserPlus } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { UpgradeDialog } from "@/components/ui/UpgradeDialog";
-import { getInitials } from "@/lib/utils";
 import { isPremium } from "@/types/database";
 import { useAppStore, type FriendWithFriendshipId } from "@/stores/appStore";
-import { useFriendRequests } from "@/stores/selectors";
+import { useFriendRequests, useFriends, useNearbyUsers, useUserLocation } from "@/stores/selectors";
+import { formatDistance } from "@/lib/geo";
 
 export function RequestsTab() {
   const router = useRouter();
   const storeRequests = useFriendRequests();
+  const friends = useFriends();
+  const nearbyUsers = useNearbyUsers();
+  const userLocation = useUserLocation();
   const addFriend = useAppStore((s) => s.addFriend);
   const removeRequest = useAppStore((s) => s.removeRequest);
 
@@ -26,6 +29,12 @@ export function RequestsTab() {
     storeRequests,
     (state, removedId: string) => state.filter((r) => r.id !== removedId)
   );
+
+  const friendIds = new Set(friends.map((f) => f.id));
+  const requesterIds = new Set(storeRequests.map((r) => r.requester.id));
+  const suggestedNearby = nearbyUsers
+    .filter((u) => !friendIds.has(u.userId) && !requesterIds.has(u.userId))
+    .slice(0, 3);
 
   const handleRequest = async (id: string, status: "accepted" | "declined") => {
     if (processingIds.has(id)) return;
@@ -63,7 +72,6 @@ export function RequestsTab() {
           addFriend(newFriend);
         }
       } catch (error) {
-        // Optimistic state reverts automatically since backing state wasn't updated
         console.error("Failed to handle friend request:", error);
       } finally {
         setProcessingIds((prev) => {
@@ -75,62 +83,121 @@ export function RequestsTab() {
     });
   };
 
-  if (optimisticRequests.length === 0) {
+  const handleAddNearby = async (userId: string) => {
+    if (processingIds.has(userId)) return;
+    setProcessingIds((prev) => new Set(prev).add(userId));
+    try {
+      await fetch("/api/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+    } catch (error) {
+      console.error("Failed to send friend request:", error);
+    } finally {
+      setProcessingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
+
+  const hasContent = optimisticRequests.length > 0 || suggestedNearby.length > 0;
+
+  if (!hasContent) {
     return (
       <div className="flex flex-col items-center justify-center h-48 text-center px-8">
-        <p className="text-muted-foreground text-sm">No pending requests</p>
+        <p className="t-body muted">No pending requests</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-2 p-3">
-        {optimisticRequests.map((req) => (
-          <div key={req.id} className="flex items-center gap-3 p-3 bg-background rounded-xl transition-all md:hover:shadow-neu-inset border border-primary/20">
-            <Avatar className="h-12 w-12 flex-shrink-0">
-              <AvatarImage
-                src={req.requester.avatar_url || undefined}
-                alt={req.requester.display_name || req.requester.username}
-              />
-              <AvatarFallback className="bg-primary-gradient text-white">
-                {getInitials(req.requester.display_name || req.requester.username)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => router.push(`/profile/${req.requester.id}`)}
-                  className="font-semibold text-[15px] text-foreground truncate hover:underline"
-                >
-                  {req.requester.display_name || req.requester.username}
-                </button>
-                {isPremium(req.requester) && <PremiumBadge size="sm" />}
-              </div>
-              <p className="text-[13px] text-muted-foreground">@{req.requester.username}</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                aria-label="Accept friend request"
-                onClick={() => handleRequest(req.id, "accepted")}
-                disabled={processingIds.has(req.id)}
-                className="w-9 h-9 rounded-full bg-primary-gradient text-white shadow-neu-raised-sm flex items-center justify-center disabled:opacity-50 transition-transform md:hover:scale-110"
-              >
-                {processingIds.has(req.id)
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Check className="h-4 w-4" />}
-              </button>
-              <button
-                aria-label="Reject friend request"
-                onClick={() => handleRequest(req.id, "declined")}
-                disabled={processingIds.has(req.id)}
-                className="w-9 h-9 rounded-full bg-destructive shadow-neu-raised-sm text-white flex items-center justify-center transition-all md:hover:scale-110"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="space-y-0.5 px-2 py-2">
+        {optimisticRequests.length > 0 && (
+          <>
+            <p className="t-micro muted px-3 pb-1 pt-2">Incoming</p>
+            {optimisticRequests.map((req) => {
+              const name = req.requester.display_name || req.requester.username;
+              return (
+                <div key={req.id} className="flex items-center gap-3 px-3 py-3 rounded-xl md:hover:bg-ink-1">
+                  <Avatar className="h-11 w-11 flex-shrink-0">
+                    <AvatarImage
+                      src={req.requester.avatar_url || undefined}
+                      alt={name}
+                    />
+                    <AvatarFallback name={name} />
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => router.push(`/profile/${req.requester.id}`)}
+                        className="t-body-b text-ink-9 truncate hover:underline"
+                      >
+                        {name}
+                      </button>
+                      {isPremium(req.requester) && <PremiumBadge size="sm" />}
+                    </div>
+                    <p className="t-caption muted">@{req.requester.username}</p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleRequest(req.id, "declined")}
+                      disabled={processingIds.has(req.id)}
+                      className="btn btn-ghost btn-sm disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={() => handleRequest(req.id, "accepted")}
+                      disabled={processingIds.has(req.id)}
+                      className="btn btn-accent btn-sm disabled:opacity-50"
+                    >
+                      {processingIds.has(req.id)
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : "Accept"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {suggestedNearby.length > 0 && (
+          <>
+            <p className="t-micro muted px-3 pb-1 pt-4">Suggested nearby</p>
+            {suggestedNearby.map((u) => {
+              const name = u.display_name || u.username;
+              const distance = userLocation
+                ? formatDistance(userLocation.lat, userLocation.lng, u.lat, u.lng)
+                : null;
+              return (
+                <div key={u.userId} className="flex items-center gap-3 px-3 py-3 rounded-xl md:hover:bg-ink-1">
+                  <Avatar className="h-11 w-11 flex-shrink-0">
+                    <AvatarImage src={u.avatar_url || undefined} alt={name} />
+                    <AvatarFallback name={name} />
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="t-body-b text-ink-9 truncate">{name}</p>
+                    {distance && <p className="t-caption muted">{distance} away</p>}
+                  </div>
+                  <button
+                    onClick={() => handleAddNearby(u.userId)}
+                    disabled={processingIds.has(u.userId)}
+                    className="btn btn-secondary btn-sm flex-shrink-0 disabled:opacity-50"
+                  >
+                    {processingIds.has(u.userId)
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <><UserPlus className="h-3.5 w-3.5 mr-1" />Add</>}
+                  </button>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
 
       <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} message={upgradeMessage} />

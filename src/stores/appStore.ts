@@ -13,6 +13,8 @@ import type {
   NearbyUser,
 } from "@/types/database";
 
+export type Bot = { id: string; lat: number; lng: number };
+
 // Thread types for unified inbox
 export type DMThreadWithParticipants = DMThread & {
   type: "dm";
@@ -171,6 +173,11 @@ interface AppState {
   setSelectedClusterUserIds: (ids: string[] | null) => void;
   setHighlightedUserId: (id: string | null) => void;
   selectUser: (userId: string) => void;
+
+  // Coin bots
+  bots: Bot[];
+  setBots: (bots: Bot[]) => void;
+  removeBot: (id: string) => void;
 }
 
 const initialStats: ProfileStats = {
@@ -486,6 +493,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setOnlineUsers: (userIds) => set({ onlineUsers: new Set(userIds) }),
 
   // Location state
+  bots: [],
+  setBots: (bots) => set({ bots }),
+  removeBot: (id) => set((s) => ({ bots: s.bots.filter((b) => b.id !== id) })),
+
   userLocation: null,
   nearbyUsers: [],
   visibleUsers: [],

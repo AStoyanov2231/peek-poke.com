@@ -59,4 +59,5 @@ export const useSelectedClusterUserIds = () => useAppStore((state) => state.sele
 export const useHighlightedUserId = () => useAppStore((state) => state.highlightedUserId);
 export const usePendingUserId = () => useAppStore((state) => state.pendingUserId);
 export const useHighlightedData = () => useAppStore((state) => state.highlightedData);
+export const useBots = () => useAppStore((state) => state.bots);
 

@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Map, { Marker } from "react-map-gl/maplibre";
 import Supercluster from "supercluster";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useUserLocation, useNearbyUsers, useProfile, useFriends, useHighlightedUserId, useIsPremium, usePendingUserId, useHighlightedData } from "@/stores/selectors";
+import { useUserLocation, useNearbyUsers, useProfile, useFriends, useHighlightedUserId, useIsPremium, usePendingUserId, useHighlightedData, useBots } from "@/stores/selectors";
 import { useAppStore } from "@/stores/appStore";
 import { UserPinContent } from "./UserPin";
 import { HighlightedPin } from "./HighlightedPin";
+import { BotPin } from "./BotPin";
+import { useBots as useBotsHook } from "@/hooks/useBots";
+import { haversineKm } from "@/lib/geo";
 import type { NearbyUser } from "@/types/database";
 import type { MapRef } from "react-map-gl/maplibre";
 
@@ -32,9 +35,11 @@ export function MapViewInner() {
   const pendingUserId = usePendingUserId();
   const highlightedData = useHighlightedData();
   const isPremium = useIsPremium();
+  const bots = useBots();
   const setSelectedClusterUserIds = useAppStore((s) => s.setSelectedClusterUserIds);
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
   const selectUser = useAppStore((s) => s.selectUser);
+  useBotsHook();
 
   const hasCentered = useRef(false);
   const isDragging = useRef(false);
@@ -245,6 +250,15 @@ export function MapViewInner() {
             </Marker>
           );
         })}
+
+        {/* Coin bot pins */}
+        {bots.map((b) => (
+          <BotPin
+            key={b.id}
+            bot={b}
+            collectable={!!userLocation && haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng) <= 0.05}
+          />
+        ))}
 
         {/* Highlighted user pin */}
         {highlightedUser && highlightedData && (

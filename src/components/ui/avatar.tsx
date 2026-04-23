@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
-
+import { avatarColor } from "@/lib/avatar-color"
 import { cn } from "@/lib/utils"
 
 const Avatar = React.forwardRef<
@@ -32,22 +32,32 @@ const AvatarImage = React.forwardRef<
 ))
 AvatarImage.displayName = AvatarPrimitive.Image.displayName
 
+interface AvatarFallbackProps
+  extends React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback> {
+  name?: string;
+}
+
 const AvatarFallback = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Fallback
-    ref={ref}
-    className={cn(
-      "flex h-full w-full items-center justify-center rounded-full bg-neu-sunken",
-      className
-    )}
-    {...props}
-  />
-))
+  AvatarFallbackProps
+>(({ className, name, style, children, ...props }, ref) => {
+  const pal = name ? avatarColor(name) : { bg: 'var(--ink-2)', fg: 'var(--ink-7)' };
+  return (
+    <AvatarPrimitive.Fallback
+      ref={ref}
+      className={cn(
+        "flex h-full w-full items-center justify-center rounded-full font-semibold text-sm",
+        className
+      )}
+      style={{ background: pal.bg, color: pal.fg, ...style }}
+      {...props}
+    >
+      {children ?? (name ? name[0].toUpperCase() : '?')}
+    </AvatarPrimitive.Fallback>
+  );
+})
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 
-// Avatar with online status indicator
 interface AvatarWithStatusProps {
   src?: string | null;
   fallback: string;
@@ -62,10 +72,10 @@ const sizeClasses = {
   lg: "h-14 w-14",
 };
 
-const statusSizeClasses = {
+const statusDotClasses = {
   sm: "w-2 h-2 right-0 bottom-0",
-  md: "w-3 h-3 right-0 bottom-0",
-  lg: "w-3.5 h-3.5 right-0.5 bottom-0.5",
+  md: "w-2.5 h-2.5 right-0 bottom-0",
+  lg: "w-3 h-3 right-0.5 bottom-0.5",
 };
 
 function AvatarWithStatus({
@@ -79,18 +89,23 @@ function AvatarWithStatus({
     <div className={cn("relative inline-block", className)}>
       <Avatar className={sizeClasses[size]}>
         {src && <AvatarImage src={src} alt={fallback} />}
-        <AvatarFallback className="text-foreground font-medium">
+        <AvatarFallback name={fallback}>
           {(fallback || "??").slice(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      {status && (
+      {status === "online" && (
         <span
           className={cn(
-            "absolute border-2 border-background rounded-full",
-            statusSizeClasses[size],
-            status === "online" && "status-online presence-pulse",
-            status === "away" && "status-away",
-            status === "offline" && "status-offline"
+            "absolute border-2 border-white rounded-full status-online presence-pulse",
+            statusDotClasses[size]
+          )}
+        />
+      )}
+      {status === "offline" && (
+        <span
+          className={cn(
+            "absolute border-2 border-white rounded-full status-offline",
+            statusDotClasses[size]
           )}
         />
       )}

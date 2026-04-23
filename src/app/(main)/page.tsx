@@ -4,14 +4,23 @@ import { MapView } from "@/components/map/MapViewDynamic";
 import { NearbySwiper } from "@/components/map/NearbySwiper";
 import { RecenterButton } from "@/components/map/RecenterButton";
 import { MapTopLabels } from "@/components/map/MapTopLabels";
+import { MapSearchBar } from "@/components/map/MapSearchBar";
+import { DesktopNearbyRail } from "@/components/map/DesktopNearbyRail";
 
 export default function MainPage() {
   return (
-    <div className="relative h-full">
-      <MapTopLabels />
-      <MapView />
-      <NearbySwiper />
-      <RecenterButton />
+    <div className="flex h-full overflow-hidden">
+      {/* 340px nearby rail — desktop only (hidden on mobile) */}
+      <DesktopNearbyRail />
+
+      {/* Map canvas */}
+      <div className="flex-1 relative min-w-0">
+        <MapSearchBar />
+        <MapTopLabels />
+        <MapView />
+        <NearbySwiper />
+        <RecenterButton />
+      </div>
     </div>
   );
 }

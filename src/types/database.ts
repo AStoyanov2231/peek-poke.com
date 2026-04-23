@@ -120,6 +120,8 @@ export type ProfileInterest = {
 export type ProfileStats = {
   photos_count: number;
   friends_count: number;
+  meetings_count?: number;
+  radius_km?: number;
 };
 
 export type SubscriptionStatus =

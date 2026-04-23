@@ -175,7 +175,7 @@ export function PhotoGallery({
             "sticky bottom-0 flex justify-center py-2 pointer-events-none transition-opacity duration-300",
             showScrollHint ? "opacity-100" : "opacity-0"
           )}>
-            <div className="w-11 h-11 rounded-full bg-primary-gradient shadow-neu-raised-sm flex items-center justify-center">
+            <div className="w-11 h-11 rounded-full bg-ink-9 shadow-e-1 flex items-center justify-center">
               <ChevronDown className="h-5 w-5 text-white" />
             </div>
           </div>
