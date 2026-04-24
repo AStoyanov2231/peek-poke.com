@@ -64,7 +64,18 @@
       "Bash(mkdir -p design_extract)",
       "Bash(tar -xf design_system.html -C design_extract)",
       "Bash(rtk read *)",
-      "Bash(/usr/bin/find *)"
+      "Bash(/usr/bin/find *)",
+      "mcp__plugin_supabase_supabase__list_migrations",
+      "Bash(next lint *)",
+      "Bash(node_modules/.bin/next --version)",
+      "Bash(node_modules/.bin/eslint src/lib/search/)",
+      "Bash(\"/c/Program Files/nodejs/npm\" run lint)",
+      "Bash(node_modules/.bin/tsc --noEmit --project tsconfig.json)",
+      "Bash(rtk grep *)",
+      "Bash(rtk tsc *)",
+      "Bash(npm test *)",
+      "Bash(taskkill *)",
+      "PowerShell(Stop-Process *)"
     ]
   },
   "enabledMcpjsonServers": [

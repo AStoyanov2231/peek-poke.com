@@ -35,21 +35,21 @@ export function ChatComposer({ value, onChange, onSubmit, isPending }: ChatCompo
             autoComplete="off"
             autoCorrect="on"
           />
-          <div
-            className="overflow-hidden transition-all duration-200 ease-out flex-shrink-0"
-            style={{ maxWidth: hasText ? 36 : 0, opacity: hasText ? 1 : 0 }}
+          <button
+            type="submit"
+            disabled={!hasText || isPending}
+            className="chat-send-button flex-shrink-0 transition-all duration-200 ease-out"
+            aria-label="Send message"
+            style={{
+              opacity: hasText ? 1 : 0,
+              transform: hasText ? 'translateY(0)' : 'translateY(8px)',
+              pointerEvents: hasText ? 'auto' : 'none',
+            }}
           >
-            <button
-              type="submit"
-              disabled={!hasText || isPending}
-              className="chat-send-button"
-              aria-label="Send message"
-            >
-              {isPending
-                ? <Loader2 size={18} className="animate-spin" />
-                : <ArrowUp size={18} />}
-            </button>
-          </div>
+            {isPending
+              ? <Loader2 size={18} className="animate-spin" />
+              : <ArrowUp size={18} />}
+          </button>
         </div>
       </div>
     </form>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, UserPlus, MessageCircle, UserCheck, Clock } from "lucide-react";
+import { ArrowLeft, UserPlus, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { OtherUserGallery } from "@/components/profile/OtherUserGallery";
@@ -116,7 +116,7 @@ export default function PublicProfilePage() {
         });
         if (res.ok) {
           const d = await res.json();
-          router.push(`/inbox?tab=chats&thread=${d.thread_id}`);
+          router.push(`/inbox?tab=chats&thread=${d.id}`);
         }
       } catch (err) {
         console.error("Failed to start DM:", err);
@@ -190,10 +190,13 @@ export default function PublicProfilePage() {
           {!loading && data && (
             <div className="flex gap-3 pt-2">
               {isFriend ? (
-                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1">
-                  <UserCheck className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-600">Friends</span>
-                </div>
+                <button
+                  onClick={handleSendMessage}
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1"
+                >
+                  <span className="text-base leading-none">👋</span>
+                  <span className="text-sm font-medium text-primary">Say Hi</span>
+                </button>
               ) : isPending ? (
                 <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1">
                   <Clock className="h-4 w-4 text-muted-foreground" />
@@ -208,18 +211,6 @@ export default function PublicProfilePage() {
                   <span className="text-sm font-medium">Add Friend</span>
                 </button>
               )}
-              <button
-                onClick={handleSendMessage}
-                disabled={!isFriend}
-                className={`flex items-center gap-1.5 h-9 px-4 rounded-full shadow-e-1 transition-colors ${
-                  isFriend
-                    ? "bg-background text-primary"
-                    : "bg-background text-muted-foreground cursor-not-allowed opacity-60"
-                }`}
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span className="text-sm font-medium">Message</span>
-              </button>
             </div>
           )}
         </div>

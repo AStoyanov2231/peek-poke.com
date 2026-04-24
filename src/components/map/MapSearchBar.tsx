@@ -47,7 +47,7 @@ export function MapSearchBar() {
 
   return (
     <div
-      className="md:hidden absolute left-4 right-4 z-30 flex gap-2.5"
+      className="md:hidden absolute left-4 right-4 z-40 flex gap-2.5"
       style={{ top: "calc(var(--safe-area-top) + 58px)" }}
     >
       {/* Search pill */}
