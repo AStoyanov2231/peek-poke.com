@@ -49,3 +49,4 @@ supabase-schema.sql
 #cursor stuffs
 .cursor/
 .worktrees/
+.worktrees/
