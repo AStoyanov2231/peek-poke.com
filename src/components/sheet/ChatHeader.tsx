@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, MoreHorizontal, User } from "lucide-react";
+import { ChevronLeft, User } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { isPremium, type Profile } from "@/types/database";
@@ -56,9 +56,6 @@ export function ChatHeader({ other, isOnline, distanceMeters, onBack }: ChatHead
         >
           <User size={14} strokeWidth={2} /> Profile
         </a>
-        <button className="iconbtn iconbtn-sm" aria-label="More" style={{ boxShadow: "none", background: "transparent" }}>
-          <MoreHorizontal size={16} />
-        </button>
       </div>
     </div>
   );

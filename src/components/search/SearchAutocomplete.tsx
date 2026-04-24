@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { SearchTagResult, SearchUserResult } from '@/lib/search/types';
 import { cn } from '@/lib/utils';
+import { AddFriendButton } from '@/components/ui/AddFriendButton';
 
 type Props = {
   value: string;
@@ -285,42 +286,47 @@ function UserRow({
   onSelect: (userId: string) => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
       className={cn(
-        'flex items-center gap-3 w-full px-3 py-2 text-left hover:bg-ink-1 transition-colors',
+        'flex items-center gap-3 w-full px-3 py-2 hover:bg-ink-1 transition-colors',
         highlighted && 'bg-ink-1',
       )}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onSelect(user.id);
-      }}
     >
-      <AvatarWithStatus
-        src={user.avatar_url}
-        fallback={user.display_name || user.username}
-        status={user.is_online ? 'online' : 'offline'}
-        size="sm"
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-medium text-ink-9 truncate">
-            {user.display_name}
-          </span>
-          <span className="text-xs text-ink-5 truncate">@{user.username}</span>
-        </div>
-        {user.matched_tags.length > 0 && (
-          <div className="flex gap-1 mt-0.5 flex-wrap">
-            {user.matched_tags.map((tag) => (
-              <Badge key={tag.id} variant="secondary" className="text-xs py-0 px-1.5">
-                {tag.icon && <span className="mr-0.5">{tag.icon}</span>}
-                {tag.name}
-              </Badge>
-            ))}
+      <button
+        type="button"
+        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onSelect(user.id);
+        }}
+      >
+        <AvatarWithStatus
+          src={user.avatar_url}
+          fallback={user.display_name || user.username}
+          status={user.is_online ? 'online' : 'offline'}
+          size="sm"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-medium text-ink-9 truncate">
+              {user.display_name}
+            </span>
+            <span className="text-xs text-ink-5 truncate">@{user.username}</span>
           </div>
-        )}
-      </div>
-    </button>
+          {user.matched_tags.length > 0 && (
+            <div className="flex gap-1 mt-0.5 flex-wrap">
+              {user.matched_tags.map((tag) => (
+                <Badge key={tag.id} variant="secondary" className="text-xs py-0 px-1.5">
+                  {tag.icon && <span className="mr-0.5">{tag.icon}</span>}
+                  {tag.name}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      </button>
+      <AddFriendButton userId={user.id} />
+    </div>
   );
 }
 

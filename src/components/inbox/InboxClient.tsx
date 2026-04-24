@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SquarePen } from "lucide-react";
 import { ChatsTab } from "@/components/inbox/ChatsTab";
 import { FriendsTab } from "@/components/inbox/FriendsTab";
 import { RequestsTab } from "@/components/inbox/RequestsTab";
@@ -60,12 +59,7 @@ export function InboxClient() {
       <div className="flex flex-col w-full md:w-[360px] md:flex-shrink-0 md:border-r md:border-hairline bg-background overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between">
-            <h1 className="t-title-1 text-ink-9">Inbox</h1>
-            <button className="iconbtn iconbtn-sm" aria-label="Compose" style={{ boxShadow: "none", background: "transparent" }}>
-              <SquarePen size={14} strokeWidth={2} />
-            </button>
-          </div>
+          <h1 className="t-title-1 text-ink-9">Inbox</h1>
         </div>
 
         {/* Segmented tab bar */}

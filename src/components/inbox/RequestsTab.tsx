@@ -2,21 +2,17 @@
 
 import { useState, useOptimistic, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { UpgradeDialog } from "@/components/ui/UpgradeDialog";
 import { isPremium } from "@/types/database";
 import { useAppStore, type FriendWithFriendshipId } from "@/stores/appStore";
-import { useFriendRequests, useFriends, useNearbyUsers, useUserLocation } from "@/stores/selectors";
-import { formatDistance } from "@/lib/geo";
+import { useFriendRequests } from "@/stores/selectors";
 
 export function RequestsTab() {
   const router = useRouter();
   const storeRequests = useFriendRequests();
-  const friends = useFriends();
-  const nearbyUsers = useNearbyUsers();
-  const userLocation = useUserLocation();
   const addFriend = useAppStore((s) => s.addFriend);
   const removeRequest = useAppStore((s) => s.removeRequest);
 
@@ -29,12 +25,6 @@ export function RequestsTab() {
     storeRequests,
     (state, removedId: string) => state.filter((r) => r.id !== removedId)
   );
-
-  const friendIds = new Set(friends.map((f) => f.id));
-  const requesterIds = new Set(storeRequests.map((r) => r.requester.id));
-  const suggestedNearby = nearbyUsers
-    .filter((u) => !friendIds.has(u.userId) && !requesterIds.has(u.userId))
-    .slice(0, 3);
 
   const handleRequest = async (id: string, status: "accepted" | "declined") => {
     if (processingIds.has(id)) return;
@@ -83,27 +73,7 @@ export function RequestsTab() {
     });
   };
 
-  const handleAddNearby = async (userId: string) => {
-    if (processingIds.has(userId)) return;
-    setProcessingIds((prev) => new Set(prev).add(userId));
-    try {
-      await fetch("/api/friends", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId }),
-      });
-    } catch (error) {
-      console.error("Failed to send friend request:", error);
-    } finally {
-      setProcessingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
-      });
-    }
-  };
-
-  const hasContent = optimisticRequests.length > 0 || suggestedNearby.length > 0;
+  const hasContent = optimisticRequests.length > 0;
 
   if (!hasContent) {
     return (
@@ -116,10 +86,8 @@ export function RequestsTab() {
   return (
     <>
       <div className="space-y-0.5 px-2 py-2">
-        {optimisticRequests.length > 0 && (
-          <>
-            <p className="t-micro muted px-3 pb-1 pt-2">Incoming</p>
-            {optimisticRequests.map((req) => {
+        <p className="t-micro muted px-3 pb-1 pt-2">Incoming</p>
+        {optimisticRequests.map((req) => {
               const name = req.requester.display_name || req.requester.username;
               return (
                 <div key={req.id} className="flex items-center gap-3 px-3 py-3 rounded-xl md:hover:bg-ink-1">
@@ -162,42 +130,7 @@ export function RequestsTab() {
                   </div>
                 </div>
               );
-            })}
-          </>
-        )}
-
-        {suggestedNearby.length > 0 && (
-          <>
-            <p className="t-micro muted px-3 pb-1 pt-4">Suggested nearby</p>
-            {suggestedNearby.map((u) => {
-              const name = u.display_name || u.username;
-              const distance = userLocation
-                ? formatDistance(userLocation.lat, userLocation.lng, u.lat, u.lng)
-                : null;
-              return (
-                <div key={u.userId} className="flex items-center gap-3 px-3 py-3 rounded-xl md:hover:bg-ink-1">
-                  <Avatar className="h-11 w-11 flex-shrink-0">
-                    <AvatarImage src={u.avatar_url || undefined} alt={name} />
-                    <AvatarFallback name={name} />
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="t-body-b text-ink-9 truncate">{name}</p>
-                    {distance && <p className="t-caption muted">{distance} away</p>}
-                  </div>
-                  <button
-                    onClick={() => handleAddNearby(u.userId)}
-                    disabled={processingIds.has(u.userId)}
-                    className="btn btn-secondary btn-sm flex-shrink-0 disabled:opacity-50"
-                  >
-                    {processingIds.has(u.userId)
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <><UserPlus className="h-3.5 w-3.5 mr-1" />Add</>}
-                  </button>
-                </div>
-              );
-            })}
-          </>
-        )}
+        })}
       </div>
 
       <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} message={upgradeMessage} />

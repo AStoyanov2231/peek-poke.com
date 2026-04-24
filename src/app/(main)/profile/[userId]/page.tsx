@@ -106,6 +106,7 @@ export default function PublicProfilePage() {
   };
 
   const handleSendMessage = () => {
+    if (!isFriend) return;
     startTransition(async () => {
       try {
         const res = await fetch("/api/dm/threads", {
@@ -115,7 +116,7 @@ export default function PublicProfilePage() {
         });
         if (res.ok) {
           const d = await res.json();
-          window.location.href = `/chat/${d.thread_id}`;
+          router.push(`/inbox?tab=chats&thread=${d.thread_id}`);
         }
       } catch (err) {
         console.error("Failed to start DM:", err);
@@ -207,15 +208,18 @@ export default function PublicProfilePage() {
                   <span className="text-sm font-medium">Add Friend</span>
                 </button>
               )}
-              {(isFriend || viewerIsPremium) && (
-                <button
-                  onClick={handleSendMessage}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1"
-                >
-                  <MessageCircle className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-primary">Message</span>
-                </button>
-              )}
+              <button
+                onClick={handleSendMessage}
+                disabled={!isFriend}
+                className={`flex items-center gap-1.5 h-9 px-4 rounded-full shadow-e-1 transition-colors ${
+                  isFriend
+                    ? "bg-background text-primary"
+                    : "bg-background text-muted-foreground cursor-not-allowed opacity-60"
+                }`}
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Message</span>
+              </button>
             </div>
           )}
         </div>

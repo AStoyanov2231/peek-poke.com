@@ -8,6 +8,7 @@ import { useAppStore } from "@/stores/appStore";
 import { formatDistance } from "@/lib/geo";
 import { avatarColor } from "@/lib/avatar-color";
 import { SearchAutocomplete } from "@/components/search/SearchAutocomplete";
+import { AddFriendButton } from "@/components/ui/AddFriendButton";
 
 type Filter = "all" | "friends" | "online";
 
@@ -126,42 +127,48 @@ export function DesktopNearbyRail() {
             : null;
 
           return (
-            <button
+            <div
               key={user.userId}
-              onClick={() => selectUser(user.userId)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left mb-0.5 border-0 cursor-pointer transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-colors"
               style={{ background: isSelected ? "var(--ink-1)" : "transparent" }}
             >
-              {/* Avatar with online dot */}
-              <div className="relative flex-shrink-0">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden"
-                  style={{ background: color.bg, color: color.fg }}
-                >
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt={name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                    />
-                  ) : (
-                    name[0]?.toUpperCase()
+              <button
+                onClick={() => selectUser(user.userId)}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
+              >
+                {/* Avatar with online dot */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden"
+                    style={{ background: color.bg, color: color.fg }}
+                  >
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : (
+                      name[0]?.toUpperCase()
+                    )}
+                  </div>
+                  {isOnline && (
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success-500 ring-2 ring-surface block" />
                   )}
                 </div>
-                {isOnline && (
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success-500 ring-2 ring-surface block" />
-                )}
-              </div>
 
-              {/* Name + distance */}
-              <div className="flex-1 min-w-0">
-                <div className="t-body-b text-ink-9 truncate">{name}</div>
-                <div className="t-caption muted">
-                  {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
+                {/* Name + distance */}
+                <div className="flex-1 min-w-0">
+                  <div className="t-body-b text-ink-9 truncate">{name}</div>
+                  <div className="t-caption muted">
+                    {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+
+              <AddFriendButton userId={user.userId} />
+            </div>
           );
         })}
 

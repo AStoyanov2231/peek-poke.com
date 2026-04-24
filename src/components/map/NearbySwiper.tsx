@@ -5,6 +5,7 @@ import { useNearbyUsers, useVisibleUsers, useSelectedClusterUserIds, useHighligh
 import { useAppStore } from "@/stores/appStore";
 import { formatDistance } from "@/lib/geo";
 import { avatarColor } from "@/lib/avatar-color";
+import { AddFriendButton } from "@/components/ui/AddFriendButton";
 
 
 const MAX_VISIBLE = 10;
@@ -33,7 +34,7 @@ export function NearbySwiper() {
     <div className="md:hidden absolute left-4 right-4 z-40 pointer-events-none" style={{ bottom: "calc(94px + env(safe-area-inset-bottom, 0px))", animation: "slide-up-in 0.3s ease-out" }}>
       <div
         ref={scrollRef}
-        className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar"
+        className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar pointer-events-auto"
       >
         {visibleSlice.map((user) => {
           const name = user.display_name || user.username;
@@ -47,10 +48,9 @@ export function NearbySwiper() {
             : null;
 
           return (
-            <button
+            <div
               key={user.userId}
-              onClick={() => selectUser(user.userId)}
-              className={`pointer-events-auto snap-center flex-shrink-0 w-full flex items-center gap-3 p-3.5 rounded-[18px] text-left border-0 transition-all active:scale-[0.98] cursor-pointer ${
+              className={`pointer-events-auto snap-center flex-shrink-0 w-full flex items-center gap-3 p-3.5 rounded-[18px] transition-all ${
                 pending ? "opacity-60" : ""
               }`}
               style={{
@@ -62,37 +62,44 @@ export function NearbySwiper() {
                   : "var(--e-2)",
               }}
             >
-              {/* Avatar */}
-              <div className="relative flex-shrink-0">
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold overflow-hidden"
-                  style={{ background: color.bg, color: color.fg }}
-                >
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt={name ?? undefined}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                    />
-                  ) : (
-                    initial
+              <button
+                type="button"
+                onClick={() => selectUser(user.userId)}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left active:scale-[0.98] cursor-pointer"
+              >
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold overflow-hidden"
+                    style={{ background: color.bg, color: color.fg }}
+                  >
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={name ?? undefined}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : (
+                      initial
+                    )}
+                  </div>
+                  {isOnline && (
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white block" style={{ background: "var(--success-500)" }} />
                   )}
                 </div>
-                {isOnline && (
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white block" style={{ background: "var(--success-500)" }} />
-                )}
-              </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="t-body-b text-ink-9 truncate">{name}</div>
-                <div className="t-caption mt-0.5" style={{ color: "var(--ink-5)" }}>
-                  {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="t-body-b text-ink-9 truncate">{name}</div>
+                  <div className="t-caption mt-0.5" style={{ color: "var(--ink-5)" }}>
+                    {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
+                  </div>
                 </div>
-              </div>
+              </button>
 
-            </button>
+              <AddFriendButton userId={user.userId} />
+            </div>
           );
         })}
       </div>
