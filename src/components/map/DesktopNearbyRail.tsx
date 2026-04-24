@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useNearbyUsers, useOnlineUsers, useFriends, useUserLocation, useHighlightedUserId } from "@/stores/selectors";
 import { useAppStore } from "@/stores/appStore";
 import { formatDistance } from "@/lib/geo";
 import { avatarColor } from "@/lib/avatar-color";
+import { SearchAutocomplete } from "@/components/search/SearchAutocomplete";
 
 type Filter = "all" | "friends" | "online";
 
@@ -14,6 +16,9 @@ const FILTER_LABELS: Record<Filter, string> = { all: "All", friends: "Friends", 
 export function DesktopNearbyRail() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [cursorPos, setCursorPos] = useState(0);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const nearbyUsers = useNearbyUsers();
   const onlineUsers = useOnlineUsers();
@@ -22,6 +27,7 @@ export function DesktopNearbyRail() {
   const highlightedUserId = useHighlightedUserId();
   const selectUser = useAppStore((s) => s.selectUser);
 
+  const nearbyIds = nearbyUsers.map((u) => u.userId);
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
 
   const filtered = useMemo(() => {
@@ -39,6 +45,19 @@ export function DesktopNearbyRail() {
     return users;
   }, [nearbyUsers, filter, query, friendIds, onlineUsers]);
 
+  const handleReplaceActiveTag = ({ name }: { name: string }) => {
+    const beforeCursor = query.slice(0, cursorPos);
+    const atIndex = beforeCursor.lastIndexOf('@');
+    if (atIndex === -1) return;
+    const afterAt = query.slice(atIndex);
+    const spaceIndex = afterAt.indexOf(' ');
+    // consume trailing space so replacement @name<space> doesn't produce double-space
+    const tokenEnd = spaceIndex === -1 ? query.length : atIndex + spaceIndex + 1;
+    const newQuery = query.slice(0, atIndex) + `@${name} ` + query.slice(tokenEnd);
+    setQuery(newQuery);
+    setCursorPos(atIndex + name.length + 2);
+  };
+
   return (
     <div
       className="hidden md:flex flex-col flex-shrink-0 border-r border-hairline bg-surface"
@@ -51,7 +70,8 @@ export function DesktopNearbyRail() {
 
         {/* Search */}
         <div
-          className="mt-3.5 h-10 flex items-center gap-2 px-3.5 rounded-xl border border-hairline"
+          ref={searchRef}
+          className="relative mt-3.5 h-10 flex items-center gap-2 px-3.5 rounded-xl border border-hairline"
           style={{ background: "var(--ink-1)" }}
         >
           <Search size={15} strokeWidth={2} style={{ color: "var(--ink-5)", flexShrink: 0 }} />
@@ -60,9 +80,24 @@ export function DesktopNearbyRail() {
             placeholder="Search people nearby"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyUp={(e) => setCursorPos((e.target as HTMLInputElement).selectionStart ?? query.length)}
+            onMouseUp={(e) => setCursorPos((e.target as HTMLInputElement).selectionStart ?? query.length)}
+            onSelect={(e) => setCursorPos((e.target as HTMLInputElement).selectionStart ?? query.length)}
             className="flex-1 bg-transparent border-0 outline-none t-body text-ink-8 placeholder:text-ink-5"
             style={{ userSelect: "text" }}
           />
+          {query.length > 0 && (
+            <SearchAutocomplete
+              value={query}
+              cursorPos={cursorPos}
+              anchorRef={searchRef as React.RefObject<HTMLElement>} // HTMLDivElement extends HTMLElement; cast is safe
+              nearbyIds={nearbyIds}
+              onSelectUser={(userId) => router.push(`/profile/${userId}`)}
+              onReplaceActiveTag={handleReplaceActiveTag}
+              onClose={() => setQuery('')}
+              className="absolute left-0 right-0 top-full mt-1 z-50"
+            />
+          )}
         </div>
 
         {/* Filter chips */}
