@@ -3,7 +3,7 @@
 import { useCallback, useState, useTransition, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Marker } from "react-map-gl/maplibre";
-import { X, MessageCircle } from "lucide-react";
+import { X } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { useOnlineUsers } from "@/stores/selectors";
 import { UserPinContent } from "@/components/map/UserPin";
@@ -47,7 +47,7 @@ export function HighlightedPin({ user, isFriend, isPremium, initialData }: Highl
         if (res.ok) {
           const d = await res.json();
           setHighlightedUserId(null);
-          window.location.href = `/chat/${d.thread_id}`;
+          window.location.href = `/inbox?tab=chats&thread=${d.id}`;
         }
       } catch (err) { console.error("Failed to start DM:", err); }
     });
@@ -113,7 +113,7 @@ export function HighlightedPin({ user, isFriend, isPremium, initialData }: Highl
           className="btn btn-accent btn-md flex-1 rounded-xl"
           onClick={handleSendMessage}
         >
-          <MessageCircle size={16} strokeWidth={2.25} /> Say hi
+          <span className="text-base leading-none">👋</span> Say hi
         </button>
         <button
           className="btn btn-secondary btn-md flex-1 rounded-xl"
