@@ -6,6 +6,7 @@ import { RecenterButton } from "@/components/map/RecenterButton";
 import { MapTopLabels } from "@/components/map/MapTopLabels";
 import { MapSearchBar } from "@/components/map/MapSearchBar";
 import { DesktopNearbyRail } from "@/components/map/DesktopNearbyRail";
+import { DevSeedButton } from "@/components/map/DevSeedButton";
 
 export default function MainPage() {
   return (
@@ -20,6 +21,7 @@ export default function MainPage() {
         <MapView />
         <NearbySwiper />
         <RecenterButton />
+        {process.env.NODE_ENV !== "production" && <DevSeedButton />}
       </div>
     </div>
   );

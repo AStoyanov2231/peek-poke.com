@@ -111,7 +111,7 @@ export function MapViewInner() {
       const start = performance.now();
       isOrbitingRef.current = true;
       const animate = (now: number) => {
-        map.setBearing(startBearing + (now - start) * (360 / 60000));
+        setViewState(prev => ({ ...prev, bearing: startBearing + (now - start) * (360 / 60000) }));
         rafId = requestAnimationFrame(animate);
       };
       rafId = requestAnimationFrame(animate);
