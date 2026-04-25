@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useState, useTransition, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Marker } from "react-map-gl/maplibre";
+import { Marker } from "react-map-gl/mapbox";
 import { X } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { useOnlineUsers } from "@/stores/selectors";

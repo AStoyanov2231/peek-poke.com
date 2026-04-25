@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Map, { Marker } from "react-map-gl/maplibre";
+import Map, { Marker } from "react-map-gl/mapbox";
 import Supercluster from "supercluster";
-import "maplibre-gl/dist/maplibre-gl.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { useUserLocation, useNearbyUsers, useProfile, useFriends, useHighlightedUserId, useIsPremium, usePendingUserId, useHighlightedData, useBots } from "@/stores/selectors";
 import { useAppStore } from "@/stores/appStore";
 import { UserPinContent } from "./UserPin";
@@ -12,13 +12,15 @@ import { BotPin } from "./BotPin";
 import { useBots as useBotsHook } from "@/hooks/useBots";
 import { haversineKm } from "@/lib/geo";
 import type { NearbyUser } from "@/types/database";
-import type { MapRef } from "react-map-gl/maplibre";
+import type { MapRef } from "react-map-gl/mapbox";
 
 const DEFAULT_ZOOM = 17;
 const DEFAULT_PITCH = 50;
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-// const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
-// const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
+// const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
+// const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
+// const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
+// const MAP_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 
 interface UserPointProperties {
   userId: string;
@@ -213,6 +215,7 @@ export function MapViewInner() {
             });
           }
         }}
+        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
         style={{ width: "100%", height: "100%" }}
         minZoom={14}

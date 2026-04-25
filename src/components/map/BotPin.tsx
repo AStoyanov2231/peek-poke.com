@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
-import { Marker } from "react-map-gl/maplibre";
+import { Marker } from "react-map-gl/mapbox";
 import { Coins } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import type { Bot } from "@/stores/appStore";
