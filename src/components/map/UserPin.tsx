@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { NearbyUser } from "@/types/database";
 
 interface UserPinContentProps {
@@ -9,7 +10,7 @@ interface UserPinContentProps {
   isHighlighted?: boolean;
 }
 
-export function UserPinContent({ user, isSelf, isFriend, isHighlighted }: UserPinContentProps) {
+export const UserPinContent = memo(function UserPinContent({ user, isSelf, isFriend, isHighlighted }: UserPinContentProps) {
   const initial = (user.display_name || user.username || "?").slice(0, 1).toUpperCase();
   const avatarClass = isSelf
     ? "user-pin-avatar user-pin-avatar-self"
@@ -28,4 +29,4 @@ export function UserPinContent({ user, isSelf, isFriend, isHighlighted }: UserPi
       )}
     </div>
   );
-}
+});

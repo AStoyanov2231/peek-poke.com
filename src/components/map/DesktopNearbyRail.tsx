@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, memo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useNearbyUsers, useOnlineUsers, useFriends, useUserLocation, useHighlightedUserId } from "@/stores/selectors";
@@ -9,10 +9,66 @@ import { formatDistance } from "@/lib/geo";
 import { avatarColor } from "@/lib/avatar-color";
 import { SearchAutocomplete } from "@/components/search/SearchAutocomplete";
 import { AddFriendButton } from "@/components/ui/AddFriendButton";
+import type { NearbyUser } from "@/types/database";
 
 type Filter = "all" | "friends" | "online";
 
 const FILTER_LABELS: Record<Filter, string> = { all: "All", friends: "Friends", online: "Online" };
+
+interface NearbyRailRowProps {
+  user: NearbyUser;
+  isOnline: boolean;
+  isSelected: boolean;
+  distance: string | null;
+  onSelect: (userId: string) => void;
+}
+
+const NearbyRailRow = memo(function NearbyRailRow({ user, isOnline, isSelected, distance, onSelect }: NearbyRailRowProps) {
+  const name = user.display_name || user.username || "?";
+  const color = avatarColor(name);
+
+  return (
+    <div
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-colors"
+      style={{ background: isSelected ? "var(--ink-1)" : "transparent" }}
+    >
+      <button
+        onClick={() => onSelect(user.userId)}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
+      >
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden"
+            style={{ background: color.bg, color: color.fg }}
+          >
+            {user.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={name}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              name[0]?.toUpperCase()
+            )}
+          </div>
+          {isOnline && (
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success-500 ring-2 ring-surface block" />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="t-body-b text-ink-9 truncate">{name}</div>
+          <div className="t-caption muted">
+            {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
+          </div>
+        </div>
+      </button>
+
+      <AddFriendButton userId={user.userId} />
+    </div>
+  );
+});
 
 export function DesktopNearbyRail() {
   const [filter, setFilter] = useState<Filter>("all");
@@ -28,7 +84,7 @@ export function DesktopNearbyRail() {
   const highlightedUserId = useHighlightedUserId();
   const selectUser = useAppStore((s) => s.selectUser);
 
-  const nearbyIds = nearbyUsers.map((u) => u.userId);
+  const nearbyIds = useMemo(() => nearbyUsers.map((u) => u.userId), [nearbyUsers]);
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
 
   const filtered = useMemo(() => {
@@ -46,18 +102,17 @@ export function DesktopNearbyRail() {
     return users;
   }, [nearbyUsers, filter, query, friendIds, onlineUsers]);
 
-  const handleReplaceActiveTag = ({ name }: { name: string }) => {
+  const handleReplaceActiveTag = useCallback(({ name }: { name: string }) => {
     const beforeCursor = query.slice(0, cursorPos);
     const atIndex = beforeCursor.lastIndexOf('@');
     if (atIndex === -1) return;
     const afterAt = query.slice(atIndex);
     const spaceIndex = afterAt.indexOf(' ');
-    // consume trailing space so replacement @name<space> doesn't produce double-space
     const tokenEnd = spaceIndex === -1 ? query.length : atIndex + spaceIndex + 1;
     const newQuery = query.slice(0, atIndex) + `@${name} ` + query.slice(tokenEnd);
     setQuery(newQuery);
     setCursorPos(atIndex + name.length + 2);
-  };
+  }, [query, cursorPos]);
 
   return (
     <div
@@ -91,7 +146,7 @@ export function DesktopNearbyRail() {
             <SearchAutocomplete
               value={query}
               cursorPos={cursorPos}
-              anchorRef={searchRef as React.RefObject<HTMLElement>} // HTMLDivElement extends HTMLElement; cast is safe
+              anchorRef={searchRef as React.RefObject<HTMLElement>}
               nearbyIds={nearbyIds}
               onSelectUser={(userId) => router.push(`/profile/${userId}`)}
               onReplaceActiveTag={handleReplaceActiveTag}
@@ -117,60 +172,16 @@ export function DesktopNearbyRail() {
 
       {/* User list */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-2 pb-3">
-        {filtered.map((user) => {
-          const name = user.display_name || user.username || "?";
-          const isOnline = onlineUsers.has(user.userId);
-          const isSelected = user.userId === highlightedUserId;
-          const color = avatarColor(name);
-          const distance = userLocation
-            ? formatDistance(userLocation.lat, userLocation.lng, user.lat, user.lng)
-            : null;
-
-          return (
-            <div
-              key={user.userId}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-colors"
-              style={{ background: isSelected ? "var(--ink-1)" : "transparent" }}
-            >
-              <button
-                onClick={() => selectUser(user.userId)}
-                className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
-              >
-                {/* Avatar with online dot */}
-                <div className="relative flex-shrink-0">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden"
-                    style={{ background: color.bg, color: color.fg }}
-                  >
-                    {user.avatar_url ? (
-                      <img
-                        src={user.avatar_url}
-                        alt={name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : (
-                      name[0]?.toUpperCase()
-                    )}
-                  </div>
-                  {isOnline && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success-500 ring-2 ring-surface block" />
-                  )}
-                </div>
-
-                {/* Name + distance */}
-                <div className="flex-1 min-w-0">
-                  <div className="t-body-b text-ink-9 truncate">{name}</div>
-                  <div className="t-caption muted">
-                    {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
-                  </div>
-                </div>
-              </button>
-
-              <AddFriendButton userId={user.userId} />
-            </div>
-          );
-        })}
+        {filtered.map((user) => (
+          <NearbyRailRow
+            key={user.userId}
+            user={user}
+            isOnline={onlineUsers.has(user.userId)}
+            isSelected={user.userId === highlightedUserId}
+            distance={userLocation ? formatDistance(userLocation.lat, userLocation.lng, user.lat, user.lng) : null}
+            onSelect={selectUser}
+          />
+        ))}
 
         {filtered.length === 0 && (
           <div className="flex items-center justify-center h-24">

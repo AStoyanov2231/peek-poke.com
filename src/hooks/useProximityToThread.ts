@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAppStore } from "@/stores/appStore";
-import { useNearbyUsers, useUserLocation } from "@/stores/selectors";
+import { useThreads, useNearbyUsers, useUserLocation } from "@/stores/selectors";
 import { useAuth } from "@/hooks/useAuth";
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -20,7 +19,7 @@ export function useProximityToThread(threadId: string | null): {
   isNearby: boolean;
 } {
   const { user } = useAuth();
-  const threads = useAppStore((s) => s.threads);
+  const threads = useThreads();
   const nearbyUsers = useNearbyUsers();
   const userLocation = useUserLocation();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Marker } from "react-map-gl/maplibre";
 import { Coins } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
@@ -11,7 +11,7 @@ interface BotPinProps {
   collectable: boolean;
 }
 
-export function BotPin({ bot, collectable }: BotPinProps) {
+export const BotPin = memo(function BotPin({ bot, collectable }: BotPinProps) {
   const [collecting, setCollecting] = useState(false);
   const [hint, setHint] = useState(false);
 
@@ -91,4 +91,4 @@ export function BotPin({ bot, collectable }: BotPinProps) {
       </div>
     </Marker>
   );
-}
+});

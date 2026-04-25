@@ -490,11 +490,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
 
   // Presence actions
-  setOnlineUsers: (userIds) => set({ onlineUsers: new Set(userIds) }),
+  setOnlineUsers: (userIds) => set((state) => {
+    const next = new Set(userIds);
+    const cur = state.onlineUsers;
+    if (cur.size === next.size && userIds.every(id => cur.has(id))) return {};
+    return { onlineUsers: next };
+  }),
 
   // Location state
   bots: [],
-  setBots: (bots) => set({ bots }),
+  setBots: (bots) => set((state) => {
+    const cur = state.bots;
+    if (cur.length === bots.length && cur.every((b, i) => b.id === bots[i].id)) return {};
+    return { bots };
+  }),
   removeBot: (id) => set((s) => ({ bots: s.bots.filter((b) => b.id !== id) })),
 
   userLocation: null,
@@ -505,11 +514,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingUserId: null,
   highlightedData: null,
   setUserLocation: (location) => set({ userLocation: location }),
-  setNearbyUsers: (users) => set({ nearbyUsers: users }),
-  setVisibleUsers: (users) => set({ visibleUsers: users }),
+  setNearbyUsers: (users) => set((state) => {
+    const seeded = state.nearbyUsers.filter(u => u.userId.startsWith("dev-seed-"));
+    const next = seeded.length > 0 ? [...seeded, ...users] : users;
+    const cur = state.nearbyUsers;
+    if (cur.length === next.length && cur.every((u, i) =>
+      u.userId === next[i].userId && u.lat === next[i].lat && u.lng === next[i].lng
+    )) return {};
+    return { nearbyUsers: next };
+  }),
+  setVisibleUsers: (users) => set((state) => {
+    const cur = state.visibleUsers;
+    if (cur.length === users.length && cur.every((u, i) => u.userId === users[i].userId)) return {};
+    return { visibleUsers: users };
+  }),
   setSelectedClusterUserIds: (ids) => set({ selectedClusterUserIds: ids }),
   setHighlightedUserId: (id) => set({ highlightedUserId: id }),
   selectUser: (userId) => {
+    const { pendingUserId, highlightedUserId } = get();
+    if (pendingUserId === userId || highlightedUserId === userId) return;
     set({ pendingUserId: userId, highlightedData: null });
     fetch(`/api/profile/${userId}`)
       .then((r) => r.json())

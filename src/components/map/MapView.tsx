@@ -43,8 +43,10 @@ export function MapViewInner() {
 
   const hasCentered = useRef(false);
   const isDragging = useRef(false);
+  const isOrbitingRef = useRef(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
+  const [mapBounds, setMapBounds] = useState<[number, number, number, number] | null>(null);
   const [viewState, setViewState] = useState({
     longitude: userLocation?.lng ?? 0,
     latitude: userLocation?.lat ?? 0,
@@ -68,6 +70,7 @@ export function MapViewInner() {
   // Listen for manual recenter requests
   useEffect(() => {
     const handler = () => {
+      useAppStore.getState().setHighlightedUserId(null);
       const loc = useAppStore.getState().userLocation;
       if (loc) {
         mapRef.current?.flyTo({
@@ -75,6 +78,7 @@ export function MapViewInner() {
           zoom: DEFAULT_ZOOM,
           pitch: DEFAULT_PITCH,
           bearing: 0,
+          duration: 1200,
         });
       }
     };
@@ -82,29 +86,47 @@ export function MapViewInner() {
     return () => window.removeEventListener("recenter-map", handler);
   }, []);
 
-  // Pan with offset when a user is highlighted — desktop shifts left for dialog room, mobile shifts up
+  // Center on highlighted user then orbit — orbit delayed until easeTo finishes
   useEffect(() => {
     if (!highlightedUserId || !mapRef.current) return;
     const user = useAppStore.getState().nearbyUsers.find((u) => u.userId === highlightedUserId);
     if (!user) return;
     const map = mapRef.current.getMap();
-    const currentZoom = map.getZoom();
-    const targetZoom = Math.max(currentZoom, 17);
+    const targetZoom = Math.max(map.getZoom(), 17);
     const isMobile = window.innerWidth < 768;
+    const EASE_MS = 700;
     mapRef.current.easeTo({
       center: [user.lng, user.lat],
       zoom: targetZoom,
+      duration: EASE_MS,
       padding: isMobile
         ? { left: 0, right: 0, top: 0, bottom: 300 }
-        : { left: 320, right: 0, top: 0, bottom: 0 },
+        : { left: 0, right: 0, top: 0, bottom: 0 },
     });
+    let rafId: number;
+    const tid = setTimeout(() => {
+      const startBearing = map.getBearing();
+      const start = performance.now();
+      isOrbitingRef.current = true;
+      const animate = (now: number) => {
+        map.setBearing(startBearing + (now - start) * (360 / 60000));
+        rafId = requestAnimationFrame(animate);
+      };
+      rafId = requestAnimationFrame(animate);
+    }, EASE_MS);
+    return () => { isOrbitingRef.current = false; clearTimeout(tid); cancelAnimationFrame(rafId); };
   }, [highlightedUserId]);
 
   // Supercluster for marker clustering
   const supercluster = useMemo(() => {
     const sc = new Supercluster<UserPointProperties>({ radius: 40, maxZoom: 20 });
+    const highlightedPos = highlightedUserId ? nearbyUsers.find(u => u.userId === highlightedUserId) : null;
     const points: Supercluster.PointFeature<UserPointProperties>[] = nearbyUsers
-      .filter(u => u.userId !== highlightedUserId)
+      .filter(u => {
+        if (u.userId === highlightedUserId) return false;
+        if (highlightedPos && haversineKm(u.lat, u.lng, highlightedPos.lat, highlightedPos.lng) < 0.03) return false;
+        return true;
+      })
       .map(u => ({
         type: "Feature",
         properties: { userId: u.userId },
@@ -114,28 +136,21 @@ export function MapViewInner() {
     return sc;
   }, [nearbyUsers, highlightedUserId]);
 
-  // Compute clusters from current viewport
+  // Compute clusters from current viewport — only recomputes when zoom changes or pan ends
   const clusters = useMemo(() => {
-    if (!mapLoaded) return [];
-    const map = mapRef.current?.getMap();
-    if (!map) return [];
-    const bounds = map.getBounds();
-    if (!bounds) return [];
-    return supercluster.getClusters(
-      [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
-      Math.round(viewState.zoom)
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supercluster, viewState.zoom, viewState.longitude, viewState.latitude, mapLoaded]);
+    if (!mapLoaded || !mapBounds) return [];
+    return supercluster.getClusters(mapBounds, Math.round(viewState.zoom));
+  }, [supercluster, viewState.zoom, mapBounds, mapLoaded]);
 
   // Recompute visible users on move end
   const handleMoveEnd = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
-    const bounds = map.getBounds();
+    const b = map.getBounds();
+    setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
     const all = useAppStore.getState().nearbyUsers;
     useAppStore.getState().setVisibleUsers(
-      all.filter(u => bounds.contains([u.lng, u.lat]))
+      all.filter(u => b.contains([u.lng, u.lat]))
     );
   }, []);
 
@@ -179,7 +194,7 @@ export function MapViewInner() {
       <Map
         ref={mapRef}
         {...viewState}
-        onMove={(evt) => setViewState(evt.viewState)}
+        onMove={(evt) => { if (!isOrbitingRef.current) setViewState(evt.viewState); }}
         onMoveEnd={handleMoveEnd}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -189,6 +204,8 @@ export function MapViewInner() {
           setMapLoaded(true);
           const map = mapRef.current?.getMap();
           if (map) {
+            const b = map.getBounds();
+            setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
             map.getStyle().layers.forEach(layer => {
               if (layer.type === "symbol" && (layer as { "source-layer"?: string })["source-layer"] === "transportation_name") {
                 map.setLayoutProperty(layer.id, "visibility", "none");

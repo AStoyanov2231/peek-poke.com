@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition, useEffect } from "react";
+import { memo, useCallback, useState, useTransition, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Marker } from "react-map-gl/maplibre";
 import { X } from "lucide-react";
@@ -19,7 +19,7 @@ interface HighlightedPinProps {
   initialData: { photos: ProfilePhoto[]; interests: ProfileInterest[]; bio?: string | null };
 }
 
-export function HighlightedPin({ user, isFriend, isPremium, initialData }: HighlightedPinProps) {
+export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isPremium, initialData }: HighlightedPinProps) {
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
   const onlineUsers = useOnlineUsers();
   const [isDesktop, setIsDesktop] = useState(false);
@@ -163,4 +163,4 @@ export function HighlightedPin({ user, isFriend, isPremium, initialData }: Highl
       )}
     </>
   );
-}
+});
