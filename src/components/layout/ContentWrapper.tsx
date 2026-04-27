@@ -4,12 +4,10 @@ import { cn } from "@/lib/utils";
 
 export function ContentWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const showDesktopNav = !pathname.startsWith("/chat") && pathname !== "/onboarding";
-  const isMapPage = pathname === "/";
+  const isChat = pathname.startsWith("/chat");
+  const isMap = pathname === "/";
   return (
-    <div
-      className={cn("flex-1 overflow-y-auto", showDesktopNav && !isMapPage && "md:pl-16")}
-    >
+    <div className={cn("flex-1 min-w-0 overflow-y-auto flex flex-col relative z-[1]", isChat && "overflow-hidden", isMap && "pointer-events-none")}>
       {children}
     </div>
   );

@@ -1,22 +1,9 @@
 import { cn } from "@/lib/utils"
 
-interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Enable shimmer effect instead of pulse. Defaults to false for backwards compatibility. */
-  shimmer?: boolean;
-}
-
-function Skeleton({
-  className,
-  shimmer = false,
-  ...props
-}: SkeletonProps) {
+function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn(
-        "rounded-md bg-neu-sunken shadow-neu-inset",
-        shimmer ? "skeleton-shimmer" : "animate-pulse",
-        className
-      )}
+      className={cn("rounded-md bg-ink-2 animate-pulse", className)}
       {...props}
     />
   )

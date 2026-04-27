@@ -33,7 +33,7 @@ export function InsufficientCoinsDialog({ open, onOpenChange }: InsufficientCoin
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Got it
           </Button>
         </DialogFooter>

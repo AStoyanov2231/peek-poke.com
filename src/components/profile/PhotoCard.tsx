@@ -68,7 +68,7 @@ export function PhotoCard({
 
       {/* Avatar indicator */}
       {photo.is_avatar && (
-        <div className="absolute top-1 left-1 bg-primary-gradient text-primary-foreground p-1 rounded-full">
+        <div className="absolute top-1 left-1 bg-ink-9 text-primary-foreground p-1 rounded-full">
           <Star className="h-3 w-3" />
         </div>
       )}
@@ -123,7 +123,7 @@ export function PhotoCard({
           {/* Dropdown menu */}
           {menuOpen === photo.id && (
             <div
-              className="absolute top-8 right-1 bg-background rounded-md shadow-neu-floating border-0 py-1 min-w-[140px] z-10"
+              className="absolute top-8 right-1 bg-background rounded-md shadow-e-2 border-0 py-1 min-w-[140px] z-10"
               onClick={(e) => e.stopPropagation()}
             >
               {!photo.is_avatar && photo.approval_status === "approved" && (

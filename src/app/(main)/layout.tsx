@@ -8,6 +8,7 @@ import { QueryProvider } from "@/components/QueryProvider";
 import { SplashScreen } from "@/components/SplashScreen";
 import { NativeBridgeProvider } from "@/components/NativeBridgeProvider";
 import { AuthBridgeProvider } from "@/components/AuthBridgeProvider";
+import { PersistentMapHost } from "@/components/map/PersistentMapHost";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -21,7 +22,8 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         <NativeBridgeProvider>
           <AuthBridgeProvider>
             <SplashScreen />
-            <div className="h-screen-safe bg-background flex flex-col overflow-hidden">
+            <div className="h-screen-safe bg-background flex overflow-hidden">
+              <PersistentMapHost />
               <DesktopNav />
               <ContentWrapper>{children}</ContentWrapper>
               <MobileNav />

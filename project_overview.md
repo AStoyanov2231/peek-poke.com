@@ -87,7 +87,10 @@ src/
 │   │   ├── inbox/page.tsx
 │   │   ├── messages/page.tsx
 │   │   ├── moderation/page.tsx
-│   │   ├── onboarding/page.tsx
+│   │   ├── onboarding/page.tsx          # General onboarding (username + interests)
+│   │   ├── onboarding/dating/page.tsx   # Dating onboarding (DOB → identity → prefs → dealbreakers → photos → review)
+│   │   ├── onboarding/dating/DatingOnboardingClient.tsx
+│   │   ├── discover/page.tsx            # Tinder-style swipe deck for dating candidates
 │   │   ├── profile/page.tsx
 │   │   └── profile/[userId]/page.tsx
 │   ├── api/                     # API routes (see API section)
@@ -99,6 +102,7 @@ src/
 │   ├── inbox/                   # InboxClient, ChatsTab, FriendsTab, RequestsTab, InboxChatPanel
 │   ├── messages/                # MessageDeliveryStatus, TypingIndicator
 │   ├── profile/                 # ProfilePageClient, ProfileHeader, PhotoGallery, SettingsSheet, etc.
+│   ├── discover/                # DiscoverClient, CandidateCard, MatchOverlay, QuotaBadge
 │   ├── friends/                 # FriendsTabsClient, SwipeableFriendCard, FriendsSkeleton
 │   ├── coins/                   # CoinBalance, InsufficientCoinsDialog
 │   ├── sheet/                   # AdminSheetContent, ChatSheetContent, ModerationSheetContent
@@ -161,10 +165,21 @@ src/
 | `/api/profile/[userId]` | GET | View another user's profile via RPC |
 | `/api/profile/username` | PATCH | Update username (DB uniqueness constraint) |
 | `/api/profile/complete-onboarding` | POST | Requires username + 5 interests |
+| `/api/profile/complete-dating-onboarding` | POST | Requires ≥4 approved photos + dating_preferences row; sets `dating_onboarding_completed=true` |
 | `/api/profile/photos` | GET, POST | List/upload photos (max 6) |
 | `/api/profile/photos/[photoId]` | PATCH, DELETE | Update metadata / delete photo + storage |
 | `/api/profile/interests` | GET, POST | List/add interests (max 5 via DB trigger) |
 | `/api/profile/interests/[interestId]` | DELETE | Remove interest |
+
+### Dating
+| Route | Methods | Purpose |
+|-------|---------|---------|
+| `/api/dating/preferences` | GET, PUT | Get/update dating preferences |
+| `/api/dating/candidates` | GET | Candidate feed (calls `get_match_candidates` RPC) |
+| `/api/dating/poke` | POST | Send poke or super-poke; creates match on mutual |
+| `/api/dating/pass` | POST | Record pass with 30-day cooldown |
+| `/api/dating/matches` | GET | Active unstarted matches with partner info + 72h expiry |
+| `/api/dating/matches/[matchId]/unmatch` | POST | Sets `unmatched_at`, removes thread from both sides |
 
 ### Friends
 | Route | Methods | Purpose |
@@ -240,6 +255,12 @@ src/
 - Interest tags (max 5 from curated list)
 - Display name, bio (500 chars), location, username
 - Onboarding flow requiring username + 5 interests
+
+### Dating Onboarding
+- Multi-step flow: DOB → identity (gender/orientation/relationship_goal/height) → preferences (interested_in/age/distance) → dealbreakers → photos → review
+- 4-photo hard requirement (≥4 approved photos before completion)
+- Legacy user re-onboarding: users with `onboarding_completed=true` but `dating_onboarding_completed=false` are middleware-routed to `/onboarding/dating`
+- Per-step persistence for profile fields; batched PUT for dating preferences after dealbreakers step
 
 ### Payments
 - Stripe subscription for premium features

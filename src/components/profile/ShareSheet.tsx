@@ -34,20 +34,20 @@ export function ShareSheet({ open, onOpenChange, userId }: ShareSheetProps) {
           <h2 className="font-display text-[22px] font-bold text-foreground">Invite Friend</h2>
           <button
             onClick={() => onOpenChange(false)}
-            className="w-8 h-8 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+            className="w-8 h-8 rounded-full bg-background shadow-e-1 flex items-center justify-center"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
         <div className="px-6 pb-8 flex flex-col items-center gap-5">
-          <div className="p-4 bg-white rounded-xl shadow-neu-raised-sm">
+          <div className="p-4 bg-white rounded-xl shadow-e-1">
             <QRCodeSVG value={inviteUrl} size={200} />
           </div>
           <p className="text-xs text-muted-foreground text-center break-all px-4">{inviteUrl}</p>
           <div className="flex gap-3 w-full">
             <button
               onClick={handleCopy}
-              className="flex-1 h-12 rounded-sm bg-background shadow-neu-raised flex items-center justify-center gap-2 text-[15px] font-medium text-foreground active:shadow-neu-inset transition-shadow"
+              className="flex-1 h-12 rounded-sm bg-background shadow-e-2 flex items-center justify-center gap-2 text-[15px] font-medium text-foreground active: transition-shadow"
             >
               {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied!" : "Copy Link"}
@@ -55,7 +55,7 @@ export function ShareSheet({ open, onOpenChange, userId }: ShareSheetProps) {
             {"share" in navigator && (
               <button
                 onClick={() => navigator.share?.({ url: inviteUrl, title: "Join me on Peek & Poke!" })}
-                className="flex-1 h-12 rounded-sm bg-primary-gradient text-white shadow-neu-raised-sm flex items-center justify-center gap-2 text-[15px] font-medium active:opacity-90 transition-opacity"
+                className="flex-1 h-12 rounded-sm bg-ink-9 text-white shadow-e-1 flex items-center justify-center gap-2 text-[15px] font-medium active:opacity-90 transition-opacity"
               >
                 <Share2 className="h-4 w-4" />
                 Share

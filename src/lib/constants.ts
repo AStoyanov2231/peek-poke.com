@@ -40,3 +40,23 @@ export const COIN_SPENT_ANIMATION_MS = 600;
 
 // Presence tracking location update debounce in ms
 export const TRACK_DEBOUNCE_MS = 10_000;
+
+// Dating — discovery limits
+export const MIN_AGE = 18;
+export const FREE_DAILY_POKES = 10;
+export const FREE_DAILY_PASSES = 50;
+export const FREE_DISTANCE_KM = 25;
+export const PASS_COOLDOWN_DAYS = 30;
+export const MATCH_EXPIRY_HOURS = 72;
+export const MIN_DATING_PHOTOS = 4;
+
+// Dating — coin costs
+export const BOOST_COST_COINS = 50;
+export const SUPER_POKE_COST_COINS = 25;
+export const REWIND_COST_COINS = 10;
+export const REMATCH_COST_COINS = 30;
+export const PROFILE_UNBLUR_COST_COINS = 100;
+
+// Dating — verification
+export const VERIFICATION_COIN_REWARD = 50;
+export const VERIFICATION_MAX_ATTEMPTS_PER_DAY = 3;

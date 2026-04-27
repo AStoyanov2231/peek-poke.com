@@ -1,18 +1,21 @@
 import * as React from "react"
-
 import { cn } from "@/lib/utils"
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  flat?: boolean;
   interactive?: boolean;
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, interactive, ...props }, ref) => (
+  ({ className, flat, interactive, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        "rounded-lg bg-background text-card-foreground shadow-neu-raised border-0",
-        interactive && "card-interactive cursor-pointer",
+        "rounded-lg bg-surface text-card-foreground",
+        flat
+          ? "border border-hairline"
+          : "shadow-e-1",
+        interactive && "cursor-pointer transition-shadow hover:shadow-e-2 active:scale-[0.99]",
         className
       )}
       {...props}
@@ -39,7 +42,7 @@ const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("font-semibold leading-none tracking-tight", className)}
+    className={cn("font-semibold leading-none tracking-tight text-ink-9", className)}
     {...props}
   />
 ))
@@ -51,7 +54,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("text-sm text-ink-5", className)}
     {...props}
   />
 ))

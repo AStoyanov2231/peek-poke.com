@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth";
-import { profileUpdateSchema, parseBody } from "@/lib/validators";
+import { profilePatchSchema, parseBody } from "@/lib/validators";
 import { apiError } from "@/lib/api-error";
 
-const PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, location_text, is_online, last_seen_at, created_at, onboarding_completed";
+const PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, location_text, is_online, last_seen_at, created_at, onboarding_completed, date_of_birth, gender, orientation, height_cm, relationship_goal, smoking, drinking, has_kids, verified_at, is_ghost, is_incognito, dating_onboarding_completed";
 
 export const GET = withAuth(async (_request, { user, supabase }) => {
   const [profileResult, rolesResult] = await Promise.all([
@@ -19,7 +19,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
 });
 
 export const PATCH = withAuth(async (request, { user, supabase }) => {
-  const [updates, err] = await parseBody(request, profileUpdateSchema);
+  const [updates, err] = await parseBody(request, profilePatchSchema);
   if (err) return err;
 
   const [updateResult, rolesResult] = await Promise.all([

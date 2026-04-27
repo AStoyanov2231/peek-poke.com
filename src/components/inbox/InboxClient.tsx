@@ -2,20 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { ChatsTab } from "@/components/inbox/ChatsTab";
 import { FriendsTab } from "@/components/inbox/FriendsTab";
 import { RequestsTab } from "@/components/inbox/RequestsTab";
+import { MatchesTab } from "@/components/inbox/MatchesTab";
 import { InboxChatPanel } from "@/components/inbox/InboxChatPanel";
-import { useFriendRequestCount } from "@/stores/selectors";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFriendRequestCount, useTotalUnread, useActiveMatchCount } from "@/stores/selectors";
 
-type Tab = "chats" | "friends" | "requests";
+type Tab = "chats" | "friends" | "requests" | "matches";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "chats", label: "Chats" },
-  { id: "friends", label: "Friends" },
-  { id: "requests", label: "Requests" },
-];
 
 export function InboxClient() {
   const router = useRouter();
@@ -23,20 +19,20 @@ export function InboxClient() {
 
   const threadId = searchParams.get("thread") ?? null;
   const requestCount = useFriendRequestCount();
+  const unreadCount = useTotalUnread();
+  const matchCount = useActiveMatchCount();
 
-  // Local tab state for instant visual response — URL stays in sync for deep-linking
   const [localTab, setLocalTab] = useState<Tab>(
     () => (searchParams.get("tab") ?? "chats") as Tab
   );
 
-  // Sync localTab when URL changes externally (e.g. back/forward, deep link)
   useEffect(() => {
     setLocalTab((searchParams.get("tab") ?? "chats") as Tab);
   }, [searchParams]);
 
   const handleSetTab = useCallback(
     (newTab: Tab) => {
-      setLocalTab(newTab); // instant visual update
+      setLocalTab(newTab);
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", newTab);
       params.delete("thread");
@@ -56,38 +52,46 @@ export function InboxClient() {
 
   return (
     <div className="flex h-[100svh] overflow-hidden">
-      {/* Left panel: title + tabs + list */}
-      <div className="flex flex-col w-full md:w-[360px] md:flex-shrink-0 md:border-r md:border-border overflow-hidden">
+      {/* Left panel */}
+      <div className="flex flex-col w-full md:w-[360px] md:flex-shrink-0 md:border-r md:border-hairline bg-background overflow-hidden">
         {/* Header */}
-        <div className="flex-shrink-0 px-4 pb-2 bg-background">
-          <h1 className="text-[28px] font-display font-bold text-foreground">Inbox</h1>
+        <div className="flex-shrink-0 px-4 pt-4 pb-3">
+          <h1 className="t-title-1 text-ink-9">Inbox</h1>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex-shrink-0 flex items-center gap-1 px-4 py-2 bg-background">
-          {TABS.map(({ id, label }) => {
-            const isActive = localTab === id;
-            const showBadge = id === "requests" && requestCount > 0;
-            return (
-              <button
-                key={id}
-                onClick={() => handleSetTab(id)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                  isActive
-                    ? "bg-primary-gradient text-white shadow-neu-raised-sm"
-                    : "text-foreground hover:text-foreground active:bg-primary-gradient active:text-white hover:shadow-neu-raised-sm"
+        {/* Segmented tab bar */}
+        <div className="flex-shrink-0 px-4 pb-3">
+          <Tabs value={localTab} onValueChange={(v) => handleSetTab(v as Tab)}>
+            <TabsList className="w-full">
+              <TabsTrigger value="chats" className="flex-1 gap-1.5">
+                Chats
+                {unreadCount > 0 && (
+                  <span className="badge" style={{ background: "var(--primary-500)", fontSize: 10, minWidth: 16, height: 16 }}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 )}
-              >
-                {label}
-                {showBadge && (
-                  <span className="flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold">
+              </TabsTrigger>
+              <TabsTrigger value="friends" className="flex-1">
+                Friends
+              </TabsTrigger>
+              <TabsTrigger value="requests" className="flex-1 gap-1.5">
+                Requests
+                {requestCount > 0 && (
+                  <span className="badge" style={{ fontSize: 10, minWidth: 16, height: 16 }}>
                     {requestCount > 9 ? "9+" : requestCount}
                   </span>
                 )}
-              </button>
-            );
-          })}
+              </TabsTrigger>
+              <TabsTrigger value="matches" className="flex-1 gap-1.5">
+                Matches
+                {matchCount > 0 && (
+                  <span className="badge" style={{ background: "var(--primary-500)", fontSize: 10, minWidth: 16, height: 16 }}>
+                    {matchCount > 9 ? "9+" : matchCount}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {/* Tab content */}
@@ -95,10 +99,11 @@ export function InboxClient() {
           {localTab === "chats" && <ChatsTab onSelectThread={setThread} activeThreadId={threadId} />}
           {localTab === "friends" && <FriendsTab />}
           {localTab === "requests" && <RequestsTab />}
+          {localTab === "matches" && <MatchesTab onSelectThread={setThread} activeThreadId={threadId} />}
         </div>
       </div>
 
-      {/* Desktop right panel: full-height chat starting from the very top */}
+      {/* Desktop right panel */}
       <div className="hidden md:flex flex-1 flex-col min-w-0 min-h-0">
         <InboxChatPanel threadId={threadId} />
       </div>

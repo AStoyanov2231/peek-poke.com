@@ -39,7 +39,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
           {view !== "main" ? (
             <button
               onClick={() => setView("main")}
-              className="w-8 h-8 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+              className="w-8 h-8 rounded-full bg-background shadow-e-1 flex items-center justify-center"
             >
               <ChevronLeft className="h-4 w-4 text-muted-foreground" />
             </button>
@@ -48,7 +48,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
           )}
           <button
             onClick={handleClose}
-            className="w-8 h-8 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+            className="w-8 h-8 rounded-full bg-background shadow-e-1 flex items-center justify-center"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -71,7 +71,7 @@ function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
         <div className="flex flex-col gap-1.5">
           <button
             onClick={() => onNavigate("help")}
-            className="flex items-center gap-3 h-[52px] px-4 bg-background shadow-neu-raised rounded-sm active:shadow-neu-inset transition-shadow"
+            className="flex items-center gap-3 h-[52px] px-4 bg-background shadow-e-2 rounded-sm active: transition-shadow"
           >
             <CircleHelp className="h-[18px] w-[18px] text-primary" />
             <span className="flex-1 text-left text-[15px] font-medium text-foreground">Help Center</span>
@@ -79,7 +79,7 @@ function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
           </button>
           <button
             onClick={() => onNavigate("terms")}
-            className="flex items-center gap-3 h-[52px] px-4 bg-background shadow-neu-raised rounded-sm active:shadow-neu-inset transition-shadow"
+            className="flex items-center gap-3 h-[52px] px-4 bg-background shadow-e-2 rounded-sm active: transition-shadow"
           >
             <FileText className="h-[18px] w-[18px] text-primary" />
             <span className="flex-1 text-left text-[15px] font-medium text-foreground">Terms & Privacy</span>
@@ -93,7 +93,7 @@ function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
         <form action={signOut}>
           <button
             type="submit"
-            className="w-full h-12 rounded-sm bg-background shadow-neu-raised text-[15px] font-medium text-muted-foreground active:shadow-neu-inset transition-shadow"
+            className="w-full h-12 rounded-sm bg-background shadow-e-2 text-[15px] font-medium text-muted-foreground active: transition-shadow"
           >
             Log Out
           </button>

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { isValidMediaUrl } from "@/lib/validation";
+import { calculateAge } from "@/lib/age";
+import { MIN_AGE } from "@/lib/constants";
 
 const uuid = z.string().uuid();
 
@@ -72,6 +74,35 @@ export const photoUpdateSchema = z.object({
   is_avatar: z.boolean().optional(),
   is_private: z.boolean().optional(),
 });
+
+export const datingProfileSchema = z.object({
+  date_of_birth: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format")
+    .refine((dob) => calculateAge(dob) >= MIN_AGE, `Must be at least ${MIN_AGE} years old`)
+    .optional(),
+  gender: z.enum(["man", "woman", "non_binary", "other"] as const).optional(),
+  orientation: z.enum(["straight", "gay", "lesbian", "bisexual", "pansexual", "other"] as const).optional(),
+  height_cm: z.number().int().min(120).max(230).nullable().optional(),
+  relationship_goal: z.enum(["casual", "long_term", "friends", "undecided"] as const).nullable().optional(),
+  smoking: z.enum(["never", "socially", "regularly"] as const).nullable().optional(),
+  drinking: z.enum(["never", "socially", "regularly"] as const).nullable().optional(),
+  has_kids: z.enum(["has_kids", "no_kids", "wants_kids", "doesnt_want_kids", "open"] as const).nullable().optional(),
+});
+
+// Merged schema for profile PATCH — covers base profile fields + dating fields.
+// Re-applies .strict() so unknown keys are still rejected.
+export const profilePatchSchema = profileUpdateSchema
+  .merge(datingProfileSchema)
+  .strict();
+
+export const pokeSchema = z.object({
+  pokee_id: z.string().uuid(),
+  is_super: z.boolean().default(false),
+})
+
+export const passSchema = z.object({
+  passee_id: z.string().uuid(),
+})
 
 /** Parse request JSON with a Zod schema. Returns [data, null] or [null, errorResponse]. */
 export async function parseBody<T>(

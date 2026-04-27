@@ -4,7 +4,6 @@ import { Loader2 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { SwipeableFriendCard } from "@/components/friends/SwipeableFriendCard";
-import { getInitials } from "@/lib/utils";
 import { isPremium } from "@/types/database";
 import type { FriendWithFriendshipId } from "@/stores/appStore";
 
@@ -25,36 +24,41 @@ export function FriendRow({
   onClickProfile,
   onOpenChat,
 }: FriendRowProps) {
+  const name = friend.display_name || friend.username;
+
   return (
-    <div className="bg-background rounded-xl transition-all md:hover:scale-[1.02] md:hover:-translate-y-0.5 active:scale-[0.98]">
+    <div className="rounded-xl transition-all active:scale-[0.98]">
       <SwipeableFriendCard onSwipeComplete={onSwipeComplete} disabled={isProcessing}>
-        <div className="flex items-center gap-3 px-2 py-3 bg-background rounded-xl cursor-pointer select-none transition-all md:hover:shadow-neu-inset border border-primary/20" onClick={onOpenChat}>
+        <div className="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer select-none md:hover:bg-ink-1" onClick={onOpenChat}>
           <div className="relative flex-shrink-0" onClick={(e) => { e.stopPropagation(); onClickProfile(); }}>
-            <Avatar className="h-[52px] w-[52px]">
-              <AvatarImage src={friend.avatar_url || undefined} alt={friend.display_name || friend.username} />
-              <AvatarFallback className="bg-primary-gradient text-white">
-                {getInitials(friend.display_name || friend.username)}
-              </AvatarFallback>
+            <Avatar className="h-11 w-11">
+              <AvatarImage src={friend.avatar_url || undefined} alt={name} />
+              <AvatarFallback name={name} />
             </Avatar>
             {isOnline && (
-              <div className="absolute bottom-0 right-0 h-3 w-3 bg-success rounded-full border-2 border-background" />
+              <span className="absolute bottom-0.5 right-0.5 block h-2.5 w-2.5 rounded-full bg-success-500 ring-2 ring-surface" />
             )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className="font-semibold text-[16px] text-foreground truncate">
-                {friend.display_name || friend.username}
-              </p>
+              <p className="t-body-b text-ink-9 truncate">{name}</p>
               {isPremium(friend) && <PremiumBadge size="sm" />}
             </div>
-            <p className="text-[14px]">
+            <p className="t-caption">
               {isOnline
-                ? <span className="text-success font-medium">Online</span>
-                : <span className="text-muted-foreground">@{friend.username}</span>}
+                ? <span className="text-success-600 font-medium">Online</span>
+                : <span className="muted">@{friend.username}</span>}
             </p>
           </div>
-          {isProcessing && (
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground flex-shrink-0" />
+          {isProcessing ? (
+            <Loader2 className="h-4 w-4 animate-spin text-ink-5 flex-shrink-0" />
+          ) : (
+            <button
+              className="btn btn-secondary btn-sm flex-shrink-0"
+              onClick={(e) => { e.stopPropagation(); onOpenChat(); }}
+            >
+              Message
+            </button>
           )}
         </div>
       </SwipeableFriendCard>

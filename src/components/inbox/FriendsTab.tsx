@@ -17,7 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getInitials } from "@/lib/utils";
 import { isPremium } from "@/types/database";
 import { useAppStore, type FriendWithFriendshipId, type FriendshipWithAddressee } from "@/stores/appStore";
 import { useFriends, useSentRequests, useIsFriendsLoaded, useOnlineUsers, useThreads } from "@/stores/selectors";
@@ -174,76 +173,98 @@ export function FriendsTab() {
 
   if (!isFriendsLoaded) {
     return (
-      <div className="space-y-4 p-3">
+      <div className="space-y-1 px-2 pt-3">
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-[72px] w-full rounded-2xl" />
+          <Skeleton key={i} className="h-[68px] w-full rounded-xl" />
         ))}
       </div>
     );
   }
 
+  const onlineFriends = optimisticFriends.filter((f) => onlineUsers.has(f.id));
+  const offlineFriends = optimisticFriends.filter((f) => !onlineUsers.has(f.id));
+
   return (
     <>
-      <div className="space-y-2 p-3">
+      <div className="space-y-0.5 px-2 py-2">
         {optimisticFriends.length === 0 && optimisticSentRequests.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">No friends yet</p>
+          <p className="t-body muted text-center py-8">No friends yet</p>
         ) : (
           <>
-            {optimisticFriends.map((friend) => {
-              const isOnline = onlineUsers.has(friend.id);
-              const isProcessing = processingIds.has(friend.friendship_id) || processingIds.has(friend.id);
-              return (
-                <FriendRow
-                  key={friend.id}
-                  friend={friend}
-                  isOnline={isOnline}
-                  isProcessing={isProcessing}
-                  onSwipeComplete={() => setFriendToRemove(friend)}
-                  onClickProfile={() => router.push(`/profile/${friend.id}`)}
-                  onOpenChat={() => handleOpenChat(friend.id)}
-                />
-              );
-            })}
+            {onlineFriends.length > 0 && (
+              <>
+                <p className="t-micro muted px-3 pb-1 pt-2">Online · {onlineFriends.length}</p>
+                {onlineFriends.map((friend) => {
+                  const isProcessing = processingIds.has(friend.friendship_id) || processingIds.has(friend.id);
+                  return (
+                    <FriendRow
+                      key={friend.id}
+                      friend={friend}
+                      isOnline={true}
+                      isProcessing={isProcessing}
+                      onSwipeComplete={() => setFriendToRemove(friend)}
+                      onClickProfile={() => router.push(`/profile/${friend.id}`)}
+                      onOpenChat={() => handleOpenChat(friend.id)}
+                    />
+                  );
+                })}
+              </>
+            )}
+
+            {offlineFriends.length > 0 && (
+              <>
+                <p className="t-micro muted px-3 pb-1 pt-2">{optimisticFriends.length} friends</p>
+                {offlineFriends.map((friend) => {
+                  const isProcessing = processingIds.has(friend.friendship_id) || processingIds.has(friend.id);
+                  return (
+                    <FriendRow
+                      key={friend.id}
+                      friend={friend}
+                      isOnline={false}
+                      isProcessing={isProcessing}
+                      onSwipeComplete={() => setFriendToRemove(friend)}
+                      onClickProfile={() => router.push(`/profile/${friend.id}`)}
+                      onOpenChat={() => handleOpenChat(friend.id)}
+                    />
+                  );
+                })}
+              </>
+            )}
 
             {/* Sent requests section */}
             {optimisticSentRequests.length > 0 && (
               <>
-                <div className="px-1 py-2 border-t border-border mt-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending</p>
-                </div>
+                <p className="t-micro muted px-3 pb-1 pt-4">Pending</p>
                 {optimisticSentRequests.map((req) => {
                   const isProcessing = processingIds.has(req.id);
+                  const name = req.addressee.display_name || req.addressee.username;
                   return (
-                    <div key={req.id} className="flex items-center gap-3 p-3 bg-background rounded-xl transition-all md:hover:shadow-neu-inset">
-                      <Avatar className="h-12 w-12 flex-shrink-0">
-                        <AvatarImage src={req.addressee.avatar_url || undefined} alt={req.addressee.display_name || req.addressee.username} />
-                        <AvatarFallback className="bg-primary-gradient text-white/70">
-                          {getInitials(req.addressee.display_name || req.addressee.username)}
-                        </AvatarFallback>
+                    <div key={req.id} className="flex items-center gap-3 px-3 py-3 rounded-xl md:hover:bg-ink-1">
+                      <Avatar className="h-11 w-11 flex-shrink-0">
+                        <AvatarImage src={req.addressee.avatar_url || undefined} alt={name} />
+                        <AvatarFallback name={name} />
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => router.push(`/profile/${req.addressee.id}`)}
-                            className="font-semibold text-[15px] text-foreground truncate hover:underline"
+                            className="t-body-b text-ink-9 truncate hover:underline"
                           >
-                            {req.addressee.display_name || req.addressee.username}
+                            {name}
                           </button>
                           {isPremium(req.addressee) && <PremiumBadge size="sm" />}
                         </div>
-                        <p className="text-[13px] text-muted-foreground flex items-center gap-1">
+                        <p className="t-caption muted flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           Pending
                         </p>
                       </div>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-background shadow-neu-raised-sm text-amber-500">
-                        Sent
-                      </span>
                       <button
                         aria-label="Cancel sent request"
                         onClick={() => setSentRequestToCancel(req)}
                         disabled={isProcessing}
-                        className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm text-muted-foreground flex items-center justify-center disabled:opacity-50"
+                        className="iconbtn disabled:opacity-50"
+                        style={{ width: 36, height: 36 }}
                       >
                         {isProcessing
                           ? <Loader2 className="h-4 w-4 animate-spin" />

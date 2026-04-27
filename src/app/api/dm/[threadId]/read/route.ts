@@ -16,7 +16,7 @@ export const POST = withAuth<{ threadId: string }>(async (_request, { user, supa
   // Mark all unread messages in this thread as read (messages not sent by current user)
   const { error } = await supabase
     .from("dm_messages")
-    .update({ is_read: true })
+    .update({ is_read: true, read_at: new Date().toISOString() })
     .eq("thread_id", threadId)
     .neq("sender_id", user.id)
     .eq("is_read", false);

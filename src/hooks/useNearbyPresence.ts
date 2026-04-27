@@ -50,21 +50,25 @@ export function useNearbyPresence(userId: string | undefined) {
       config: { presence: { key: userId } },
     });
 
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
     channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState();
-      const loc = useAppStore.getState().userLocation;
-      const nearby: NearbyUser[] = [];
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        const state = channel.presenceState();
+        const loc = useAppStore.getState().userLocation;
+        const nearby: NearbyUser[] = [];
 
-      for (const key of Object.keys(state)) {
-        if (key === userId) continue;
-        const presences = state[key] as unknown as NearbyUser[];
-        if (!presences?.[0]) continue;
-        const p = presences[0];
-        if (loc && haversineKm(loc.lat, loc.lng, p.lat, p.lng) <= RADIUS_KM) {
-          nearby.push(p);
+        for (const key of Object.keys(state)) {
+          if (key === userId) continue;
+          const presences = state[key] as unknown as NearbyUser[];
+          if (!presences?.[0]) continue;
+          const p = presences[0];
+          if (loc && haversineKm(loc.lat, loc.lng, p.lat, p.lng) <= RADIUS_KM) {
+            nearby.push(p);
+          }
         }
-      }
-      setNearbyUsers(nearby);
+        setNearbyUsers(nearby);
+      }, 300);
     });
 
     channel.subscribe(async (status) => {
@@ -88,6 +92,7 @@ export function useNearbyPresence(userId: string | undefined) {
     channelRef.current = channel;
 
     return () => {
+      if (syncTimer) clearTimeout(syncTimer);
       isSetupRef.current = false;
       if (channelRef.current) {
         channelRef.current.untrack();

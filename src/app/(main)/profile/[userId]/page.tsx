@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, UserPlus, MessageCircle, UserCheck, Clock } from "lucide-react";
+import { ArrowLeft, UserPlus, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { OtherUserGallery } from "@/components/profile/OtherUserGallery";
@@ -106,6 +106,7 @@ export default function PublicProfilePage() {
   };
 
   const handleSendMessage = () => {
+    if (!isFriend) return;
     startTransition(async () => {
       try {
         const res = await fetch("/api/dm/threads", {
@@ -115,7 +116,7 @@ export default function PublicProfilePage() {
         });
         if (res.ok) {
           const d = await res.json();
-          window.location.href = `/chat/${d.thread_id}`;
+          router.push(`/inbox?tab=chats&thread=${d.id}`);
         }
       } catch (err) {
         console.error("Failed to start DM:", err);
@@ -137,18 +138,35 @@ export default function PublicProfilePage() {
           <div className="flex justify-start w-full">
             <button
               onClick={() => router.back()}
-              className="w-9 h-9 rounded-full bg-background shadow-neu-raised-sm flex items-center justify-center"
+              className="w-9 h-9 rounded-full bg-background shadow-e-1 flex items-center justify-center"
             >
               <ArrowLeft className="h-[18px] w-[18px] text-muted-foreground" />
             </button>
           </div>
 
-          {/* Avatar */}
-          <div className="w-20 h-20 rounded-full bg-background shadow-neu-raised flex items-center justify-center overflow-hidden">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-3xl font-bold text-primary">{initial}</span>
+          {/* Avatar + halo */}
+          <div className="relative mb-5">
+            <div className="w-20 h-20 rounded-full bg-background shadow-e-2 flex items-center justify-center overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-3xl font-bold text-primary">{initial}</span>
+              )}
+            </div>
+            {!loading && data && (
+              <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-background shadow-e-1 rounded-full px-3 py-1 text-xs whitespace-nowrap z-10">
+                <span className="font-semibold text-primary">{data.stats.friends_count}</span>
+                <span className="text-muted-foreground">Friends</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="font-semibold text-primary">{data.stats.photos_count}</span>
+                <span className="text-muted-foreground">Photos</span>
+                {profile?.location_text && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="font-semibold text-primary">{profile.location_text}</span>
+                  </>
+                )}
+              </div>
             )}
           </div>
 
@@ -168,55 +186,29 @@ export default function PublicProfilePage() {
             </p>
           )}
 
-          {/* Stats row */}
-          {!loading && data && (
-            <div className="flex justify-around w-full pt-3">
-              <div className="flex flex-col items-center gap-0.5">
-                <span className="font-display text-[22px] font-bold text-primary">{data.stats.friends_count}</span>
-                <span className="text-xs text-muted-foreground">Friends</span>
-              </div>
-              <div className="flex flex-col items-center gap-0.5">
-                <span className="font-display text-[22px] font-bold text-primary">{data.stats.photos_count}</span>
-                <span className="text-xs text-muted-foreground">Photos</span>
-              </div>
-              {profile?.location_text && (
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="font-display text-[22px] font-bold text-primary">{profile.location_text}</span>
-                  <span className="text-xs text-muted-foreground">Location</span>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Action buttons */}
           {!loading && data && (
             <div className="flex gap-3 pt-2">
               {isFriend ? (
-                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-neu-raised-sm">
-                  <UserCheck className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-600">Friends</span>
-                </div>
+                <button
+                  onClick={handleSendMessage}
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1"
+                >
+                  <span className="text-base leading-none">👋</span>
+                  <span className="text-sm font-medium text-primary">Say Hi</span>
+                </button>
               ) : isPending ? (
-                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-neu-raised-sm">
+                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium text-muted-foreground">Requested</span>
                 </div>
               ) : (
                 <button
                   onClick={handleAddFriend}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary-gradient text-white shadow-neu-raised-sm"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-ink-9 text-white shadow-e-1"
                 >
                   <UserPlus className="h-4 w-4" />
                   <span className="text-sm font-medium">Add Friend</span>
-                </button>
-              )}
-              {(isFriend || viewerIsPremium) && (
-                <button
-                  onClick={handleSendMessage}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-neu-raised-sm"
-                >
-                  <MessageCircle className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-primary">Message</span>
                 </button>
               )}
             </div>

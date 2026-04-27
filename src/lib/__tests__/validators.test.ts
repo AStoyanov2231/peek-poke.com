@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   usernameSchema,
   profileUpdateSchema,
+  datingProfileSchema,
+  profilePatchSchema,
   friendRequestSchema,
   dmThreadCreateSchema,
   dmMessageSchema,
@@ -195,6 +197,89 @@ describe('photoUpdateSchema', () => {
 
   it('should fail for non-integer display_order', () => {
     expect(photoUpdateSchema.safeParse({ display_order: 1.5 }).success).toBe(false)
+  })
+})
+
+describe('datingProfileSchema', () => {
+  // DOB relative to 2026-04-27 (current date per env): clearly adult
+  const adultDob = '2000-01-01'
+  // DOB relative to 2026-04-27: clearly minor
+  const minorDob = '2020-01-01'
+
+  it('should pass for adult DOB', () => {
+    expect(datingProfileSchema.safeParse({ date_of_birth: adultDob }).success).toBe(true)
+  })
+
+  it('should fail for minor DOB', () => {
+    expect(datingProfileSchema.safeParse({ date_of_birth: minorDob }).success).toBe(false)
+  })
+
+  it('should fail for invalid date format', () => {
+    expect(datingProfileSchema.safeParse({ date_of_birth: '01-01-2000' }).success).toBe(false)
+  })
+
+  it('should pass for all valid gender values', () => {
+    const genders = ['man', 'woman', 'non_binary', 'other'] as const
+    for (const g of genders) {
+      expect(datingProfileSchema.safeParse({ gender: g }).success).toBe(true)
+    }
+  })
+
+  it('should fail for invalid gender string', () => {
+    expect(datingProfileSchema.safeParse({ gender: 'alien' }).success).toBe(false)
+  })
+
+  it('should pass for all valid orientation values', () => {
+    const orientations = ['straight', 'gay', 'lesbian', 'bisexual', 'pansexual', 'other'] as const
+    for (const o of orientations) {
+      expect(datingProfileSchema.safeParse({ orientation: o }).success).toBe(true)
+    }
+  })
+
+  it('should fail for invalid orientation string', () => {
+    expect(datingProfileSchema.safeParse({ orientation: 'confused' }).success).toBe(false)
+  })
+
+  it('should pass for height_cm in valid range (120-230)', () => {
+    expect(datingProfileSchema.safeParse({ height_cm: 170 }).success).toBe(true)
+    expect(datingProfileSchema.safeParse({ height_cm: 120 }).success).toBe(true)
+    expect(datingProfileSchema.safeParse({ height_cm: 230 }).success).toBe(true)
+  })
+
+  it('should fail for height_cm below 120', () => {
+    expect(datingProfileSchema.safeParse({ height_cm: 119 }).success).toBe(false)
+  })
+
+  it('should fail for height_cm above 230', () => {
+    expect(datingProfileSchema.safeParse({ height_cm: 231 }).success).toBe(false)
+  })
+
+  it('should pass for height_cm null', () => {
+    expect(datingProfileSchema.safeParse({ height_cm: null }).success).toBe(true)
+  })
+
+  it('should pass for empty object (all fields optional)', () => {
+    expect(datingProfileSchema.safeParse({}).success).toBe(true)
+  })
+})
+
+describe('profilePatchSchema', () => {
+  it('should accept base profile fields', () => {
+    expect(profilePatchSchema.safeParse({ display_name: 'Alice' }).success).toBe(true)
+  })
+
+  it('should accept dating profile fields', () => {
+    expect(profilePatchSchema.safeParse({ gender: 'woman', orientation: 'straight' }).success).toBe(true)
+  })
+
+  it('should accept combined base + dating fields', () => {
+    expect(
+      profilePatchSchema.safeParse({ display_name: 'Alice', gender: 'woman', height_cm: 165 }).success
+    ).toBe(true)
+  })
+
+  it('should reject unknown fields (strict mode)', () => {
+    expect(profilePatchSchema.safeParse({ unknown_field: 'value' }).success).toBe(false)
   })
 })
 

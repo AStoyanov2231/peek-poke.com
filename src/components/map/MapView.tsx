@@ -1,21 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Map, { Marker } from "react-map-gl/maplibre";
+import Map, { Marker } from "react-map-gl/mapbox";
 import Supercluster from "supercluster";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { useUserLocation, useNearbyUsers, useProfile, useFriends, useHighlightedUserId, useIsPremium, usePendingUserId, useHighlightedData } from "@/stores/selectors";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { useUserLocation, useNearbyUsers, useProfile, useFriends, useHighlightedUserId, useIsPremium, usePendingUserId, useHighlightedData, useBots } from "@/stores/selectors";
 import { useAppStore } from "@/stores/appStore";
 import { UserPinContent } from "./UserPin";
 import { HighlightedPin } from "./HighlightedPin";
+import { BotPin } from "./BotPin";
+import { useBots as useBotsHook } from "@/hooks/useBots";
+import { haversineKm } from "@/lib/geo";
 import type { NearbyUser } from "@/types/database";
-import type { MapRef } from "react-map-gl/maplibre";
+import type { MapRef } from "react-map-gl/mapbox";
 
 const DEFAULT_ZOOM = 17;
 const DEFAULT_PITCH = 50;
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-// const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
-// const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+const MAP_STYLE = "mapbox://styles/mapbox/standard";
+// const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
+// const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
+// const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
+// const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
+// const MAP_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 
 interface UserPointProperties {
   userId: string;
@@ -32,14 +38,18 @@ export function MapViewInner() {
   const pendingUserId = usePendingUserId();
   const highlightedData = useHighlightedData();
   const isPremium = useIsPremium();
+  const bots = useBots();
   const setSelectedClusterUserIds = useAppStore((s) => s.setSelectedClusterUserIds);
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
   const selectUser = useAppStore((s) => s.selectUser);
+  useBotsHook();
 
   const hasCentered = useRef(false);
   const isDragging = useRef(false);
+  const isOrbitingRef = useRef(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
+  const [mapBounds, setMapBounds] = useState<[number, number, number, number] | null>(null);
   const [viewState, setViewState] = useState({
     longitude: userLocation?.lng ?? 0,
     latitude: userLocation?.lat ?? 0,
@@ -63,6 +73,7 @@ export function MapViewInner() {
   // Listen for manual recenter requests
   useEffect(() => {
     const handler = () => {
+      useAppStore.getState().setHighlightedUserId(null);
       const loc = useAppStore.getState().userLocation;
       if (loc) {
         mapRef.current?.flyTo({
@@ -70,6 +81,7 @@ export function MapViewInner() {
           zoom: DEFAULT_ZOOM,
           pitch: DEFAULT_PITCH,
           bearing: 0,
+          duration: 1200,
         });
       }
     };
@@ -77,29 +89,47 @@ export function MapViewInner() {
     return () => window.removeEventListener("recenter-map", handler);
   }, []);
 
-  // Pan with offset when a user is highlighted — desktop shifts left for dialog room, mobile shifts up
+  // Center on highlighted user then orbit — orbit delayed until easeTo finishes
   useEffect(() => {
     if (!highlightedUserId || !mapRef.current) return;
     const user = useAppStore.getState().nearbyUsers.find((u) => u.userId === highlightedUserId);
     if (!user) return;
     const map = mapRef.current.getMap();
-    const currentZoom = map.getZoom();
-    const targetZoom = Math.max(currentZoom, 17);
+    const targetZoom = Math.max(map.getZoom(), 17);
     const isMobile = window.innerWidth < 768;
+    const EASE_MS = 700;
     mapRef.current.easeTo({
       center: [user.lng, user.lat],
       zoom: targetZoom,
+      duration: EASE_MS,
       padding: isMobile
         ? { left: 0, right: 0, top: 0, bottom: 300 }
-        : { left: 320, right: 0, top: 0, bottom: 0 },
+        : { left: 0, right: 0, top: 0, bottom: 0 },
     });
+    let rafId: number;
+    const tid = setTimeout(() => {
+      const startBearing = map.getBearing();
+      const start = performance.now();
+      isOrbitingRef.current = true;
+      const animate = (now: number) => {
+        setViewState(prev => ({ ...prev, bearing: startBearing + (now - start) * (360 / 60000) }));
+        rafId = requestAnimationFrame(animate);
+      };
+      rafId = requestAnimationFrame(animate);
+    }, EASE_MS);
+    return () => { isOrbitingRef.current = false; clearTimeout(tid); cancelAnimationFrame(rafId); };
   }, [highlightedUserId]);
 
   // Supercluster for marker clustering
   const supercluster = useMemo(() => {
     const sc = new Supercluster<UserPointProperties>({ radius: 40, maxZoom: 20 });
+    const highlightedPos = highlightedUserId ? nearbyUsers.find(u => u.userId === highlightedUserId) : null;
     const points: Supercluster.PointFeature<UserPointProperties>[] = nearbyUsers
-      .filter(u => u.userId !== highlightedUserId)
+      .filter(u => {
+        if (u.userId === highlightedUserId) return false;
+        if (highlightedPos && haversineKm(u.lat, u.lng, highlightedPos.lat, highlightedPos.lng) < 0.03) return false;
+        return true;
+      })
       .map(u => ({
         type: "Feature",
         properties: { userId: u.userId },
@@ -109,28 +139,22 @@ export function MapViewInner() {
     return sc;
   }, [nearbyUsers, highlightedUserId]);
 
-  // Compute clusters from current viewport
+  // Compute clusters from current viewport — only recomputes when zoom changes or pan ends
   const clusters = useMemo(() => {
-    if (!mapLoaded) return [];
-    const map = mapRef.current?.getMap();
-    if (!map) return [];
-    const bounds = map.getBounds();
-    if (!bounds) return [];
-    return supercluster.getClusters(
-      [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
-      Math.round(viewState.zoom)
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supercluster, viewState.zoom, viewState.longitude, viewState.latitude, mapLoaded]);
+    if (!mapLoaded || !mapBounds) return [];
+    return supercluster.getClusters(mapBounds, Math.round(viewState.zoom));
+  }, [supercluster, viewState.zoom, mapBounds, mapLoaded]);
 
   // Recompute visible users on move end
   const handleMoveEnd = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
-    const bounds = map.getBounds();
+    const b = map.getBounds();
+    if (!b) return;
+    setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
     const all = useAppStore.getState().nearbyUsers;
     useAppStore.getState().setVisibleUsers(
-      all.filter(u => bounds.contains([u.lng, u.lat]))
+      all.filter(u => b.contains([u.lng, u.lat]))
     );
   }, []);
 
@@ -174,27 +198,29 @@ export function MapViewInner() {
       <Map
         ref={mapRef}
         {...viewState}
-        onMove={(evt) => setViewState(evt.viewState)}
+        onMove={(evt) => { if (!isOrbitingRef.current) setViewState(evt.viewState); }}
         onMoveEnd={handleMoveEnd}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onClick={handleMapClick}
+        onError={(e) => { console.error("[MapView] mapbox error", e.error); }}
         onLoad={() => {
           useAppStore.getState().setMapReady(true);
           setMapLoaded(true);
           const map = mapRef.current?.getMap();
           if (map) {
-            map.getStyle().layers.forEach(layer => {
-              if (layer.type === "symbol" && (layer as { "source-layer"?: string })["source-layer"] === "transportation_name") {
-                map.setLayoutProperty(layer.id, "visibility", "none");
-              }
-            });
+            const b = map.getBounds();
+            if (b) setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+            const h = new Date().getHours();
+            const preset = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 19 ? "day" : h >= 19 && h < 21 ? "dusk" : "night";
+            map.setConfigProperty("basemap", "lightPreset", preset);
           }
         }}
+        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
         style={{ width: "100%", height: "100%" }}
-        minZoom={14}
-        maxPitch={50}
+        minZoom={16}
+        maxPitch={85}
         clickTolerance={8}
         fadeDuration={0}
       >
@@ -245,6 +271,15 @@ export function MapViewInner() {
             </Marker>
           );
         })}
+
+        {/* Coin bot pins */}
+        {bots.map((b) => (
+          <BotPin
+            key={b.id}
+            bot={b}
+            collectable={!!userLocation && haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng) <= 0.05}
+          />
+        ))}
 
         {/* Highlighted user pin */}
         {highlightedUser && highlightedData && (

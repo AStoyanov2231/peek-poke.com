@@ -207,7 +207,7 @@ export function ProfileInterests({
             <button
               onClick={handleDone}
               disabled={isSaving}
-              className="bg-primary-gradient rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 disabled:opacity-50 shadow-neu-raised-sm"
+              className="bg-ink-9 rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 disabled:opacity-50 shadow-e-1"
             >
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               Done
@@ -215,10 +215,11 @@ export function ProfileInterests({
           ) : (
             <button
               onClick={handleOpen}
-              className="bg-primary-gradient rounded-sm px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 shadow-neu-raised-sm"
+              className="iconbtn"
+              style={{ width: 36, height: 36, borderRadius: "50%" }}
+              aria-label="Edit interests"
             >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
+              <Pencil className="h-[15px] w-[15px]" strokeWidth={2} />
             </button>
           )
         )}
@@ -239,7 +240,7 @@ export function ProfileInterests({
                 key={tag.id}
                 ref={makeTagRef(tag.id)}
                 className={cn(
-                  "inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium shadow-neu-raised-sm",
+                  "inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium shadow-e-1",
                   isAnimating && "pointer-events-none"
                 )}
                 style={{
@@ -297,7 +298,7 @@ export function ProfileInterests({
               "sticky bottom-0 flex justify-center py-2 pointer-events-none transition-opacity duration-300",
               showScrollHint ? "opacity-100" : "opacity-0"
             )}>
-              <div className="w-11 h-11 rounded-full bg-primary-gradient shadow-neu-raised-sm flex items-center justify-center">
+              <div className="w-11 h-11 rounded-full bg-ink-9 shadow-e-1 flex items-center justify-center">
                 <ChevronDown className="h-5 w-5 text-white" />
               </div>
             </div>
