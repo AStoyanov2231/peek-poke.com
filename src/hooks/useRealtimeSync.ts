@@ -4,7 +4,6 @@ import { useIsPreloading } from "@/stores/selectors";
 import { useRealtimeDM } from "@/hooks/useRealtimeDM";
 import { useRealtimeFriendships } from "@/hooks/useRealtimeFriendships";
 import { useRealtimeProfiles } from "@/hooks/useRealtimeProfiles";
-import { useRealtimeMatches } from "@/hooks/useRealtimeMatches";
 
 /**
  * Orchestrator hook that sets up all realtime Supabase channel subscriptions.
@@ -48,7 +47,4 @@ export function useRealtimeSync() {
   });
 
   useRealtimeProfiles({ isPreloading });
-
-  const fetchMatches = useAppStore((state) => state.fetchMatches);
-  useRealtimeMatches({ fetchMatches, isPreloading });
 }

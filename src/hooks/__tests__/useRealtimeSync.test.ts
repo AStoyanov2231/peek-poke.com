@@ -23,10 +23,6 @@ vi.mock('@/hooks/useRealtimeProfiles', () => ({
   useRealtimeProfiles: (...args: unknown[]) => mockUseRealtimeProfiles(...args),
 }))
 
-vi.mock('@/hooks/useRealtimeMatches', () => ({
-  useRealtimeMatches: vi.fn(),
-}))
-
 vi.mock('@/stores/selectors', () => ({
   useIsPreloading: vi.fn(() => false),
 }))

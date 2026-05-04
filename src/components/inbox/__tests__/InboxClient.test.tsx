@@ -31,10 +31,6 @@ vi.mock('@/components/inbox/RequestsTab', () => ({
   RequestsTab: () => <div data-testid="requests-tab" />,
 }))
 
-vi.mock('@/components/inbox/MatchesTab', () => ({
-  MatchesTab: () => <div data-testid="matches-tab" />,
-}))
-
 vi.mock('@/components/inbox/InboxChatPanel', () => ({
   InboxChatPanel: ({ threadId }: any) => (
     <div data-testid="chat-panel" data-thread-id={threadId} />
@@ -48,12 +44,11 @@ beforeEach(() => {
 })
 
 describe('InboxClient', () => {
-  it('renders tab bar with Chats, Friends, Requests, Matches', () => {
+  it('renders tab bar with Chats, Friends, Requests', () => {
     render(<InboxClient />)
     expect(screen.getByText('Chats')).toBeInTheDocument()
     expect(screen.getByText('Friends')).toBeInTheDocument()
     expect(screen.getByText('Requests')).toBeInTheDocument()
-    expect(screen.getByText('Matches')).toBeInTheDocument()
   })
 
   it('default tab is Chats when no tab param', () => {

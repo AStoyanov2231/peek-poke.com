@@ -174,22 +174,14 @@ describe('onboarding flow', () => {
     expect(res.headers.get('location')).toContain('/onboarding')
   })
 
-  it('should allow access when both onboardings are completed', async () => {
+  it('should allow access when onboarding is completed', async () => {
     mockAuthenticated()
-    mockProfile({ onboarding_completed: true, dating_onboarding_completed: true, deleted_at: null })
+    mockProfile({ onboarding_completed: true, deleted_at: null })
     const req = makeReq('/home')
     const res = await middleware(req)
     const location = res.headers.get('location') ?? ''
     expect(location).not.toContain('/onboarding')
     expect(location).not.toContain('/login')
-  })
-
-  it('should redirect to /onboarding/dating when dating onboarding is not completed', async () => {
-    mockAuthenticated()
-    mockProfile({ onboarding_completed: true, dating_onboarding_completed: false, deleted_at: null })
-    const req = makeReq('/home')
-    const res = await middleware(req)
-    expect(res.headers.get('location')).toContain('/onboarding/dating')
   })
 
   it('should allow access to /onboarding when not onboarded', async () => {
