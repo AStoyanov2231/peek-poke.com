@@ -61,3 +61,26 @@ export const useHighlightedUserId = () => useAppStore((state) => state.highlight
 export const usePendingUserId = () => useAppStore((state) => state.pendingUserId);
 export const useHighlightedData = () => useAppStore((state) => state.highlightedData);
 export const useBots = () => useAppStore(useShallow((state) => state.bots));
+
+// Dating preferences selectors
+export const useDatingPreferences = () =>
+  useAppStore((state) => state.datingPreferences);
+
+export const useIsDatingPrefsLoaded = () =>
+  useAppStore((state) => state.isDatingPrefsLoaded);
+
+// Discover selectors
+export const useCandidates = () => useAppStore(useShallow((s) => s.candidates));
+export const useCurrentCandidateIndex = () => useAppStore((s) => s.currentCandidateIndex);
+export const useCurrentCandidate = () =>
+  useAppStore((s) => s.candidates[s.currentCandidateIndex] ?? null);
+export const useDailyPokesRemaining = () => useAppStore((s) => s.dailyPokesRemaining);
+export const useDailyPassesRemaining = () => useAppStore((s) => s.dailyPassesRemaining);
+export const useLastMatch = () => useAppStore((s) => s.lastMatch);
+export const useLastMatchCandidate = () => useAppStore((s) => s.lastMatchCandidate);
+export const useIsCandidatesLoaded = () => useAppStore((s) => s.isCandidatesLoaded);
+
+// Matches selectors
+export const useMatches = () => useAppStore(useShallow((s) => s.matches));
+export const useActiveMatchCount = () => useAppStore((s) => s.matches.length);
+export const useIsMatchesLoaded = () => useAppStore((s) => s.isMatchesLoaded);

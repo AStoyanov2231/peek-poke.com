@@ -16,7 +16,8 @@ import type { MapRef } from "react-map-gl/mapbox";
 
 const DEFAULT_ZOOM = 17;
 const DEFAULT_PITCH = 50;
-const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
+const MAP_STYLE = "mapbox://styles/mapbox/standard";
+// const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
 // const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
 // const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 // const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
@@ -149,6 +150,7 @@ export function MapViewInner() {
     const map = mapRef.current?.getMap();
     if (!map) return;
     const b = map.getBounds();
+    if (!b) return;
     setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
     const all = useAppStore.getState().nearbyUsers;
     useAppStore.getState().setVisibleUsers(
@@ -201,25 +203,24 @@ export function MapViewInner() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onClick={handleMapClick}
+        onError={(e) => { console.error("[MapView] mapbox error", e.error); }}
         onLoad={() => {
           useAppStore.getState().setMapReady(true);
           setMapLoaded(true);
           const map = mapRef.current?.getMap();
           if (map) {
             const b = map.getBounds();
-            setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
-            map.getStyle().layers.forEach(layer => {
-              if (layer.type === "symbol" && (layer as { "source-layer"?: string })["source-layer"] === "transportation_name") {
-                map.setLayoutProperty(layer.id, "visibility", "none");
-              }
-            });
+            if (b) setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+            const h = new Date().getHours();
+            const preset = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 19 ? "day" : h >= 19 && h < 21 ? "dusk" : "night";
+            map.setConfigProperty("basemap", "lightPreset", preset);
           }
         }}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
         style={{ width: "100%", height: "100%" }}
-        minZoom={14}
-        maxPitch={50}
+        minZoom={16}
+        maxPitch={85}
         clickTolerance={8}
         fadeDuration={0}
       >

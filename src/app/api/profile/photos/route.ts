@@ -86,6 +86,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       thumbnail_url: thumbnailUrl,
       display_order: nextOrder,
       is_private: isPrivate,
+      approval_status: "approved",
     })
     .select()
     .single();

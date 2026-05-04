@@ -35,7 +35,7 @@ export function RecenterButton() {
         disabled={!userLocation}
         suppressHydrationWarning
         aria-label="Center map on my location"
-        className="map-recenter iconbtn absolute right-4 z-40 active:scale-95"
+        className="map-recenter iconbtn absolute right-4 z-40 active:scale-95 pointer-events-auto"
         style={{
           width: 44,
           height: 44,

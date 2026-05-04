@@ -9,6 +9,7 @@ out/
 build/
 dist/
 coverage/
+# docs/
 
 # Environment
 .env
@@ -49,4 +50,5 @@ supabase-schema.sql
 #cursor stuffs
 .cursor/
 .worktrees/
-.worktrees/
+.claude/worktrees/
+.claude/settings.local.json

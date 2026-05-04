@@ -3,6 +3,7 @@
 import { memo, useCallback, useState, useTransition, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Marker } from "react-map-gl/mapbox";
+import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 import { X } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { useOnlineUsers } from "@/stores/selectors";
@@ -20,6 +21,7 @@ interface HighlightedPinProps {
 }
 
 export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isPremium, initialData }: HighlightedPinProps) {
+  const router = useTransitionRouter();
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
   const onlineUsers = useOnlineUsers();
   const [isDesktop, setIsDesktop] = useState(false);
@@ -47,7 +49,7 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
         if (res.ok) {
           const d = await res.json();
           setHighlightedUserId(null);
-          window.location.href = `/inbox?tab=chats&thread=${d.id}`;
+          router.push(`/inbox?tab=chats&thread=${d.id}`);
         }
       } catch (err) { console.error("Failed to start DM:", err); }
     });
@@ -117,7 +119,7 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
         </button>
         <button
           className="btn btn-secondary btn-md flex-1 rounded-xl"
-          onClick={() => { window.location.href = `/profile/${user.userId}`; }}
+          onClick={() => { router.push(`/profile/${user.userId}`); }}
         >
           Profile
         </button>

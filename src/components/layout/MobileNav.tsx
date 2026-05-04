@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { MapPin, Mail, User } from "lucide-react";
+import { MapPin, Heart, Mail, User } from "lucide-react";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
 import { useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
 import { isNativeApp } from "@/lib/native";
@@ -15,9 +15,10 @@ interface MobileTab {
 }
 
 const tabs: MobileTab[] = [
-  { href: "/",        label: "Map",   Icon: MapPin },
-  { href: "/inbox",   label: "Inbox", Icon: Mail,  badge: true },
-  { href: "/profile", label: "Me",    Icon: User },
+  { href: "/",         label: "Map",      Icon: MapPin },
+  { href: "/discover", label: "Discover", Icon: Heart },
+  { href: "/inbox",    label: "Inbox",    Icon: Mail,  badge: true },
+  { href: "/profile",  label: "Me",       Icon: User },
 ];
 
 export function MobileNav() {

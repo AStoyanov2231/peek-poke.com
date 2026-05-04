@@ -1,4 +1,4 @@
-export type RoleName = "guest" | "user" | "subscriber" | "moderator" | "admin";
+export type RoleName = "guest" | "user" | "subscriber" | "platinum" | "moderator" | "admin";
 
 export type Role = {
   id: string;
@@ -16,6 +16,13 @@ export type UserRole = {
   role?: Role;
 };
 
+export type GenderIdentity = "man" | "woman" | "non_binary" | "other";
+export type SexualOrientation = "straight" | "gay" | "lesbian" | "bisexual" | "pansexual" | "other";
+export type RelationshipGoal = "casual" | "long_term" | "friends" | "undecided";
+export type SmokingHabit = "never" | "socially" | "regularly";
+export type DrinkingHabit = "never" | "socially" | "regularly";
+export type KidsPreference = "has_kids" | "no_kids" | "wants_kids" | "doesnt_want_kids" | "open";
+
 export type Profile = {
   id: string;
   username: string;
@@ -29,6 +36,18 @@ export type Profile = {
   stripe_customer_id: string | null;
   onboarding_completed: boolean;
   roles: RoleName[];
+  date_of_birth: string | null;
+  gender: GenderIdentity | null;
+  orientation: SexualOrientation | null;
+  height_cm: number | null;
+  relationship_goal: RelationshipGoal | null;
+  smoking: SmokingHabit | null;
+  drinking: DrinkingHabit | null;
+  has_kids: KidsPreference | null;
+  verified_at: string | null;
+  is_ghost: boolean;
+  is_incognito: boolean;
+  dating_onboarding_completed: boolean;
 };
 
 // Helper to check if a profile has a specific role
@@ -42,6 +61,26 @@ export function hasRole(
 // Convenience helper for premium/subscriber check
 export function isPremium(profile: Profile | null | undefined): boolean {
   return hasRole(profile, "subscriber");
+}
+
+export function isPlatinum(profile: Profile | null | undefined): boolean {
+  return hasRole(profile, "platinum");
+}
+
+export function isVerified(profile: Profile | null | undefined): boolean {
+  return profile?.verified_at != null;
+}
+
+export function profileAge(profile: Profile | null | undefined): number | null {
+  if (!profile?.date_of_birth) return null;
+  const dob = new Date(profile.date_of_birth);
+  const today = new Date();
+  const age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    return age - 1;
+  }
+  return age;
 }
 
 export type FriendshipStatus = "pending" | "accepted";
@@ -172,7 +211,8 @@ export type FriendMeeting = {
 export type CoinTransactionReason =
   | "friend_request_sent"
   | "meeting_bonus"
-  | "request_cancelled_refund";
+  | "request_cancelled_refund"
+  | "super_poke";
 
 export type CoinTransaction = {
   id: string;
@@ -181,4 +221,98 @@ export type CoinTransaction = {
   reason: CoinTransactionReason;
   related_user_id: string | null;
   created_at: string;
+};
+
+export type DatingPreferences = {
+  user_id: string;
+  interested_in: GenderIdentity[];
+  min_age: number;
+  max_age: number;
+  max_distance_km: number;
+  dealbreaker_smoking: boolean;
+  dealbreaker_drinking: boolean;
+  dealbreaker_kids: boolean;
+  dealbreaker_relationship_goal: RelationshipGoal | null;
+  verified_only: boolean;
+  women_only: boolean;
+  updated_at: string;
+};
+
+export type Poke = {
+  id: string;
+  poker_id: string;
+  pokee_id: string;
+  is_super: boolean;
+  created_at: string;
+  expires_at: string | null;
+  poker?: Profile;
+  pokee?: Profile;
+};
+
+export type Match = {
+  id: string;
+  user_1_id: string;
+  user_2_id: string;
+  thread_id: string | null;
+  matched_at: string;
+  unmatched_at: string | null;
+  unmatched_by: string | null;
+  first_message_at: string | null;
+  user_1?: Profile;
+  user_2?: Profile;
+};
+
+export type Pass = {
+  id: string;
+  passer_id: string;
+  passee_id: string;
+  passed_at: string;
+  expires_at: string;
+};
+
+export type MatchWithPartner = {
+  id: string;
+  thread_id: string | null;
+  matched_at: string;
+  expires_at: string;
+  partner: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  };
+};
+
+export type DailyActionCounter = {
+  user_id: string;
+  action_date: string;
+  pokes_sent: number;
+  passes_sent: number;
+};
+
+export type CandidatePhoto = {
+  id: string;
+  url: string;
+  thumbnail_url: string | null;
+  is_avatar: boolean;
+  display_order: number;
+};
+
+export type Candidate = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  date_of_birth: string | null;
+  gender: GenderIdentity | null;
+  height_cm: number | null;
+  relationship_goal: RelationshipGoal | null;
+  smoking: SmokingHabit | null;
+  drinking: DrinkingHabit | null;
+  has_kids: KidsPreference | null;
+  verified_at: string | null;
+  bio: string | null;
+  photos: CandidatePhoto[];
+  age: number | null;
+  distance_km: number;
 };

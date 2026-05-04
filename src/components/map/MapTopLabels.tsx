@@ -17,7 +17,7 @@ export function MapTopLabels() {
     <>
       <style>{`@media(min-width:768px){.map-top-labels{top:16px!important}}`}</style>
       <div
-        className="map-top-labels absolute left-4 z-30 flex gap-2.5 items-center"
+        className="map-top-labels absolute left-4 z-30 flex gap-2.5 items-center pointer-events-auto"
         style={{ top: "calc(var(--safe-area-top) + 112px)" }}
       >
         {/* Online pill */}

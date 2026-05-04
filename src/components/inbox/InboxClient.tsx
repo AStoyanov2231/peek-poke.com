@@ -5,17 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChatsTab } from "@/components/inbox/ChatsTab";
 import { FriendsTab } from "@/components/inbox/FriendsTab";
 import { RequestsTab } from "@/components/inbox/RequestsTab";
+import { MatchesTab } from "@/components/inbox/MatchesTab";
 import { InboxChatPanel } from "@/components/inbox/InboxChatPanel";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFriendRequestCount, useTotalUnread, useActiveMatchCount } from "@/stores/selectors";
 
-type Tab = "chats" | "friends" | "requests";
+type Tab = "chats" | "friends" | "requests" | "matches";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "chats", label: "Chats" },
-  { id: "friends", label: "Friends" },
-  { id: "requests", label: "Requests" },
-];
 
 export function InboxClient() {
   const router = useRouter();
@@ -24,6 +20,7 @@ export function InboxClient() {
   const threadId = searchParams.get("thread") ?? null;
   const requestCount = useFriendRequestCount();
   const unreadCount = useTotalUnread();
+  const matchCount = useActiveMatchCount();
 
   const [localTab, setLocalTab] = useState<Tab>(
     () => (searchParams.get("tab") ?? "chats") as Tab
@@ -85,6 +82,14 @@ export function InboxClient() {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="matches" className="flex-1 gap-1.5">
+                Matches
+                {matchCount > 0 && (
+                  <span className="badge" style={{ background: "var(--primary-500)", fontSize: 10, minWidth: 16, height: 16 }}>
+                    {matchCount > 9 ? "9+" : matchCount}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -94,6 +99,7 @@ export function InboxClient() {
           {localTab === "chats" && <ChatsTab onSelectThread={setThread} activeThreadId={threadId} />}
           {localTab === "friends" && <FriendsTab />}
           {localTab === "requests" && <RequestsTab />}
+          {localTab === "matches" && <MatchesTab onSelectThread={setThread} activeThreadId={threadId} />}
         </div>
       </div>
 

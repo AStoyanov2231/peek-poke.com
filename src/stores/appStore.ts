@@ -11,6 +11,10 @@ import type {
   DMThread,
   DMMessage,
   NearbyUser,
+  DatingPreferences,
+  Candidate,
+  Match,
+  MatchWithPartner,
 } from "@/types/database";
 
 export type Bot = { id: string; lat: number; lng: number };
@@ -178,6 +182,33 @@ interface AppState {
   bots: Bot[];
   setBots: (bots: Bot[]) => void;
   removeBot: (id: string) => void;
+
+  // Dating preferences
+  datingPreferences: DatingPreferences | null;
+  isDatingPrefsLoaded: boolean;
+  fetchDatingPreferences: () => Promise<void>;
+  updateDatingPreferences: (prefs: Partial<Omit<DatingPreferences, 'user_id' | 'updated_at'>>) => Promise<void>;
+
+  // Matches
+  matches: MatchWithPartner[];
+  isMatchesLoaded: boolean;
+  setMatches: (matches: MatchWithPartner[]) => void;
+  removeMatch: (matchId: string) => void;
+  fetchMatches: () => Promise<void>;
+
+  // Discover
+  candidates: Candidate[];
+  currentCandidateIndex: number;
+  dailyPokesRemaining: number | null;
+  dailyPassesRemaining: number | null;
+  lastMatch: Match | null;
+  lastMatchCandidate: Candidate | null;
+  isCandidatesLoaded: boolean;
+  fetchCandidates: () => Promise<void>;
+  poke: (pokeeId: string) => Promise<boolean>;
+  pass: (passeeId: string) => Promise<boolean>;
+  superPoke: (pokeeId: string) => Promise<boolean>;
+  dismissMatch: () => void;
 }
 
 const initialStats: ProfileStats = {
@@ -217,6 +248,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   isMessagesLoaded: false,
   mapReady: false,
   setMapReady: (ready) => set({ mapReady: ready }),
+  datingPreferences: null,
+  isDatingPrefsLoaded: false,
+  matches: [],
+  isMatchesLoaded: false,
+  candidates: [],
+  currentCandidateIndex: 0,
+  dailyPokesRemaining: 10,
+  dailyPassesRemaining: 50,
+  lastMatch: null,
+  lastMatchCandidate: null,
+  isCandidatesLoaded: false,
 
   // Preload all data
   preloadAll: async () => {
@@ -315,6 +357,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       visibleUsers: [],
       selectedClusterUserIds: null,
       highlightedUserId: null,
+      datingPreferences: null,
+      isDatingPrefsLoaded: false,
+      matches: [],
+      isMatchesLoaded: false,
+      candidates: [],
+      currentCandidateIndex: 0,
+      dailyPokesRemaining: 10,
+      dailyPassesRemaining: 50,
+      lastMatch: null,
+      lastMatchCandidate: null,
+      isCandidatesLoaded: false,
     });
   },
 
@@ -552,5 +605,167 @@ export const useAppStore = create<AppState>((set, get) => ({
           pendingUserId: null,
         });
       });
+  },
+
+  // Discover actions
+  fetchCandidates: async () => {
+    const { userLocation } = get();
+    if (!userLocation) return;
+
+    try {
+      const params = new URLSearchParams({
+        lat: String(userLocation.lat),
+        lng: String(userLocation.lng),
+        limit: "20",
+      });
+      const res = await fetch(`/api/dating/candidates?${params}`);
+      if (!res.ok) { set({ isCandidatesLoaded: true }); return; }
+
+      const data = (await res.json()) as {
+        candidates: Candidate[];
+        dailyPokesRemaining: number | null;
+        dailyPassesRemaining: number | null;
+      };
+
+      set((s) => {
+        const existingIds = new Set(s.candidates.map((c) => c.id));
+        const newCandidates = data.candidates.filter((c) => !existingIds.has(c.id));
+        return {
+          candidates: [...s.candidates, ...newCandidates],
+          dailyPokesRemaining: data.dailyPokesRemaining ?? s.dailyPokesRemaining,
+          dailyPassesRemaining: data.dailyPassesRemaining ?? s.dailyPassesRemaining,
+          isCandidatesLoaded: true,
+        };
+      });
+    } catch {
+      set({ isCandidatesLoaded: true });
+    }
+  },
+
+  poke: async (pokeeId) => {
+    const res = await fetch("/api/dating/poke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pokee_id: pokeeId, is_super: false }),
+    });
+    if (!res.ok) return false;
+
+    const data = (await res.json()) as {
+      poked: boolean;
+      match: Match | null;
+      dailyPokesRemaining: number | null;
+    };
+
+    const matchedCandidate = get().candidates[get().currentCandidateIndex] ?? null;
+    set((s) => ({
+      currentCandidateIndex: s.currentCandidateIndex + 1,
+      dailyPokesRemaining: data.dailyPokesRemaining ?? s.dailyPokesRemaining,
+      lastMatch: data.match ?? null,
+      lastMatchCandidate: data.match ? matchedCandidate : null,
+    }));
+
+    // Refetch when running low (done outside set to avoid stale closure)
+    if (get().candidates.length - get().currentCandidateIndex <= 5) {
+      await get().fetchCandidates();
+    }
+    return true;
+  },
+
+  pass: async (passeeId) => {
+    const res = await fetch("/api/dating/pass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passee_id: passeeId }),
+    });
+    if (!res.ok) return false;
+
+    const data = (await res.json()) as {
+      passed: boolean;
+      dailyPassesRemaining: number | null;
+    };
+
+    set((s) => ({
+      currentCandidateIndex: s.currentCandidateIndex + 1,
+      dailyPassesRemaining: data.dailyPassesRemaining ?? s.dailyPassesRemaining,
+    }));
+
+    if (get().candidates.length - get().currentCandidateIndex <= 5) {
+      await get().fetchCandidates();
+    }
+    return true;
+  },
+
+  superPoke: async (pokeeId) => {
+    const res = await fetch("/api/dating/poke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pokee_id: pokeeId, is_super: true }),
+    });
+    if (!res.ok) return false;
+
+    const data = (await res.json()) as {
+      poked: boolean;
+      match: Match | null;
+      dailyPokesRemaining: number | null;
+    };
+
+    const matchedCandidate = get().candidates[get().currentCandidateIndex] ?? null;
+    set((s) => ({
+      currentCandidateIndex: s.currentCandidateIndex + 1,
+      dailyPokesRemaining: data.dailyPokesRemaining ?? s.dailyPokesRemaining,
+      lastMatch: data.match ?? null,
+      lastMatchCandidate: data.match ? matchedCandidate : null,
+    }));
+
+    if (get().candidates.length - get().currentCandidateIndex <= 5) {
+      await get().fetchCandidates();
+    }
+    return true;
+  },
+
+  dismissMatch: () => set({ lastMatch: null, lastMatchCandidate: null }),
+
+  // Dating preferences actions
+  fetchDatingPreferences: async () => {
+    try {
+      const res = await fetch("/api/dating/preferences");
+      if (!res.ok) {
+        set({ isDatingPrefsLoaded: true });
+        return;
+      }
+      const data = await res.json();
+      set({ datingPreferences: data.preferences, isDatingPrefsLoaded: true });
+    } catch {
+      set({ isDatingPrefsLoaded: true });
+    }
+  },
+
+  updateDatingPreferences: async (prefs) => {
+    try {
+      const res = await fetch("/api/dating/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(prefs),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      set({ datingPreferences: data.preferences });
+    } catch {
+      // network error — state unchanged, caller's awaited promise resolves normally
+    }
+  },
+
+  // Matches actions
+  setMatches: (matches) => set({ matches }),
+  removeMatch: (matchId) =>
+    set((state) => ({ matches: state.matches.filter((m) => m.id !== matchId) })),
+  fetchMatches: async () => {
+    const res = await fetch("/api/dating/matches");
+    if (!res.ok) {
+      set({ isMatchesLoaded: true });
+      return;
+    }
+    const data = await res.json();
+    set({ matches: data.matches ?? [], isMatchesLoaded: true });
   },
 }));

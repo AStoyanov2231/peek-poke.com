@@ -3,10 +3,6 @@
 import { useAppStore } from "@/stores/appStore";
 import { useUserLocation } from "@/stores/selectors";
 
-if (process.env.NODE_ENV === "production") {
-  throw new Error("DevSeedButton must not be used in production");
-}
-
 const SEED_AVATARS = [
   "https://api.dicebear.com/7.x/avataaars/svg?seed=alpha",
   "https://api.dicebear.com/7.x/avataaars/svg?seed=beta",
@@ -46,7 +42,7 @@ export function DevSeedButton() {
   };
 
   return (
-    <div className="absolute bottom-32 right-4 z-50 flex flex-col gap-1">
+    <div className="absolute bottom-32 right-4 z-50 flex flex-col gap-1 pointer-events-auto">
       <button
         onClick={seed}
         className="btn btn-secondary btn-sm text-xs px-2 py-1"

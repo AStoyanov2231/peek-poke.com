@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { calculateAge } from "@/lib/age";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -54,7 +55,10 @@ export async function middleware(request: NextRequest) {
 
   const isAuthPage = request.nextUrl.pathname.startsWith("/login") ||
                      request.nextUrl.pathname.startsWith("/welcome");
-  const isOnboardingPage = request.nextUrl.pathname === "/onboarding";
+  const isBasicOnboardingPage = request.nextUrl.pathname === "/onboarding";
+  const isDatingOnboardingPage = request.nextUrl.pathname.startsWith("/onboarding/dating");
+  const isOnboardingPage = isBasicOnboardingPage || isDatingOnboardingPage;
+  const isAgeGatePage = request.nextUrl.pathname === "/age-gate";
 
   // Unauthenticated users must go to auth pages
   if (!user && !isAuthPage) {
@@ -76,7 +80,7 @@ export async function middleware(request: NextRequest) {
     // Implementation: set cookie in /api/profile/complete-onboarding route, clear on signout.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("onboarding_completed, deleted_at")
+      .select("onboarding_completed, deleted_at, date_of_birth, dating_onboarding_completed")
       .eq("id", user.id)
       .single();
 
@@ -102,12 +106,44 @@ export async function middleware(request: NextRequest) {
     }
 
     // Check onboarding for non-auth, non-onboarding pages
-    if (!isOnboardingPage && !onboardingComplete) {
+    if (!isOnboardingPage && !isAgeGatePage && !onboardingComplete) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
-    // Redirect away from onboarding if already complete
-    if (isOnboardingPage && onboardingComplete) {
+    // Redirect away from basic onboarding if already complete
+    if (isBasicOnboardingPage && onboardingComplete) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    // Age gate — only for users who have completed onboarding
+    if (onboardingComplete && !isOnboardingPage) {
+      const dob = profile?.date_of_birth;
+
+      if (dob) {
+        const age = calculateAge(dob);
+
+        if (age < 18 && !isAgeGatePage) {
+          return NextResponse.redirect(new URL("/age-gate", request.url));
+        }
+        if (age >= 18 && isAgeGatePage) {
+          return NextResponse.redirect(new URL("/", request.url));
+        }
+      }
+
+      // No DOB set yet but user is onboarded — don't block here;
+      // age enforcement also happens at the API level
+      if (!dob && isAgeGatePage) {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+    }
+
+    // Route to dating onboarding if general onboarding done but dating onboarding not
+    const datingOnboardingComplete = profile?.dating_onboarding_completed ?? false;
+
+    if (onboardingComplete && !datingOnboardingComplete && !isDatingOnboardingPage && !isAgeGatePage) {
+      return NextResponse.redirect(new URL("/onboarding/dating", request.url));
+    }
+    if (isDatingOnboardingPage && datingOnboardingComplete) {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }

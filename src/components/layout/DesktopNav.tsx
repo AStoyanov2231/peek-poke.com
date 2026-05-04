@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { MapPin, Mail, Coins } from "lucide-react";
+import { MapPin, Heart, Mail, Coins } from "lucide-react";
 import { useProfile, useCoins, useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -17,8 +17,9 @@ interface DesktopNavItem {
 }
 
 const desktopNavItems: DesktopNavItem[] = [
-  { href: "/",      label: "Map",   Icon: MapPin },
-  { href: "/inbox", label: "Inbox", Icon: Mail, badge: true },
+  { href: "/",         label: "Map",      Icon: MapPin },
+  { href: "/discover", label: "Discover", Icon: Heart },
+  { href: "/inbox",    label: "Inbox",    Icon: Mail, badge: true },
 ];
 
 export function DesktopNav() {
