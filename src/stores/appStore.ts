@@ -619,7 +619,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         limit: "20",
       });
       const res = await fetch(`/api/dating/candidates?${params}`);
-      if (!res.ok) return;
+      if (!res.ok) { set({ isCandidatesLoaded: true }); return; }
 
       const data = (await res.json()) as {
         candidates: Candidate[];

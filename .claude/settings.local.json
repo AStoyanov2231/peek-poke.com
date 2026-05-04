@@ -90,7 +90,10 @@
       "Bash(rm /Users/andy/.claude/RTK.md)",
       "Bash(rtk --version)",
       "Bash(node_modules/.bin/next --help)",
-      "Bash(node_modules/.bin/tsc --noEmit --project /Applications/Coding/peek-poke.com/peek-poke.com/.worktrees/phase-0-schema/tsconfig.json)"
+      "Bash(node_modules/.bin/tsc --noEmit --project /Applications/Coding/peek-poke.com/peek-poke.com/.worktrees/phase-0-schema/tsconfig.json)",
+      "WebFetch(domain:)",
+      "Bash(npm *)",
+      "mcp__plugin_supabase_supabase__generate_typescript_types"
     ]
   },
   "enabledMcpjsonServers": [
@@ -101,5 +104,8 @@
     "stripe",
     "memory"
   ],
-  "prefersReducedMotion": false
+  "prefersReducedMotion": false,
+  "enabledPlugins": {
+    "vercel@claude-plugins-official": false
+  }
 }

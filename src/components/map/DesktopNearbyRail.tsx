@@ -116,7 +116,7 @@ export function DesktopNearbyRail() {
 
   return (
     <div
-      className="hidden md:flex flex-col flex-shrink-0 border-r border-hairline bg-surface"
+      className="hidden md:flex flex-col flex-shrink-0 border-r border-hairline bg-surface pointer-events-auto"
       style={{ width: 340 }}
     >
       {/* Header */}

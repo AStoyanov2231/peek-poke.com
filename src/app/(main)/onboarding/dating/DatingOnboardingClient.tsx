@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,11 +9,12 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
-  RefreshCw,
   Camera,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MIN_DATING_PHOTOS, FREE_DISTANCE_KM, MIN_AGE } from "@/lib/constants";
+import { compressImage, createThumbnail } from "@/lib/image-compression";
 import type { DatingPreferences, GenderIdentity } from "@/types/database";
 
 type DatingOnboardingClientProps = {
@@ -152,7 +153,33 @@ export function DatingOnboardingClient({
 
   // Step 5 — Photos
   const [approvedCount, setApprovedCount] = useState(initialApprovedCount);
-  const [refreshingPhotos, setRefreshingPhotos] = useState(false);
+  const [uploadedPhotos, setUploadedPhotos] = useState<Array<{ id: string; url: string }>>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = useCallback(async (file: File) => {
+    setUploadingPhoto(true);
+    try {
+      const compressed = await compressImage(file);
+      const thumbnail = await createThumbnail(file);
+      const formData = new FormData();
+      formData.append("file", compressed);
+      formData.append("thumbnail", thumbnail);
+      const res = await fetch("/api/profile/photos", { method: "POST", body: formData });
+      if (res.ok) {
+        const data = await res.json();
+        setUploadedPhotos((prev) => [...prev, { id: data.photo.id, url: data.photo.url }]);
+        setApprovedCount((prev) => prev + 1);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err?.error || "Failed to upload photo");
+      }
+    } catch {
+      setError("Failed to upload photo. Please try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }, []);
 
   // Shared state
   const [loading, setLoading] = useState(false);
@@ -165,26 +192,6 @@ export function DatingOnboardingClient({
     return d.toISOString().split("T")[0];
   })();
 
-  const refreshPhotoCount = useCallback(async () => {
-    setRefreshingPhotos(true);
-    try {
-      const res = await fetch("/api/profile/photos");
-      if (!res.ok) return;
-      const data = await res.json();
-      const photos: Array<{ approval_status: string }> = Array.isArray(data?.photos) ? data.photos : [];
-      setApprovedCount(photos.filter((p) => p.approval_status === "approved").length);
-    } catch {
-      // network error — keep existing count
-    } finally {
-      setRefreshingPhotos(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (step === 5) {
-      refreshPhotoCount();
-    }
-  }, [step, refreshPhotoCount]);
 
   const progressPercent = ((step - 1) / (TOTAL_STEPS - 1)) * 100;
 
@@ -784,31 +791,52 @@ export function DatingOnboardingClient({
                     ))}
                   </div>
 
-                  {approvedCount < MIN_DATING_PHOTOS && (
-                    <p className="text-sm text-center text-ink-5">
-                      Photos are reviewed by moderators. Upload them on your{" "}
-                      <a href="/profile" className="text-[var(--primary-500)] underline">
-                        profile page
-                      </a>{" "}
-                      and refresh here when approved.
-                    </p>
-                  )}
+                  {/* Photo grid */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {uploadedPhotos.map((photo) => (
+                      <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden bg-ink-2">
+                        <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-emerald-500/20">
+                          <Check className="h-4 w-4 text-emerald-600" />
+                        </div>
+                      </div>
+                    ))}
+                    {uploadedPhotos.length < 8 && (
+                      <button
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={uploadingPhoto}
+                        className="aspect-square rounded-xl border-2 border-dashed border-[var(--ink-3)] flex flex-col items-center justify-center gap-1 hover:bg-ink-1 transition-colors disabled:opacity-50"
+                      >
+                        {uploadingPhoto ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-ink-5" />
+                        ) : (
+                          <>
+                            <Plus className="h-5 w-5 text-ink-5" />
+                            <span className="text-xs text-ink-5">Add</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePhotoUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
 
                   {approvedCount >= MIN_DATING_PHOTOS && (
                     <div className="flex items-center gap-2 text-emerald-600 text-sm justify-center">
                       <Check className="h-4 w-4" />
-                      You have enough approved photos
+                      You have enough photos to continue
                     </div>
                   )}
-
-                  <button
-                    onClick={refreshPhotoCount}
-                    disabled={refreshingPhotos}
-                    className="w-full h-10 rounded-xl border border-[var(--ink-3)] text-sm text-ink-7 flex items-center justify-center gap-2 hover:bg-ink-1 transition-colors"
-                  >
-                    <RefreshCw className={cn("h-4 w-4", refreshingPhotos && "animate-spin")} />
-                    Refresh
-                  </button>
 
                   <ShakeError message={error} />
 
