@@ -9,15 +9,21 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { NativeBridgeProvider } from "@/components/NativeBridgeProvider";
 import { AuthBridgeProvider } from "@/components/AuthBridgeProvider";
 import { PersistentMapHost } from "@/components/map/PersistentMapHost";
+import { StoreHydrator } from "@/components/StoreHydrator";
+import { getPreloadData } from "@/lib/preload-server";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // getSession reads from cookie — no network call; middleware already validated the session
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!user) redirect("/login");
+  if (!session?.user) redirect("/login");
+
+  const preloadData = await getPreloadData(supabase, session.user.id);
 
   return (
     <QueryProvider>
+      {preloadData && <StoreHydrator data={preloadData} />}
       <PreloadProvider>
         <NativeBridgeProvider>
           <AuthBridgeProvider>

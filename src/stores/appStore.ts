@@ -106,6 +106,7 @@ interface AppState {
 
   // Actions
   preloadAll: () => Promise<void>;
+  hydrateFromPreload: (data: PreloadResponse) => void;
   clearStore: () => void;
 
   // Profile actions
@@ -218,6 +219,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   mapReady: false,
   setMapReady: (ready) => set({ mapReady: ready }),
 
+  // Hydrate store from preload data (used by SSR StoreHydrator and preloadAll)
+  hydrateFromPreload: (data: PreloadResponse) => {
+    const pendingDeletions = get().pendingFriendDeletions;
+    const filteredFriends = data.friends.friends.filter(
+      (f) => !pendingDeletions.has(f.id)
+    );
+    set({
+      profile: data.profile.profile,
+      photos: data.profile.photos,
+      interests: data.profile.interests,
+      allTags: data.profile.allTags,
+      stats: data.profile.stats,
+      isProfileLoaded: true,
+      friends: filteredFriends,
+      requests: data.friends.requests,
+      sentRequests: data.friends.sentRequests || [],
+      sentRequestUserIds: new Set(data.friends.sentRequestUserIds || []),
+      isFriendsLoaded: true,
+      threads: data.messages.threads,
+      totalUnread: data.messages.totalUnread,
+      blockedUsers: new Set(data.messages.blockedUserIds || []),
+      isMessagesLoaded: true,
+      coins: data.coins?.balance ?? 5,
+      metFriendIds: new Set(data.coins?.metFriendIds || []),
+      isPreloading: false,
+    });
+  },
+
   // Preload all data
   preloadAll: async () => {
     set({ isPreloading: true, preloadError: null });
@@ -226,7 +255,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch("/api/preload");
 
       if (res.status === 401) {
-        // Session expired, redirect to login
         window.location.href = "/login";
         return;
       }
@@ -236,42 +264,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const data: PreloadResponse = await res.json();
-
-      // Filter out any pending deletions from the friends list
-      const pendingDeletions = get().pendingFriendDeletions;
-      const filteredFriends = data.friends.friends.filter(
-        (f) => !pendingDeletions.has(f.id)
-      );
-
-      set({
-        // Profile
-        profile: data.profile.profile,
-        photos: data.profile.photos,
-        interests: data.profile.interests,
-        allTags: data.profile.allTags,
-        stats: data.profile.stats,
-        isProfileLoaded: true,
-
-        // Friends
-        friends: filteredFriends,
-        requests: data.friends.requests,
-        sentRequests: data.friends.sentRequests || [],
-        sentRequestUserIds: new Set(data.friends.sentRequestUserIds || []),
-        isFriendsLoaded: true,
-
-        // Messages
-        threads: data.messages.threads,
-        totalUnread: data.messages.totalUnread,
-        blockedUsers: new Set(data.messages.blockedUserIds || []),
-        isMessagesLoaded: true,
-
-        // Coins
-        coins: data.coins?.balance ?? 5,
-        metFriendIds: new Set(data.coins?.metFriendIds || []),
-
-        // Done loading
-        isPreloading: false,
-      });
+      get().hydrateFromPreload(data);
     } catch (error) {
       console.error("Preload failed:", error);
       set({

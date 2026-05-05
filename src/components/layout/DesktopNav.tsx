@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { MapPin, Mail, Coins } from "lucide-react";
-import { useProfile, useCoins, useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
+import { MapPin, Mail, Coins, Shield } from "lucide-react";
+import { useProfile, useCoins, useFriendRequestCount, useTotalUnread, useHasRole } from "@/stores/selectors";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -34,12 +34,18 @@ function DesktopNavInner() {
   const coins = useCoins();
   const unreadCount = useTotalUnread();
   const friendRequestCount = useFriendRequestCount();
+  const isAdmin = useHasRole("admin");
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => { setPendingHref(null); }, [pathname]);
 
   const activeHref = pendingHref ?? pathname;
   const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;
+
+  const navItems: DesktopNavItem[] = [
+    ...desktopNavItems,
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] : []),
+  ];
 
   const displayName = profile?.display_name ?? profile?.username ?? "You";
   const handle = profile?.username ? `@${profile.username}` : "";
@@ -64,7 +70,7 @@ function DesktopNavInner() {
 
         {/* Nav items */}
         <nav className="flex flex-col gap-0.5">
-          {desktopNavItems.map(({ href, label, Icon, badge }) => {
+          {navItems.map(({ href, label, Icon, badge }) => {
             const isActive = href === "/" ? activeHref === "/" : activeHref.startsWith(href.split("?")[0]);
             const badgeCount = badge ? rawBadgeCount : 0;
 

@@ -8,7 +8,16 @@ export const GET = withAuth(async (request, { user: _, supabase }) => {
   const lng = parseFloat(searchParams.get("lng") ?? "");
   if (isNaN(lat) || isNaN(lng)) return apiError("lat and lng required", 400, "INVALID_PARAMS");
 
-  const { data, error } = await supabase.rpc("spawn_coin_bots", { p_lat: lat, p_lng: lng });
+  // ~10 km bounding box (0.09° ≈ 10 km at mid-latitudes)
+  const R = 0.09;
+  const { data, error } = await supabase
+    .from("admin_coins")
+    .select("id, lat, lng")
+    .gte("lat", lat - R)
+    .lte("lat", lat + R)
+    .gte("lng", lng - R)
+    .lte("lng", lng + R)
+    .limit(50);
   if (error) {
     console.error("bots/GET:", error);
     return apiError("Internal server error", 500, "BOTS_FETCH_FAILED");

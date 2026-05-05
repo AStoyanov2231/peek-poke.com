@@ -29,10 +29,6 @@ export type Profile = {
   stripe_customer_id: string | null;
   onboarding_completed: boolean;
   roles: RoleName[];
-  date_of_birth: string | null;
-  verified_at: string | null;
-  is_ghost: boolean;
-  is_incognito: boolean;
 };
 
 // Helper to check if a profile has a specific role
@@ -52,21 +48,6 @@ export function isPlatinum(profile: Profile | null | undefined): boolean {
   return hasRole(profile, "platinum");
 }
 
-export function isVerified(profile: Profile | null | undefined): boolean {
-  return profile?.verified_at != null;
-}
-
-export function profileAge(profile: Profile | null | undefined): number | null {
-  if (!profile?.date_of_birth) return null;
-  const dob = new Date(profile.date_of_birth);
-  const today = new Date();
-  const age = today.getFullYear() - dob.getFullYear();
-  const monthDiff = today.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-    return age - 1;
-  }
-  return age;
-}
 
 export type FriendshipStatus = "pending" | "accepted";
 
@@ -196,8 +177,7 @@ export type FriendMeeting = {
 export type CoinTransactionReason =
   | "friend_request_sent"
   | "meeting_bonus"
-  | "request_cancelled_refund"
-  | "super_poke";
+  | "request_cancelled_refund";
 
 export type CoinTransaction = {
   id: string;
@@ -206,5 +186,13 @@ export type CoinTransaction = {
   reason: CoinTransactionReason;
   related_user_id: string | null;
   created_at: string;
+};
+
+export type AdminCoin = {
+  id: string;
+  lat: number;
+  lng: number;
+  created_at: string;
+  created_by: string | null;
 };
 

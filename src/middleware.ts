@@ -69,23 +69,41 @@ export async function middleware(request: NextRequest) {
 
   // Authenticated users
   if (user) {
-    // PERF: This DB query runs on every authenticated page request, adding ~50-100ms latency.
-    // Optimization path: after onboarding completes, set an httpOnly cookie as a fast-path signal.
-    // The cookie can be checked before the DB query (skip query if cookie says onboarding_completed=true).
-    // Note: always query DB when checking deleted_at, or when the fast-path cookie is missing.
-    // Implementation: set cookie in /api/profile/complete-onboarding route, clear on signout.
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed, deleted_at")
-      .eq("id", user.id)
-      .single();
+    const hasFastPathCookie = request.cookies.get("pp_onboarded")?.value === "1";
 
-    const onboardingComplete = profile?.onboarding_completed ?? false;
+    let onboardingComplete: boolean;
 
-    // Sign out deleted accounts and redirect to login
-    if (profile?.deleted_at) {
-      await supabase.auth.signOut();
-      return NextResponse.redirect(new URL("/login", request.url));
+    if (hasFastPathCookie) {
+      // Fast path: onboarding is known complete via cookie, but always enforce deleted_at
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("deleted_at")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.deleted_at) {
+        await supabase.auth.signOut();
+        const loginResponse = NextResponse.redirect(new URL("/login", request.url));
+        loginResponse.cookies.delete("pp_onboarded");
+        return loginResponse;
+      }
+      onboardingComplete = true;
+    } else {
+      // No fast-path cookie: query DB for both onboarding status and deleted_at
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_completed, deleted_at")
+        .eq("id", user.id)
+        .single();
+
+      onboardingComplete = profile?.onboarding_completed ?? false;
+
+      if (profile?.deleted_at) {
+        await supabase.auth.signOut();
+        const loginResponse = NextResponse.redirect(new URL("/login", request.url));
+        loginResponse.cookies.delete("pp_onboarded");
+        return loginResponse;
+      }
     }
 
     // Redirect auth pages to home (or onboarding if incomplete)

@@ -88,6 +88,20 @@ export async function isBlocked(
   return !!(aBlockedB.data || bBlockedA.data);
 }
 
+export async function requireAdminRole(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<NextResponse | null> {
+  const { data: isAdmin } = await supabase.rpc("user_has_role", {
+    p_user_id: userId,
+    p_role_name: "admin",
+  });
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
 export async function hasSubscriberRole(
   supabase: SupabaseClient,
   userId: string

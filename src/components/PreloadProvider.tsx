@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { useIsPreloading, usePreloadError, useProfile, useTotalUnread } from "@/stores/selectors";
 import { isNativeApp, postToNative } from "@/lib/native";
@@ -13,6 +13,15 @@ interface PreloadProviderProps {
   children: ReactNode;
 }
 
+function DeferredEffects({ profileId }: { profileId: string | undefined }) {
+  useRealtimeSync();
+  usePresence(profileId);
+  useGeolocation();
+  useNearbyPresence(profileId);
+  useMeetingDetection(profileId);
+  return null;
+}
+
 export function PreloadProvider({ children }: PreloadProviderProps) {
   const preloadAll = useAppStore((state) => state.preloadAll);
   const isPreloading = useIsPreloading();
@@ -20,33 +29,38 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
   const profile = useProfile();
   const totalUnread = useTotalUnread();
   const hasStartedPreload = useRef(false);
-
-  // Set up Realtime sync (only activates after preload completes)
-  useRealtimeSync();
-
-  // Set up Presence tracking for online status
-  usePresence(profile?.id);
-
-  // Set up geolocation and nearby user presence
-  useGeolocation();
-  useNearbyPresence(profile?.id);
-  useMeetingDetection(profile?.id);
+  const [deferred, setDeferred] = useState(false);
 
   useEffect(() => {
-    // Only trigger preload once
+    // Skip preloadAll when SSR already hydrated the store
     if (!hasStartedPreload.current) {
       hasStartedPreload.current = true;
-      preloadAll();
+      if (!useAppStore.getState().profile) {
+        preloadAll();
+      }
     }
   }, [preloadAll]);
 
-  // Sync unread count to native app for tab badge
+  useEffect(() => {
+    const id = typeof requestIdleCallback !== "undefined"
+      ? requestIdleCallback(() => setDeferred(true))
+      : setTimeout(() => setDeferred(true), 0);
+    return () => {
+      if (typeof requestIdleCallback !== "undefined") cancelIdleCallback(id as number);
+      else clearTimeout(id as ReturnType<typeof setTimeout>);
+    };
+  }, []);
+
   useEffect(() => {
     if (isNativeApp()) {
       postToNative("updateBadge", { tab: "messages", count: totalUnread });
     }
   }, [totalUnread]);
 
-  // SplashScreen handles its own visibility based on isPreloading/preloadError
-  return <>{children}</>;
+  return (
+    <>
+      {deferred && <DeferredEffects profileId={profile?.id} />}
+      {children}
+    </>
+  );
 }

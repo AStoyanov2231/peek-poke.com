@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { MapPin, Mail, User } from "lucide-react";
+import { MapPin, Mail, User, Shield } from "lucide-react";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
-import { useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
+import { useFriendRequestCount, useTotalUnread, useHasRole } from "@/stores/selectors";
 import { isNativeApp } from "@/lib/native";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 
@@ -14,7 +14,7 @@ interface MobileTab {
   badge?: boolean;
 }
 
-const tabs: MobileTab[] = [
+const baseTabs: MobileTab[] = [
   { href: "/",         label: "Map",      Icon: MapPin },
   { href: "/inbox",    label: "Inbox",    Icon: Mail,  badge: true },
   { href: "/profile",  label: "Me",       Icon: User },
@@ -39,12 +39,17 @@ function MobileNavInner() {
   const router = useTransitionRouter();
   const unreadCount = useTotalUnread();
   const friendRequestCount = useFriendRequestCount();
+  const isAdmin = useHasRole("admin");
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => { setPendingHref(null); }, [pathname]);
 
   const activeHref = pendingHref ?? pathname;
   const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;
+  const tabs: MobileTab[] = [
+    ...baseTabs,
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] : []),
+  ];
 
   return (
     <nav

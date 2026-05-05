@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/auth";
+import { withAuth, requireModeratorRole } from "@/lib/auth";
 
 export const GET = withAuth(async (request, { user, supabase }) => {
+  const forbidden = await requireModeratorRole(supabase, user.id);
+  if (forbidden) return forbidden;
+
   const status = request.nextUrl.searchParams.get("status") || "pending";
   const page = Math.max(1, parseInt(request.nextUrl.searchParams.get("page") || "1", 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get("limit") || "20", 10) || 20));
@@ -10,21 +13,27 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
-  const { data, error } = await supabase.rpc("get_moderation_queue", {
-    p_moderator_id: user.id,
-    p_status: status,
-    p_page: page,
-    p_limit: limit,
-  });
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  const { data: photos, error, count } = await supabase
+    .from("profile_photos")
+    .select(
+      `*, user:profiles!user_id(id, username, display_name, avatar_url), reviewer:profiles!reviewed_by(id, username, display_name)`,
+      { count: "exact" }
+    )
+    .eq("approval_status", status)
+    .order("created_at", { ascending: true })
+    .range(from, to);
 
   if (error) {
     console.error("moderation/photos:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  if (data?.error) {
-    return NextResponse.json({ error: data.error }, { status: data.status || 403 });
-  }
-
-  return NextResponse.json(data);
+  const total = count ?? 0;
+  return NextResponse.json({
+    photos: photos ?? [],
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  });
 });

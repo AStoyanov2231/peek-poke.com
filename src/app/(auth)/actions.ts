@@ -1,6 +1,7 @@
 "use server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { validateEmail, isValidEmailFormat } from "@/lib/email-validation";
 
 // Constants
@@ -149,6 +150,8 @@ export async function signup(formData: FormData) {
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  const cookieStore = await cookies();
+  cookieStore.delete("pp_onboarded");
   redirect("/login");
 }
 

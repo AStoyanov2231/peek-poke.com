@@ -45,5 +45,13 @@ export const POST = withAuth(async (_request, { user, supabase }) => {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  return NextResponse.json({ profile: data, success: true });
+  const response = NextResponse.json({ profile: data, success: true });
+  response.cookies.set("pp_onboarded", "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  return response;
 });

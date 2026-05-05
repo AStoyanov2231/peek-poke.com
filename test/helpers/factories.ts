@@ -38,10 +38,6 @@ export function buildProfile(overrides: Partial<Profile> = {}): Profile {
     stripe_customer_id: null,
     onboarding_completed: true,
     roles: ['user'] as RoleName[],
-    date_of_birth: null,
-    verified_at: null,
-    is_ghost: false,
-    is_incognito: false,
     ...overrides,
   }
 }
