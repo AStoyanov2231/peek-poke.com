@@ -2,6 +2,7 @@
 
 import { Check, Eye, ImageIcon, Sparkles, Users } from "lucide-react";
 import { PremiumUpgradeButton } from "@/components/profile/PremiumUpgradeButton";
+import { ManageSubscriptionButton } from "@/components/profile/ManageSubscriptionButton";
 
 interface PremiumCardProps {
   isPremiumUser: boolean;
@@ -28,7 +29,7 @@ export function PremiumCard({ isPremiumUser }: PremiumCardProps) {
           <p className="t-body-b text-white">Peek Premium</p>
           <p className="t-caption" style={{ color: "rgba(255,255,255,0.6)" }}>Active subscription</p>
         </div>
-        <PremiumUpgradeButton />
+        <ManageSubscriptionButton />
       </div>
     );
   }
