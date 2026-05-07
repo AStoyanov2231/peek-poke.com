@@ -13,7 +13,7 @@ export function ManageSubscriptionButton() {
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     } catch (err) {
-      console.error("Portal failed:", err);
+      console.error("Portal error:", err);
     } finally {
       setLoading(false);
     }
