@@ -319,7 +319,7 @@ export function ProfilePageClient({
         <div className="flex flex-col gap-4 p-6">
           {aboutCard}
           {interestsCard}
-          {!isPremium(profile) && <PremiumCard isPremiumUser={false} />}
+          <PremiumCard isPremiumUser={isPremium(profile)} />
           <Card className="p-4 flex flex-col gap-3">
             <PhotoGallery
               photos={photos}
@@ -385,7 +385,7 @@ export function ProfilePageClient({
           <div className="flex flex-col gap-4">
             {aboutCard}
             {interestsCard}
-            {!isPremium(profile) && <PremiumCard isPremiumUser={false} />}
+            <PremiumCard isPremiumUser={isPremium(profile)} />
           </div>
           <Card className="p-4">
             <PhotoGallery
