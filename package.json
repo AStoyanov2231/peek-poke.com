@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "cap:sync": "cap sync && sed -i '' 's/swift-tools-version: 5.9/swift-tools-version: 6.2/g' ios/App/CapApp-SPM/Package.swift",
+    "cap:sync:ios": "cap sync ios && sed -i '' 's/swift-tools-version: 5.9/swift-tools-version: 6.2/g' ios/App/CapApp-SPM/Package.swift"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
