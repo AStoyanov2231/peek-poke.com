@@ -3,13 +3,9 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { buildProfile } from '../../../test/helpers/factories'
 import { useAppStore } from '@/stores/appStore'
 
-// Mock native lib to avoid window.isNativeApp issues in jsdom
 vi.mock('@/lib/native', () => ({
   isNativeApp: vi.fn(() => false),
-  postToNative: vi.fn(),
 }))
-
-import * as nativeLib from '@/lib/native'
 
 // vi.hoisted runs before imports — build mock inline
 const mockClient = vi.hoisted(() => ({
@@ -157,30 +153,6 @@ describe('useAuth', () => {
     expect(clearStore).toHaveBeenCalled()
   })
 
-  it('calls postToNative with isAuthenticated:false on sign out when isNativeApp', async () => {
-    vi.mocked(nativeLib.isNativeApp).mockReturnValue(true)
-    setupSession(fakeUser)
-    const authChange = setupAuthStateChange()
-
-    renderHook(() => useAuth())
-    await act(async () => {})
-
-    await act(async () => {
-      authChange.fire('SIGNED_OUT', null)
-    })
-
-    expect(nativeLib.postToNative).toHaveBeenCalledWith('authStateChanged', { isAuthenticated: false })
-  })
-
-  it('calls postToNative with isAuthenticated:true on init when isNativeApp', async () => {
-    vi.mocked(nativeLib.isNativeApp).mockReturnValue(true)
-    setupSession(fakeUser)
-
-    renderHook(() => useAuth())
-    await act(async () => {})
-
-    expect(nativeLib.postToNative).toHaveBeenCalledWith('authStateChanged', { isAuthenticated: true })
-  })
 
   it('skips profile fetch on token refresh (same user id)', async () => {
     setupSession(fakeUser)
@@ -218,19 +190,4 @@ describe('useAuth', () => {
     expect(fetch).toHaveBeenCalledWith('/api/auth/profile', { method: 'POST' })
   })
 
-  it('calls postToNative on auth state change sign-in when isNativeApp', async () => {
-    vi.mocked(nativeLib.isNativeApp).mockReturnValue(true)
-    setupSession(null)
-    const authChange = setupAuthStateChange()
-
-    renderHook(() => useAuth())
-    await act(async () => {})
-
-    const newUser = { id: 'user-003', email: 'native@example.com' }
-    await act(async () => {
-      authChange.fire('SIGNED_IN', newUser)
-    })
-
-    expect(nativeLib.postToNative).toHaveBeenCalledWith('authStateChanged', { isAuthenticated: true })
-  })
 })

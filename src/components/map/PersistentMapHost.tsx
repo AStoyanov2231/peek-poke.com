@@ -4,24 +4,29 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MapView } from "./MapViewDynamic";
 import { useAppStore } from "@/stores/appStore";
+import { isNativeApp } from "@/lib/native";
 
 export function PersistentMapHost() {
   const pathname = usePathname();
+  const [native, setNative] = useState(false);
   const isMap = pathname === "/";
   const [activated, setActivated] = useState(false);
 
+  useEffect(() => { setNative(isNativeApp()); }, []);
+
   useEffect(() => {
+    if (native) return;
     if (isMap) setActivated(true);
-  }, [isMap]);
+  }, [isMap, native]);
 
   // Stop orbit animation when user leaves the map
   useEffect(() => {
-    if (!isMap) {
+    if (native || !isMap) {
       useAppStore.getState().setHighlightedUserId(null);
     }
-  }, [isMap]);
+  }, [isMap, native]);
 
-  if (!activated) return null;
+  if (native || !activated) return null;
 
   return (
     <div

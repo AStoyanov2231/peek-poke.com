@@ -6,6 +6,7 @@ import { useProfile, useCoins, useFriendRequestCount, useTotalUnread, useHasRole
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { isNativeApp } from "@/lib/native";
 
 const MAX_COINS = 5;
 
@@ -23,6 +24,12 @@ const desktopNavItems: DesktopNavItem[] = [
 
 export function DesktopNav() {
   const pathname = usePathname();
+  // isNativeApp() reads browser APIs unavailable during SSR — defer to post-mount
+  // to avoid hydration mismatch between server (false) and native client (true).
+  const [native, setNative] = useState(false);
+  useEffect(() => { setNative(isNativeApp()); }, []);
+
+  if (native) return null;
   if (pathname.startsWith("/chat") || pathname === "/onboarding") return null;
   return <DesktopNavInner />;
 }

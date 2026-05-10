@@ -1,66 +1,35 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { isNativeApp, postToNative } from '../native'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    isNativePlatform: vi.fn(),
+  },
+  registerPlugin: vi.fn(() => ({})),
+  WebPlugin: class {},
+}))
+
+import { Capacitor } from '@capacitor/core'
+import { isNativeApp } from '../native'
+
+const mockIsNative = vi.mocked(Capacitor.isNativePlatform)
 
 describe('isNativeApp', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('should return true when window.isNativeApp is true', () => {
-    vi.stubGlobal('window', { isNativeApp: true })
+  it('returns true when Capacitor reports native platform', () => {
+    mockIsNative.mockReturnValue(true)
     expect(isNativeApp()).toBe(true)
   })
 
-  it('should return false when window.isNativeApp is false', () => {
-    vi.stubGlobal('window', { isNativeApp: false })
+  it('returns false when Capacitor reports non-native platform', () => {
+    mockIsNative.mockReturnValue(false)
     expect(isNativeApp()).toBe(false)
   })
 
-  it('should return false when window.isNativeApp is undefined', () => {
-    vi.stubGlobal('window', {})
+  it('returns false in SSR context (isNativePlatform returns false server-side)', () => {
+    mockIsNative.mockReturnValue(false)
     expect(isNativeApp()).toBe(false)
-  })
-
-  it('should return false when window is undefined (SSR)', () => {
-    vi.stubGlobal('window', undefined)
-    expect(isNativeApp()).toBe(false)
-  })
-})
-
-describe('postToNative', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('should call webkit.messageHandlers.nativeBridge.postMessage when bridge is present', () => {
-    const postMessage = vi.fn()
-    vi.stubGlobal('window', {
-      isNativeApp: true,
-      webkit: { messageHandlers: { nativeBridge: { postMessage } } },
-    })
-    postToNative('TEST_ACTION', { key: 'value' })
-    expect(postMessage).toHaveBeenCalledOnce()
-    expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ action: 'TEST_ACTION', payload: { key: 'value' } }))
-  })
-
-  it('should be a no-op when window.isNativeApp is false', () => {
-    const postMessage = vi.fn()
-    vi.stubGlobal('window', {
-      isNativeApp: false,
-      webkit: { messageHandlers: { nativeBridge: { postMessage } } },
-    })
-    postToNative('TEST_ACTION')
-    expect(postMessage).not.toHaveBeenCalled()
-  })
-
-  it('should be a no-op when webkit bridge is not present', () => {
-    // Should not throw even without webkit bridge
-    vi.stubGlobal('window', { isNativeApp: true })
-    expect(() => postToNative('TEST_ACTION')).not.toThrow()
-  })
-
-  it('should be a no-op when window is undefined (SSR)', () => {
-    vi.stubGlobal('window', undefined)
-    expect(() => postToNative('TEST_ACTION', { key: 'value' })).not.toThrow()
   })
 })

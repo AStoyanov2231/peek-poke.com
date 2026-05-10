@@ -23,9 +23,12 @@ const baseTabs: MobileTab[] = [
 export function MobileNav() {
   const pathname = usePathname();
   const isKeyboardVisible = useKeyboardVisible();
+  // isNativeApp() reads browser APIs unavailable during SSR — defer to post-mount
+  const [native, setNative] = useState(false);
+  useEffect(() => { setNative(isNativeApp()); }, []);
 
   if (
-    isNativeApp() ||
+    native ||
     isKeyboardVisible ||
     pathname === "/onboarding" ||
     pathname.startsWith("/chat/")

@@ -1,82 +1,184 @@
-import { render, screen } from '@testing-library/react'
-import { AuthBridgeProvider } from '@/components/AuthBridgeProvider'
+import { render, screen, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock Supabase client
-const mockGetSession = vi.fn()
-const mockOnAuthStateChange = vi.fn()
-const mockUnsubscribe = vi.fn()
+// ------- hoisted mock state -------
+
+const mocks = vi.hoisted(() => {
+  const setAuthMock = vi.fn(async () => {})
+  const clearAuthMock = vi.fn(async () => {})
+  const notifyReadyMock = vi.fn(async () => {})
+  const setRoleMock = vi.fn()
+  const isNativeMock = vi.fn(() => true)
+  const getSessionMock = vi.fn(async () => ({ data: { session: null } }))
+  const unsubscribeMock = vi.fn()
+  const onAuthStateChangeMock = vi.fn(() => ({
+    data: { subscription: { unsubscribe: unsubscribeMock } },
+  }))
+  const storeSubscribeMock = vi.fn(() => vi.fn())
+  const storeGetStateMock = vi.fn(() => ({ profile: null }))
+  return {
+    setAuthMock, clearAuthMock, notifyReadyMock, setRoleMock, isNativeMock,
+    getSessionMock, unsubscribeMock, onAuthStateChangeMock,
+    storeSubscribeMock, storeGetStateMock,
+  }
+})
+
+// ------- mocks -------
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/inbox',
+}))
+
+vi.mock('@capacitor/core', () => ({
+  Capacitor: { isNativePlatform: vi.fn(() => true) },
+  registerPlugin: vi.fn(() => ({})),
+  WebPlugin: class {},
+}))
+
+vi.mock('@/lib/peekpoke-bridge', () => ({
+  PeekPokeBridge: {
+    setAuth: (...a: unknown[]) => mocks.setAuthMock(...a),
+    clearAuth: (...a: unknown[]) => mocks.clearAuthMock(...a),
+    notifyReady: (...a: unknown[]) => mocks.notifyReadyMock(...a),
+    setRole: (...a: unknown[]) => mocks.setRoleMock(...a),
+  },
+}))
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: {
-      getSession: mockGetSession,
-      onAuthStateChange: mockOnAuthStateChange,
+      getSession: (...a: unknown[]) => mocks.getSessionMock(...a),
+      onAuthStateChange: (...a: unknown[]) => mocks.onAuthStateChangeMock(...a),
     },
   }),
 }))
 
-// Mock native lib
-const mockIsNativeApp = vi.fn()
-const mockPostToNative = vi.fn()
-
 vi.mock('@/lib/native', () => ({
-  isNativeApp: () => mockIsNativeApp(),
-  postToNative: (...args: unknown[]) => mockPostToNative(...args),
+  isNativeApp: () => mocks.isNativeMock(),
 }))
+
+vi.mock('@/stores/appStore', () => ({
+  useAppStore: Object.assign(vi.fn(), {
+    getState: (...a: unknown[]) => mocks.storeGetStateMock(...a),
+    subscribe: (...a: unknown[]) => mocks.storeSubscribeMock(...a),
+  }),
+}))
+
+// ------- import under test -------
+
+import { AuthBridgeProvider } from '@/components/AuthBridgeProvider'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockGetSession.mockResolvedValue({ data: { session: null } })
-  mockOnAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: mockUnsubscribe } } })
+  mocks.isNativeMock.mockReturnValue(true)
+  mocks.getSessionMock.mockResolvedValue({ data: { session: null } })
+  mocks.onAuthStateChangeMock.mockReturnValue({
+    data: { subscription: { unsubscribe: mocks.unsubscribeMock } },
+  })
+  mocks.storeGetStateMock.mockReturnValue({ profile: null })
+  mocks.storeSubscribeMock.mockReturnValue(vi.fn())
 })
 
+// ------- tests -------
+
 describe('AuthBridgeProvider', () => {
-  it('renders children', () => {
-    mockIsNativeApp.mockReturnValue(false)
-    render(
-      <AuthBridgeProvider>
-        <div>child</div>
-      </AuthBridgeProvider>
-    )
+  it('renders children', async () => {
+    render(<AuthBridgeProvider><div>child</div></AuthBridgeProvider>)
+    await act(async () => {})
     expect(screen.getByText('child')).toBeInTheDocument()
   })
 
-  it('does nothing when not in native app', () => {
-    mockIsNativeApp.mockReturnValue(false)
-    render(
-      <AuthBridgeProvider>
-        <span />
-      </AuthBridgeProvider>
-    )
-    expect(mockGetSession).not.toHaveBeenCalled()
-    expect(mockOnAuthStateChange).not.toHaveBeenCalled()
+  it('does nothing when not in native app', async () => {
+    mocks.isNativeMock.mockReturnValue(false)
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+    expect(mocks.getSessionMock).not.toHaveBeenCalled()
+    expect(mocks.onAuthStateChangeMock).not.toHaveBeenCalled()
   })
 
-  it('syncs auth state to native on mount when in native app', async () => {
-    mockIsNativeApp.mockReturnValue(true)
-    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'user-1' } } } })
-
-    render(
-      <AuthBridgeProvider>
-        <span />
-      </AuthBridgeProvider>
-    )
-
-    // Wait for async getSession
-    await vi.waitFor(() => {
-      expect(mockPostToNative).toHaveBeenCalledWith('authStateChanged', { isAuthenticated: true })
+  it('calls setAuth when session exists on mount', async () => {
+    mocks.getSessionMock.mockResolvedValueOnce({
+      data: { session: { access_token: 'at', refresh_token: 'rt', expires_at: 9999 } },
+    })
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+    expect(mocks.setAuthMock).toHaveBeenCalledWith({
+      accessToken: 'at',
+      refreshToken: 'rt',
+      expiresAt: 9999,
     })
   })
 
-  it('cleans up subscription on unmount', () => {
-    mockIsNativeApp.mockReturnValue(true)
+  it('calls clearAuth when no session on mount', async () => {
+    mocks.getSessionMock.mockResolvedValueOnce({ data: { session: null } })
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+    expect(mocks.clearAuthMock).toHaveBeenCalled()
+  })
 
-    const { unmount } = render(
-      <AuthBridgeProvider>
-        <span />
-      </AuthBridgeProvider>
-    )
+  it('calls notifyReady once after first session check', async () => {
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+    expect(mocks.notifyReadyMock).toHaveBeenCalledOnce()
+    expect(mocks.notifyReadyMock).toHaveBeenCalledWith({ route: '/inbox' })
+  })
+
+  it('calls setAuth when onAuthStateChange fires with a session', async () => {
+    let authCallback: ((event: string, session: unknown) => void) | null = null
+    mocks.onAuthStateChangeMock.mockImplementation((cb) => {
+      authCallback = cb
+      return { data: { subscription: { unsubscribe: mocks.unsubscribeMock } } }
+    })
+
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+
+    await act(async () => {
+      authCallback?.('SIGNED_IN', { access_token: 'at2', refresh_token: 'rt2', expires_at: 1234 })
+    })
+
+    expect(mocks.setAuthMock).toHaveBeenCalledWith({
+      accessToken: 'at2',
+      refreshToken: 'rt2',
+      expiresAt: 1234,
+    })
+  })
+
+  it('calls clearAuth when onAuthStateChange fires with null session', async () => {
+    let authCallback: ((event: string, session: unknown) => void) | null = null
+    mocks.onAuthStateChangeMock.mockImplementation((cb) => {
+      authCallback = cb
+      return { data: { subscription: { unsubscribe: mocks.unsubscribeMock } } }
+    })
+
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+
+    await act(async () => {
+      authCallback?.('SIGNED_OUT', null)
+    })
+
+    expect(mocks.clearAuthMock).toHaveBeenCalled()
+  })
+
+  it('unsubscribes on unmount', async () => {
+    const { unmount } = render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
     unmount()
-    expect(mockUnsubscribe).toHaveBeenCalled()
+    expect(mocks.unsubscribeMock).toHaveBeenCalled()
+  })
+
+  it('calls setRole with true when user has admin role', async () => {
+    mocks.storeGetStateMock.mockReturnValue({ profile: { roles: ['admin', 'user'] } })
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+    expect(mocks.setRoleMock).toHaveBeenCalledWith({ isAdmin: true })
+  })
+
+  it('calls setRole with false when user has no admin role', async () => {
+    mocks.storeGetStateMock.mockReturnValue({ profile: { roles: ['user'] } })
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+    expect(mocks.setRoleMock).toHaveBeenCalledWith({ isAdmin: false })
   })
 })

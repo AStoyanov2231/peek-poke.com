@@ -7,10 +7,10 @@
 - **State**: Zustand 5.0.9, TanStack React Query 5.90
 - **Database**: Supabase (PostgreSQL + Auth + Realtime + Storage)
 - **Payments**: Stripe (subscriptions, webhooks, billing portal)
-- **Maps**: MapLibre GL 5.19, react-map-gl 8.1, Supercluster 8.0
+- **Maps**: Web uses Mapbox GL/react-map-gl + Supercluster; iOS uses native Mapbox Maps SDK
 - **Validation**: Zod 4.3
 - **Icons**: Phosphor Icons, Lucide React
-- **Native**: iOS/Android WebView bridge (`window.webkit.messageHandlers`)
+- **Native**: Capacitor 8 iOS shell with native tab bar, native Mapbox tab, shared WebView for web tabs, typed `PeekPokeBridge`
 
 ---
 
@@ -18,7 +18,7 @@
 
 ### Request Flow
 
-1. **Browser/Native** -> Next.js App Router
+1. **Browser/WebView/Native API client** -> Next.js App Router
 2. **Middleware** (`src/middleware.ts`) -> CSRF protection, auth validation, onboarding redirects
 3. **API Routes** (`src/app/api/`) -> `withAuth()` wrapper, Zod validation, Supabase RPCs
 4. **Supabase** -> PostgreSQL with RLS policies
@@ -30,6 +30,24 @@
 - API routes use `withAuth()` HOF providing typed `{ user, supabase, params }` to handlers
 - Dual auth mode: cookies (web) + Bearer token (native app)
 - CSRF protection on mutations (POST/PATCH/PUT/DELETE), exempts Stripe webhooks
+
+### iOS Hybrid Shell
+
+- iOS entrypoint is a native `RootContainerViewController` that swaps login WebView vs authenticated tab bar based on Keychain auth state.
+- The native tab bar owns the Map tab (`MapTabViewController`) and renders Mapbox through the native SDK, not the web Mapbox bundle.
+- Inbox/Profile/Admin run inside one shared Capacitor `CAPBridgeViewController`; tab taps emit SPA navigation events instead of creating multiple WebViews.
+- In native mode, the web app redirects `/` to `/inbox` and disables `PersistentMapHost`, so iOS does not load the browser map.
+- Web-to-native bridge lives in `PeekPokeBridgePlugin.swift`; TypeScript surface is `src/lib/peekpoke-bridge.ts`.
+- Bridge responsibilities: sync auth tokens/roles/badges/routes, handle app resume, and open web routes from native map actions.
+
+### Native Session Linking
+
+- Web session source: Supabase HttpOnly cookies via `@supabase/ssr`.
+- Native session source: Supabase access/refresh tokens stored in iOS Keychain by `AuthStore.swift`.
+- Cold-launch repair: when WebView lands on `/login` but Keychain has tokens, `NativeBridgeProvider` POSTs to `/auth/native-handoff`; the route validates the token and returns Set-Cookie headers.
+- Native API calls use Bearer auth against the same Next.js `/api/*` routes. `src/lib/supabase/server.ts` detects `Authorization: Bearer ...` and creates a non-persistent Supabase client.
+- `NativeAuthCoordinator.swift` refreshes expiring/401 tokens once, updates Keychain, updates Supabase Realtime auth, and notifies the WebView with `authRefresh`.
+- Do not pass access/refresh tokens in URLs. The old query-string handoff and legacy hand-rolled WebView controllers were removed.
 
 ### Real-time Layer
 
@@ -57,13 +75,16 @@
 
 ```bash
 GOOGLE_PLACES_API_KEY=
+MBX_ACCESS_TOKEN=            # iOS Mapbox SDK runtime token via Info.plist build setting
 NEXT_PUBLIC_APP_URL=
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_SUPABASE_URL=
 STRIPE_PREMIUM_PRICE_ID=
 STRIPE_SECRET_KEY=
+SUPABASE_ANON_KEY=           # iOS native Supabase build setting
 SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_URL=                # iOS native Supabase build setting
 VERCEL_OIDC_TOKEN=
 ```
 
@@ -142,6 +163,19 @@ src/
 └── types/
     ├── database.ts              # All entity types + hasRole(), isPremium() helpers
     └── native.d.ts              # Window interface for native bridge
+ios/
+├── App/App/Native/
+│   ├── RootContainerViewController / SceneDelegate.swift  # Authenticated shell switch
+│   ├── RootTabBarController.swift                         # Native tabs + shared WebView host
+│   ├── SharedBridgeViewController.swift                   # Single Capacitor WebView
+│   ├── MapTabViewController.swift                         # Native Mapbox map tab
+│   ├── NativeAuthCoordinator.swift                        # Native token refresh + WebView sync
+│   ├── AuthStore.swift                                    # Keychain token storage
+│   ├── APIClient.swift                                    # Bearer-auth calls to Next.js API
+│   ├── SupabaseClient.swift                               # supabase-swift + Realtime auth
+│   └── PresenceManager.swift                              # Native location + Realtime presence
+└── App/App/Plugins/
+    └── PeekPokeBridgePlugin.swift                         # Capacitor bridge methods/events
 ```
 
 ---
@@ -153,6 +187,7 @@ src/
 |-------|---------|---------|
 | `/api/auth/profile` | POST | Create/fetch profile after auth |
 | `/api/account/delete` | POST | Soft-delete user account |
+| `/auth/native-handoff` | POST | Native Keychain token -> WebView Supabase cookies |
 
 ### Profile
 | Route | Methods | Purpose |
@@ -213,12 +248,13 @@ src/
 ## Features
 
 ### Map & Location
-- Real-time location tracking with MapLibre GL
+- Web map uses Mapbox GL/react-map-gl; iOS map uses native Mapbox Maps SDK
 - Nearby user detection within 2km (Haversine formula)
 - User pins with clustering (Supercluster)
 - Highlighted pin for selected/nearby users
 - Nearby user swiper cards
 - Meeting detection: coins awarded when friends within 50m
+- Native map calls Next.js APIs with Bearer tokens and syncs session refresh back to WebView cookies
 
 ### Messaging
 - 1:1 DM threads between users

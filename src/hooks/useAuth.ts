@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database";
 import { useAppStore } from "@/stores/appStore";
-import { isNativeApp, postToNative } from "@/lib/native";
 
 // Get the singleton client
 const supabase = createClient();
@@ -47,10 +46,6 @@ export function useAuth() {
           const fetchedProfile = await fetchOrCreateProfile();
           if (isMounted) {
             setProfile(fetchedProfile);
-            // Notify native app of auth state
-            if (isNativeApp()) {
-              postToNative("authStateChanged", { isAuthenticated: true });
-            }
           }
         }
       } catch (error) {
@@ -81,10 +76,6 @@ export function useAuth() {
             const fetchedProfile = await fetchOrCreateProfile();
             if (isMounted) {
               setProfile(fetchedProfile);
-              // Notify native app of successful login
-              if (isNativeApp()) {
-                postToNative("authStateChanged", { isAuthenticated: true });
-              }
             }
           }
         } else {
@@ -92,10 +83,6 @@ export function useAuth() {
           currentUserIdRef.current = null;
           setProfile(null);
           useAppStore.getState().clearStore();
-          // Notify native app of sign out
-          if (isNativeApp()) {
-            postToNative("authStateChanged", { isAuthenticated: false });
-          }
         }
 
         // Ensure loading is false after any auth event

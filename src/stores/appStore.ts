@@ -255,6 +255,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch("/api/preload");
 
       if (res.status === 401) {
+        set({ isPreloading: false });
         window.location.href = "/login";
         return;
       }

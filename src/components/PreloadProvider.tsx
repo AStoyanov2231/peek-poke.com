@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { useIsPreloading, usePreloadError, useProfile, useTotalUnread } from "@/stores/selectors";
-import { isNativeApp, postToNative } from "@/lib/native";
+import { isNativeApp } from "@/lib/native";
+import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePresence } from "@/hooks/usePresence";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -53,7 +54,8 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
 
   useEffect(() => {
     if (isNativeApp()) {
-      postToNative("updateBadge", { tab: "messages", count: totalUnread });
+      PeekPokeBridge.setTabBadge({ tab: "inbox", count: totalUnread });
+      PeekPokeBridge.setAppBadge({ count: totalUnread });
     }
   }, [totalUnread]);
 

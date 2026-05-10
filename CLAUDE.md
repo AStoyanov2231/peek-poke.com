@@ -3,7 +3,6 @@
 ### 1. Plan Mode Default
 – Enter plan mode for ANY non-trivial task (3+ steps)
 – If something goes sideways, STOP and re-plan immediately
-– Write detailed specs upfront to reduce ambiguity
 
 ### 2. Subagent Strategy
 – Use subagents liberally to keep main context window clean
@@ -27,15 +26,14 @@
 ### 6. Autonomous Bug Fixing
 – When given a bug report: just fix it
 – Zero context switching required from the user
-## Task Management
-1. Plan First: Write plan to tasks/todo.md
-2. Verify Plan: Check in before starting
-3. Track Progress: Mark items complete as you go
-4. Explain Changes: High-level summary at each step
-5. Document Results: Add review section to todo.md
-6. Capture Lessons: Update lessons.md after corrections
 
-## Core Principles
+### 7. Task Management
+- Plan First: Write plan to tasks/todo.md
+- Verify Plan: Check in before starting
+- Track Progress: Mark items complete as you go
+- Capture Lessons: Update lessons.md after corrections
+
+### 8. Core Principles
 – Simplicity First: Make every change as simple as possible
 – No Laziness: Find root causes. No temporary fixes
 – Minimal Impact: Only touch what’s necessary
