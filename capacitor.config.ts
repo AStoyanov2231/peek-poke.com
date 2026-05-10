@@ -4,9 +4,9 @@ const config: CapacitorConfig = {
   appId: 'com.peekpoke.app',
   appName: 'Peek Poke',
   server: {
-    // url: "https://www.peek-poke.com",
-    url: "http://localhost:3000",
-    cleartext: true,
+    url: "https://www.peek-poke.com",
+    // url: "http://localhost:3000",
+    // cleartext: true,
   },
   ios: {
     contentInset: "never",

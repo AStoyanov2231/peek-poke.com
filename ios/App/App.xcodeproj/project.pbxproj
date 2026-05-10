@@ -453,16 +453,16 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = revision;
+				revision = dd29b624b9ceea87612d0b00457e1400f7d22c2e;
 			};
 		};
 		A18E30662FAF932D0077257D /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mapbox/mapbox-maps-ios";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = revision;
+				revision = e10bb0544a878705adf566afe67f41948bb60c35;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

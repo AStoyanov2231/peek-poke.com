@@ -33,7 +33,6 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mapbox/mapbox-maps-ios",
       "state" : {
-        "branch" : "main",
         "revision" : "e10bb0544a878705adf566afe67f41948bb60c35"
       }
     },
@@ -42,7 +41,6 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/supabase/supabase-swift",
       "state" : {
-        "branch" : "main",
         "revision" : "dd29b624b9ceea87612d0b00457e1400f7d22c2e"
       }
     },
