@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function InboxSkeleton() {
   return (
-    <div className="flex flex-col h-[100svh] overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       <div className="px-4 pb-4 border-b flex-shrink-0">
         <Skeleton className="h-8 w-24" />
       </div>

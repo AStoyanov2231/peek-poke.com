@@ -49,7 +49,7 @@ export function InboxClient() {
   );
 
   return (
-    <div className="flex h-[100svh] overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* Left panel */}
       <div className="flex flex-col w-full md:w-[360px] md:flex-shrink-0 md:border-r md:border-hairline bg-background overflow-hidden">
         {/* Header */}

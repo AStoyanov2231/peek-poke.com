@@ -28,7 +28,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         <NativeBridgeProvider>
           <AuthBridgeProvider>
             <SplashScreen />
-            <div className="h-screen-safe bg-background flex overflow-hidden">
+            <div className="h-screen-safe bg-background flex overflow-hidden native-app-layout">
               <PersistentMapHost />
               <DesktopNav />
               <ContentWrapper>{children}</ContentWrapper>

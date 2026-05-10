@@ -522,3 +522,27 @@
   /* Kept for Phase 7 cleanup */
   .scroll-container { overscroll-behavior-y: contain; }
 }
+
+/* ══════════════════════════════════════════════
+   13. NATIVE MAP OVERLAY
+   When the Capacitor WebView sits on top of the native Mapbox map,
+   the layout background must be transparent so only the floating
+   UI cards (MapSearchBar, NearbySwiper, etc.) are visible.
+   ══════════════════════════════════════════════ */
+html.native-map,
+html.native-map body,
+html.native-map .bg-background,
+html.native-map .bg-surface {
+  background: transparent !important;
+}
+
+/* ══════════════════════════════════════════════
+   14. NATIVE EDGE-TO-EDGE LAYOUT
+   contentInset:"never" makes the WebView fill its full frame
+   (behind the status bar). Use CSS safe areas instead so the
+   background bleeds to the top edge while content stays clear
+   of the status bar.
+   ══════════════════════════════════════════════ */
+html.is-native .native-app-layout {
+  padding-top: env(safe-area-inset-top, 0px);
+}

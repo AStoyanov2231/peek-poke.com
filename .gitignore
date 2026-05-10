@@ -52,3 +52,9 @@ supabase-schema.sql
 .worktrees/
 .claude/worktrees/
 .claude/settings.local.json
+
+# iOS / Capacitor
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/Pods/
+ios/DerivedData/
