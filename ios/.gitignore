@@ -8,6 +8,9 @@ xcuserdata
 # Cordova plugins for Capacitor
 capacitor-cordova-ios-plugins
 
+# Local secrets — never commit
+App/Secrets.xcconfig
+
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
