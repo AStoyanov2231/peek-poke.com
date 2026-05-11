@@ -116,6 +116,7 @@ final class RootTabBarController: UITabBarController {
         sharedBridgeVC.view.backgroundColor = on ? .clear : .systemBackground
 
         sharedBridgeVC.isMapOverlay = on
+        (mapVC as? MapTabViewController)?.setOverlayActive(on)
         if on {
             sharedBridgeVC.applyMapOverlayCSS()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
@@ -182,6 +183,7 @@ extension RootTabBarController: UITabBarControllerDelegate {
 // MARK: - Notification names
 
 extension Notification.Name {
-    static let peekPokeRoleChanged      = Notification.Name("peekPokeRoleChanged")
-    static let peekPokeAuthTokenChanged = Notification.Name("peekPokeAuthTokenChanged")
+    static let peekPokeRoleChanged           = Notification.Name("peekPokeRoleChanged")
+    static let peekPokeAuthTokenChanged      = Notification.Name("peekPokeAuthTokenChanged")
+    static let peekPokeMapInteractiveRects   = Notification.Name("peekPokeMapInteractiveRects")
 }

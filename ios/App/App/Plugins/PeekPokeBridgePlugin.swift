@@ -21,6 +21,7 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setLastRoute",         returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openExternal",         returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestPushPermission", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setMapInteractiveRects", returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - Web → Native calls
@@ -115,6 +116,27 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         DispatchQueue.main.async {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+        call.resolve()
+    }
+
+    @objc func setMapInteractiveRects(_ call: CAPPluginCall) {
+        let raw = call.getArray("rects") ?? []
+        let rects: [CGRect] = raw.compactMap { entry in
+            guard let dict = entry as? [String: Any],
+                  let x = (dict["x"] as? NSNumber)?.doubleValue,
+                  let y = (dict["y"] as? NSNumber)?.doubleValue,
+                  let w = (dict["width"] as? NSNumber)?.doubleValue,
+                  let h = (dict["height"] as? NSNumber)?.doubleValue
+            else { return nil }
+            return CGRect(x: x, y: y, width: w, height: h)
+        }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .peekPokeMapInteractiveRects,
+                object: nil,
+                userInfo: ["rects": rects]
+            )
         }
         call.resolve()
     }

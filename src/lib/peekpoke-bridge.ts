@@ -46,6 +46,7 @@ export interface PeekPokeBridgePlugin {
   setLastRoute(options: { tab: string; route: string }): Promise<void>;
   openExternal(options: { url: string }): Promise<void>;
   requestPushPermission(): Promise<void>;
+  setMapInteractiveRects(options: { rects: Array<{ x: number; y: number; width: number; height: number }> }): Promise<void>;
   addListener(eventName: 'navigate', listenerFunc: (data: NavigateEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'appResumed', listenerFunc: (data: AppResumedEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'refreshNeeded', listenerFunc: (data: RefreshNeededEvent) => void): Promise<PluginListenerHandle>;
@@ -65,6 +66,7 @@ class PeekPokeBridgeWeb extends WebPlugin implements PeekPokeBridgePlugin {
   async setLastRoute(): Promise<void> {}
   async openExternal(): Promise<void> {}
   async requestPushPermission(): Promise<void> {}
+  async setMapInteractiveRects(): Promise<void> {}
 }
 
 export const PeekPokeBridge = registerPlugin<PeekPokeBridgePlugin>('PeekPokeBridge', {
