@@ -381,7 +381,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				MBX_ACCESS_TOKEN = "MAPBOX_TOKEN_REMOVED";
+				MBX_ACCESS_TOKEN = "$(MAPBOX_ACCESS_TOKEN)";
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.peekpoke.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -407,7 +407,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				MBX_ACCESS_TOKEN = "MAPBOX_TOKEN_REMOVED";
+				MBX_ACCESS_TOKEN = "$(MAPBOX_ACCESS_TOKEN)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.peekpoke.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0b2p2bndwbnB1aGt5am5jd3huIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1NDI5MTksImV4cCI6MjA4MzExODkxOX0.CMpmzrJyaXFj8-WQd7cWP91XCbNBQKdEjxHU5IWw6a4";
