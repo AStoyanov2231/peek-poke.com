@@ -546,3 +546,10 @@ html.native-map .bg-surface {
 html.is-native .native-app-layout {
   padding-top: env(safe-area-inset-top, 0px);
 }
+
+/* In native, .native-app-layout already pads safe-area-inset-top. Zero the
+   variable so absolute children using calc(var(--safe-area-top) + X) don't
+   add a second safe-area-top on top of the parent padding. */
+html.is-native {
+  --safe-area-top: 0px;
+}
