@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { isNativeApp } from "@/lib/native";
 import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
 import { createClient } from "@/lib/supabase/client";
+import { SplashScreen } from "@capacitor/splash-screen";
 
 /**
  * Routes native-initiated navigation to the Next.js router via Capacitor plugin events.
@@ -87,6 +88,12 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
 
     attemptHandoff();
   }, [pathname, router]);
+
+  // Hide the native splash screen once the web UI is mounted.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    SplashScreen.hide({ fadeOutDuration: 300 });
+  }, []);
 
   // Mark <html> as native so CSS can apply edge-to-edge safe area handling.
   useEffect(() => {
