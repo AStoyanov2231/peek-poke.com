@@ -17,6 +17,7 @@ import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
 function useNativeMapPassthrough() {
   useEffect(() => {
     if (!isNativeApp()) return;
+    document.documentElement.classList.add("native-map");
     let last = "";
 
     const publish = () => {
@@ -59,6 +60,7 @@ function useNativeMapPassthrough() {
     mo.observe(document.body, { childList: true, subtree: true, attributes: false });
 
     return () => {
+      document.documentElement.classList.remove("native-map");
       ro.disconnect();
       mo.disconnect();
     };

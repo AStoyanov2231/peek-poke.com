@@ -45,12 +45,15 @@ export async function initPushNotifications(opts: {
     PushNotifications.addListener("registration", async (token: Token) => {
       currentDeviceToken = token.value;
       try {
-        await fetch("/api/profile/push-token", {
+        const res = await fetch("/api/profile/push-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
           body: JSON.stringify({ token: token.value, platform: "ios" }),
         });
+        if (!res.ok) {
+          console.error("push-token upload failed:", res.status, await res.text().catch(() => ""));
+        }
       } catch (error) {
         console.error("push-token upload failed:", error);
       }
