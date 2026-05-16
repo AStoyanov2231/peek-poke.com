@@ -1,10 +1,25 @@
 import Capacitor
 import UIKit
 
-/// Typed Capacitor plugin that replaces the hand-rolled webkit.messageHandlers.nativeBridge.
-/// Web → Native: setAuth, clearAuth, getAuth, setRole, setTabBadge, setAppBadge,
-///                notifyReady, setLastRoute, openExternal, requestPushPermission
-/// Native → Web: navigate, appResumed, refreshNeeded, pushReceived, authRefresh
+/// Typed Capacitor plugin bridging web ↔ native.
+///
+/// Web → Native calls:
+///   setAuth, clearAuth, getAuth           — Keychain token management (AuthStore)
+///   setRole                               — show/hide admin tab (lazy)
+///   setTabBadge, setAppBadge              — badge counts
+///   openExternal                          — open URL in Safari
+///   setMapInteractiveRects                — touch passthrough hit areas
+///   setMapPins, setMapCamera              — Mapbox annotation + camera control
+///   setMapClusterConfig                   — reserved / no-op
+///
+/// Push notifications are handled by @capacitor/push-notifications (official plugin).
+///
+/// Native → Web events:
+///   navigate          { route, source }
+///   appResumed        { route }
+///   authRefresh       { accessToken, refreshToken, expiresAt }
+///   mapCameraChanged  { lat, lng, zoom, bearing, pitch, isUserGesture, bounds? }
+///   mapPinTapped      { id, kind, childIds? }
 @objc(PeekPokeBridgePlugin)
 public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
@@ -17,25 +32,42 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setRole",              returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setTabBadge",          returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setAppBadge",          returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "notifyReady",          returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setLastRoute",         returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openExternal",         returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "requestPushPermission", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMapInteractiveRects", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setMapPins",           returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setMapCamera",         returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setMapClusterConfig",  returnType: CAPPluginReturnPromise),
     ]
+
+    // MARK: - Plugin lifecycle
+
+    public override func load() {
+        // Observe native map events and forward them to the web layer
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(onNativeCameraChanged(_:)),
+            name: .peekPokeMapCameraDidChange, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(onNativePinTapped(_:)),
+            name: .peekPokeMapPinTapped, object: nil
+        )
+    }
 
     // MARK: - Web → Native calls
 
     @objc func setAuth(_ call: CAPPluginCall) {
-        let accessToken  = call.getString("accessToken")
-        let refreshToken = call.getString("refreshToken")
+        guard let accessToken  = call.getString("accessToken"),
+              let refreshToken = call.getString("refreshToken") else {
+            call.resolve()
+            return
+        }
         var expiresAt: Date?
         if let n = call.getDouble("expiresAt") {
             expiresAt = Date(timeIntervalSince1970: n)
         } else if let n = call.getInt("expiresAt") {
             expiresAt = Date(timeIntervalSince1970: TimeInterval(n))
         }
-        AuthStore.shared.update(accessToken: accessToken, refreshToken: refreshToken, expiresAt: expiresAt)
+        AuthStore.shared.update(AuthSession(accessToken: accessToken, refreshToken: refreshToken, expiresAt: expiresAt))
         call.resolve()
     }
 
@@ -48,9 +80,11 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func getAuth(_ call: CAPPluginCall) {
         var result: [String: Any] = [:]
-        if let t = AuthStore.shared.accessToken  { result["accessToken"]  = t }
-        if let t = AuthStore.shared.refreshToken { result["refreshToken"] = t }
-        if let d = AuthStore.shared.expiresAt    { result["expiresAt"]    = d.timeIntervalSince1970 }
+        if let session = AuthStore.shared.session {
+            result["accessToken"]  = session.accessToken
+            result["refreshToken"] = session.refreshToken
+            if let d = session.expiresAt { result["expiresAt"] = d.timeIntervalSince1970 }
+        }
         call.resolve(result)
     }
 
@@ -79,22 +113,6 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         let count = call.getInt("count") ?? 0
         DispatchQueue.main.async {
             UIApplication.shared.applicationIconBadgeNumber = count
-        }
-        call.resolve()
-    }
-
-    @objc func notifyReady(_ call: CAPPluginCall) {
-        call.resolve()
-        // Splash screen auto-hides once the bridge view controller signals ready.
-        // CAPBridgeViewController handles this internally when the WebView finishes loading.
-    }
-
-    @objc func setLastRoute(_ call: CAPPluginCall) {
-        let tab   = call.getString("tab") ?? ""
-        let route = call.getString("route") ?? ""
-        guard !tab.isEmpty, !route.isEmpty else { call.resolve(); return }
-        DispatchQueue.main.async {
-            Self.tabBar()?.setLastRoute(tab: tab, route: route)
         }
         call.resolve()
     }
@@ -141,14 +159,56 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
-    @objc func requestPushPermission(_ call: CAPPluginCall) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-            if granted {
-                DispatchQueue.main.async {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
-            }
+    // MARK: - Map bridge (Web → Native)
+
+    @objc func setMapPins(_ call: CAPPluginCall) {
+        guard let rawPins = call.getArray("pins") else { call.resolve(); return }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .peekPokeMapPins,
+                object: nil,
+                userInfo: ["pins": rawPins]
+            )
         }
         call.resolve()
+    }
+
+    @objc func setMapCamera(_ call: CAPPluginCall) {
+        let lat      = call.getDouble("lat") ?? 0
+        let lng      = call.getDouble("lng") ?? 0
+        let zoom     = call.getDouble("zoom") ?? 14
+        let bearing  = call.getDouble("bearing") ?? 0
+        let pitch    = call.getDouble("pitch") ?? 0
+        let animated = call.getBool("animated") ?? true
+        let duration = call.getDouble("durationMs") ?? 500
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .peekPokeMapCamera,
+                object: nil,
+                userInfo: [
+                    "lat": lat, "lng": lng, "zoom": zoom,
+                    "bearing": bearing, "pitch": pitch,
+                    "animated": animated, "durationMs": duration,
+                ]
+            )
+        }
+        call.resolve()
+    }
+
+    @objc func setMapClusterConfig(_ call: CAPPluginCall) {
+        // Reserved — native clustering config is currently set in MapTabViewController
+        call.resolve()
+    }
+
+    // MARK: - Map bridge (Native → Web)
+
+    @objc private func onNativeCameraChanged(_ note: Notification) {
+        guard let info = note.userInfo as? [String: Any] else { return }
+        notifyListeners("mapCameraChanged", data: info)
+    }
+
+    @objc private func onNativePinTapped(_ note: Notification) {
+        guard let info = note.userInfo as? [String: Any] else { return }
+        notifyListeners("mapPinTapped", data: info)
     }
 }

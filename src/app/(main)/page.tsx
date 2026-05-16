@@ -18,7 +18,8 @@ function useNativeMapPassthrough() {
   useEffect(() => {
     if (!isNativeApp()) return;
     let last = "";
-    const tick = () => {
+
+    const publish = () => {
       const els = document.querySelectorAll<HTMLElement>(".pointer-events-auto");
       const rects = Array.from(els).map((el) => {
         const r = el.getBoundingClientRect();
@@ -30,9 +31,37 @@ function useNativeMapPassthrough() {
         PeekPokeBridge.setMapInteractiveRects({ rects });
       }
     };
-    tick();
-    const id = window.setInterval(tick, 200);
-    return () => { window.clearInterval(id); };
+
+    publish();
+
+    const ro = new ResizeObserver(publish);
+
+    // Observe all current .pointer-events-auto nodes
+    document.querySelectorAll<HTMLElement>(".pointer-events-auto").forEach((el) => ro.observe(el));
+
+    const mo = new MutationObserver((mutations) => {
+      // Also observe any newly-added .pointer-events-auto nodes so that subsequent
+      // size changes (e.g. swiper cards loading after data arrives) retrigger publish.
+      for (const mutation of mutations) {
+        for (const node of Array.from(mutation.addedNodes)) {
+          if (!(node instanceof HTMLElement)) continue;
+          if (node.classList.contains("pointer-events-auto")) ro.observe(node);
+          node.querySelectorAll<HTMLElement>(".pointer-events-auto").forEach((el) => ro.observe(el));
+        }
+        // Unobserve removed nodes to prevent memory leaks
+        for (const node of Array.from(mutation.removedNodes)) {
+          if (node instanceof HTMLElement) ro.unobserve(node);
+        }
+      }
+      publish();
+    });
+
+    mo.observe(document.body, { childList: true, subtree: true, attributes: false });
+
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
   }, []);
 }
 

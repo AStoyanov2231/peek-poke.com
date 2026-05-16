@@ -4,6 +4,8 @@ import { useState } from "react";
 import { X, ChevronRight, ChevronLeft, LogOut, CircleHelp, FileText } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import { Card } from "@/components/ui/card";
+import { isNativeApp } from "@/lib/native";
+import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
 
 type View = "main" | "help" | "terms";
 
@@ -63,6 +65,19 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
 }
 
 function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
+  const handleSignOut = async () => {
+    if (isNativeApp()) {
+      const { getCurrentPushToken, unregisterPushNotifications } = await import(
+        "@/lib/push-notifications"
+      );
+      await unregisterPushNotifications(getCurrentPushToken());
+      // Clear native Keychain before server-side sign-out so Keychain tokens
+      // cannot be reposted to /auth/native-handoff after the redirect.
+      await PeekPokeBridge.clearAuth();
+    }
+    await signOut(); // throws Next.js redirect → navigates to /login
+  };
+
   return (
     <div className="px-6 pb-8 flex flex-col gap-4">
       {/* Support section */}
@@ -90,14 +105,12 @@ function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
 
       {/* Log out */}
       <div className="pt-2">
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="w-full h-12 rounded-sm bg-background shadow-e-2 text-[15px] font-medium text-muted-foreground active: transition-shadow"
-          >
-            Log Out
-          </button>
-        </form>
+        <button
+          onClick={handleSignOut}
+          className="w-full h-12 rounded-sm bg-background shadow-e-2 text-[15px] font-medium text-muted-foreground active: transition-shadow"
+        >
+          Log Out
+        </button>
       </div>
 
       {/* Version */}

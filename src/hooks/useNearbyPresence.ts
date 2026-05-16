@@ -1,104 +1,65 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores/appStore";
 import { useIsPreloading, useUserLocation } from "@/stores/selectors";
-import { haversineKm } from "@/lib/geo";
 import { TRACK_DEBOUNCE_MS } from "@/lib/constants";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { NearbyUser } from "@/types/database";
 
-const supabase = createClient();
+const POLL_INTERVAL_MS = 10_000;
 const RADIUS_KM = 2;
 
 export function useNearbyPresence(userId: string | undefined) {
   const isPreloading = useIsPreloading();
   const userLocation = useUserLocation();
   const setNearbyUsers = useAppStore((s) => s.setNearbyUsers);
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const isSetupRef = useRef(false);
-  const lastTrackRef = useRef(0);
 
-  // Track location changes
+  const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastTrackRef = useRef(0);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Push own location to server whenever it changes (debounced)
   useEffect(() => {
-    if (!channelRef.current || !userLocation || !userId) return;
-    let cancelled = false;
+    if (!userId || !userLocation) return;
     const now = Date.now();
     if (now - lastTrackRef.current < TRACK_DEBOUNCE_MS) return;
     lastTrackRef.current = now;
-    const profile = useAppStore.getState().profile;
-    if (!cancelled) {
-      channelRef.current.track({
-        userId,
-        username: profile?.username || "",
-        avatar_url: profile?.avatar_url || null,
-        display_name: profile?.display_name || null,
-        lat: userLocation.lat,
-        lng: userLocation.lng,
-      });
-    }
-    return () => { cancelled = true; };
+    lastLocationRef.current = userLocation;
+
+    fetch("/api/location", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ lat: userLocation.lat, lng: userLocation.lng }),
+    }).catch(() => {});
   }, [userLocation, userId]);
 
+  // Poll nearby users on an interval
   useEffect(() => {
     if (isPreloading || !userId) return;
-    if (isSetupRef.current) return;
-    isSetupRef.current = true;
 
-    const channel = supabase.channel("user-locations", {
-      config: { presence: { key: userId } },
-    });
+    const fetchNearby = async () => {
+      const loc = lastLocationRef.current ?? useAppStore.getState().userLocation;
+      if (!loc) return;
 
-    let syncTimer: ReturnType<typeof setTimeout> | null = null;
-    channel.on("presence", { event: "sync" }, () => {
-      if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => {
-        const state = channel.presenceState();
-        const loc = useAppStore.getState().userLocation;
-        const nearby: NearbyUser[] = [];
-
-        for (const key of Object.keys(state)) {
-          if (key === userId) continue;
-          const presences = state[key] as unknown as NearbyUser[];
-          if (!presences?.[0]) continue;
-          const p = presences[0];
-          if (loc && haversineKm(loc.lat, loc.lng, p.lat, p.lng) <= RADIUS_KM) {
-            nearby.push(p);
-          }
-        }
-        setNearbyUsers(nearby);
-      }, 300);
-    });
-
-    channel.subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
-        const loc = useAppStore.getState().userLocation;
-        const profile = useAppStore.getState().profile;
-        if (loc) {
-          lastTrackRef.current = Date.now();
-          await channel.track({
-            userId,
-            username: profile?.username || "",
-            avatar_url: profile?.avatar_url || null,
-            display_name: profile?.display_name || null,
-            lat: loc.lat,
-            lng: loc.lng,
-          });
-        }
+      try {
+        const res = await fetch("/api/nearby", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ lat: loc.lat, lng: loc.lng, radius_km: RADIUS_KM }),
+        });
+        if (!res.ok) return;
+        const { users } = await res.json() as { users: NearbyUser[] };
+        setNearbyUsers(users);
+      } catch {
+        // Network error — keep stale nearby list
       }
-    });
+    };
 
-    channelRef.current = channel;
+    fetchNearby();
+    pollTimerRef.current = setInterval(fetchNearby, POLL_INTERVAL_MS);
 
     return () => {
-      if (syncTimer) clearTimeout(syncTimer);
-      isSetupRef.current = false;
-      if (channelRef.current) {
-        channelRef.current.untrack();
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
   }, [isPreloading, userId, setNearbyUsers]);
 }

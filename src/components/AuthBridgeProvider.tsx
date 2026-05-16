@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
 import { isNativeApp } from "@/lib/native";
 import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
 import { SplashScreen } from "@capacitor/splash-screen";
@@ -12,10 +11,9 @@ import { useAppStore } from "@/stores/appStore";
  * Syncs auth state, tokens, and role to the native iOS shell via Capacitor plugin.
  * - Calls setAuth / clearAuth on every Supabase auth event so native Keychain stays fresh.
  * - Calls setRole whenever the admin role flips.
- * - Calls notifyReady after the first session check so the native splash can dismiss.
+ * - Hides the native splash screen after the first session check completes.
  */
 export function AuthBridgeProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const readyFired = useRef(false);
 
   // --- Auth token sync ---
@@ -25,7 +23,8 @@ export function AuthBridgeProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
 
     const syncSession = async (
-      session: { access_token: string; refresh_token?: string; expires_at?: number } | null | undefined
+      session: { access_token: string; refresh_token?: string; expires_at?: number } | null | undefined,
+      { signOut = false } = {}
     ) => {
       if (session) {
         await PeekPokeBridge.setAuth({
@@ -33,15 +32,14 @@ export function AuthBridgeProvider({ children }: { children: ReactNode }) {
           refreshToken: session.refresh_token ?? null,
           expiresAt: session.expires_at ?? null,
         });
-      } else {
-        // Explicit clearAuth so native Keychain is wiped on sign-out.
+      } else if (signOut) {
+        // Only wipe Keychain on an explicit sign-out, not on every null session check.
+        // Hidden or redirecting WebViews can have no session without meaning the user signed out.
         await PeekPokeBridge.clearAuth();
       }
 
-      // Fire notifyReady once after the first session check so native can dismiss splash.
       if (!readyFired.current) {
         readyFired.current = true;
-        await PeekPokeBridge.notifyReady({ route: pathname });
         await SplashScreen.hide({ fadeOutDuration: 300 });
       }
     };
@@ -50,7 +48,9 @@ export function AuthBridgeProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => syncSession(session));
+    } = supabase.auth.onAuthStateChange((event, session) =>
+      syncSession(session, { signOut: event === "SIGNED_OUT" })
+    );
 
     return () => subscription.unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps

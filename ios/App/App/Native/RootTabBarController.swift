@@ -2,35 +2,18 @@ import UIKit
 
 final class RootTabBarController: UITabBarController {
 
-    // The single Capacitor WebView instance shared across all web tabs
-    let sharedBridgeVC = SharedBridgeViewController()
+    // Per-tab bridge view controllers — permanent for core tabs, lazy for admin
+    let mapBridgeVC     = WebTabBridgeViewController(route: "/",        transparent: true)
+    let inboxBridgeVC   = WebTabBridgeViewController(route: "/inbox",   transparent: false)
+    let profileBridgeVC = WebTabBridgeViewController(route: "/profile", transparent: false)
+    private var adminBridgeVC: WebTabBridgeViewController?
 
+    private let mapVC = MapTabViewController()
     private var isAdminVisible: Bool = false
-    private var currentWebTab: String = "inbox"
 
-    // Per-tab last-known routes (maintained by setLastRoute calls from web)
-    private(set) var lastRoutes: [String: String] = [
-        "inbox":   "/inbox",
-        "profile": "/profile",
-        "admin":   "/admin",
-    ]
-
-    // Inset tab bar items (badges updated independently via plugin)
-    private let inboxItem   = UITabBarItem(title: "Inbox",   image: UIImage(systemName: "envelope"), tag: 1)
-    private let profileItem = UITabBarItem(title: "Me",      image: UIImage(systemName: "person"),   tag: 2)
-    private let adminItem   = UITabBarItem(title: "Admin",   image: UIImage(systemName: "shield"),   tag: 3)
-
-    // Proxy view controllers — zero UI, their only role is to carry tab bar items
-    // and provide a view container for the shared bridge when their tab is selected.
-    private lazy var inboxProxyVC: UIViewController   = makeProxy(item: inboxItem)
-    private lazy var profileProxyVC: UIViewController = makeProxy(item: profileItem)
-    private lazy var adminProxyVC: UIViewController   = makeProxy(item: adminItem)
-
-    private lazy var mapVC: UIViewController = {
-        let vc = MapTabViewController()
-        vc.tabBarItem = UITabBarItem(title: "Map", image: UIImage(systemName: "map"), tag: 0)
-        return vc
-    }()
+    private let inboxItem   = UITabBarItem(title: "Inbox", image: UIImage(systemName: "envelope"), tag: 1)
+    private let profileItem = UITabBarItem(title: "Me",    image: UIImage(systemName: "person"),   tag: 2)
+    private let adminItem   = UITabBarItem(title: "Admin", image: UIImage(systemName: "shield"),   tag: 3)
 
     // MARK: - Lifecycle
 
@@ -38,14 +21,18 @@ final class RootTabBarController: UITabBarController {
         super.viewDidLoad()
         delegate = self
 
-        // Pre-load bridge so Capacitor is ready before first tab switch
-        _ = sharedBridgeVC.view
+        mapVC.tabBarItem           = UITabBarItem(title: "Map", image: UIImage(systemName: "map"), tag: 0)
+        inboxBridgeVC.tabBarItem   = inboxItem
+        profileBridgeVC.tabBarItem = profileItem
 
+        mapVC.embedBridgeVC(mapBridgeVC)
         rebuildTabs()
+        applyTabBarAppearance(transparent: true)
 
-        // Start on the map tab with the bridge as a transparent overlay
-        embedBridge(in: mapVC, navigate: true, route: "/")
-        setMapOverlayMode(true)
+        // Warm core WebViews at launch so tab switches are instant (IG/FB pattern)
+        // Admin WebView is warmed lazily only after setRole confirms the user is an admin.
+        _ = inboxBridgeVC.view
+        _ = profileBridgeVC.view
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleRoleChange(_:)),
@@ -53,12 +40,7 @@ final class RootTabBarController: UITabBarController {
         )
     }
 
-    // MARK: - Public API (called by PeekPokeBridgePlugin and MapTabViewController)
-
-    func setLastRoute(tab: String, route: String) {
-        dispatchPrecondition(condition: .onQueue(.main))
-        lastRoutes[tab] = route
-    }
+    // MARK: - Public API (called by PeekPokeBridgePlugin, SceneDelegate)
 
     func setBadge(tab: String, count: Int) {
         dispatchPrecondition(condition: .onQueue(.main))
@@ -71,87 +53,64 @@ final class RootTabBarController: UITabBarController {
         }
     }
 
-    func currentRouteForResume() -> String {
-        if selectedIndex == 0 { return "/" }
-        return lastRoutes[currentWebTab] ?? "/\(currentWebTab)"
+    func notifyCurrentBridgeAppResumed() {
+        currentBridgeVC?.notifyAppResumed()
     }
 
-    /// Switch to a web tab and SPA-navigate to the given route (or last known route).
+    /// Switch to a web tab; optionally SPA-navigate to a sub-route (deep links / push notifications).
     func switchToWebTab(_ logicalTab: String, route: String? = nil) {
-        let target = route ?? lastRoutes[logicalTab] ?? "/\(logicalTab)"
-        let proxyVC: UIViewController
-        switch logicalTab {
-        case "profile": proxyVC = profileProxyVC
-        case "admin":   proxyVC = isAdminVisible ? adminProxyVC : profileProxyVC
-        default:        proxyVC = inboxProxyVC
+        let (bridgeVC, idx) = tabIndex(for: logicalTab)
+        selectedIndex = idx
+        mapVC.setOverlayActive(false)
+        if let route {
+            bridgeVC.navigateTo(route, source: "deeplink")
         }
-        currentWebTab = logicalTab
-        if let idx = viewControllers?.firstIndex(of: proxyVC) {
-            selectedIndex = idx
-        }
-        embedBridge(in: proxyVC, navigate: true, route: target)
     }
 
-    // MARK: - Private helpers
+    // MARK: - Private
+
+    private var currentBridgeVC: WebTabBridgeViewController? {
+        if selectedIndex == 0 { return mapBridgeVC }
+        return selectedViewController as? WebTabBridgeViewController
+    }
+
+    private func tabIndex(for logicalTab: String) -> (WebTabBridgeViewController, Int) {
+        switch logicalTab {
+        case "profile": return (profileBridgeVC, 2)
+        case "admin":
+            if isAdminVisible, let vc = adminBridgeVC { return (vc, 3) }
+            return (profileBridgeVC, 2)
+        default:        return (inboxBridgeVC, 1)
+        }
+    }
 
     private func rebuildTabs() {
-        var vcs: [UIViewController] = [mapVC, inboxProxyVC, profileProxyVC]
-        if isAdminVisible { vcs.append(adminProxyVC) }
+        var vcs: [UIViewController] = [mapVC, inboxBridgeVC, profileBridgeVC]
+        if isAdminVisible, let vc = adminBridgeVC { vcs.append(vc) }
         viewControllers = vcs
-    }
-
-    private func makeProxy(item: UITabBarItem) -> UIViewController {
-        let vc = UIViewController()
-        vc.view.backgroundColor = .systemBackground
-        vc.tabBarItem = item
-        return vc
-    }
-
-    private func setMapOverlayMode(_ on: Bool) {
-        guard let wv = sharedBridgeVC.webView else { return }
-        wv.isOpaque = !on
-        wv.backgroundColor = on ? .clear : .systemBackground
-        wv.scrollView.backgroundColor = on ? .clear : .systemBackground
-        sharedBridgeVC.view.isOpaque = !on
-        sharedBridgeVC.view.backgroundColor = on ? .clear : .systemBackground
-
-        sharedBridgeVC.isMapOverlay = on
-        (mapVC as? MapTabViewController)?.setOverlayActive(on)
-        if on {
-            sharedBridgeVC.applyMapOverlayCSS()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-                self?.sharedBridgeVC.applyMapOverlayCSS()
-            }
-        }
-    }
-
-    private func embedBridge(in parent: UIViewController, navigate: Bool, route: String? = nil) {
-        // Move bridge view to the new parent if needed
-        if sharedBridgeVC.parent !== parent {
-            sharedBridgeVC.willMove(toParent: nil)
-            sharedBridgeVC.view.removeFromSuperview()
-            sharedBridgeVC.removeFromParent()
-
-            parent.addChild(sharedBridgeVC)
-            sharedBridgeVC.view.frame = parent.view.bounds
-            sharedBridgeVC.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            parent.view.addSubview(sharedBridgeVC.view)
-            sharedBridgeVC.didMove(toParent: parent)
-        }
-
-        guard navigate, let route else { return }
-        sharedBridgeVC.navigateTo(route)
     }
 
     @objc private func handleRoleChange(_ note: Notification) {
         dispatchPrecondition(condition: .onQueue(.main))
         let isAdmin = (note.userInfo?["isAdmin"] as? Bool) ?? false
         guard isAdmin != isAdminVisible else { return }
+
+        if isAdmin && adminBridgeVC == nil {
+            let vc = WebTabBridgeViewController(route: "/admin", transparent: false)
+            vc.tabBarItem = adminItem
+            _ = vc.view
+            adminBridgeVC = vc
+        }
+
         isAdminVisible = isAdmin
         let previousIndex = selectedIndex
         rebuildTabs()
         if previousIndex < (viewControllers?.count ?? 0) {
             selectedIndex = previousIndex
+        }
+
+        if !isAdmin {
+            adminBridgeVC = nil
         }
     }
 }
@@ -160,30 +119,33 @@ final class RootTabBarController: UITabBarController {
 
 extension RootTabBarController: UITabBarControllerDelegate {
     func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
-        if viewController === mapVC {
-            setMapOverlayMode(true)
-            embedBridge(in: mapVC, navigate: true, route: "/")
-            return
-        }
+        let isMap = viewController === mapVC
+        mapVC.setOverlayActive(isMap)
+        applyTabBarAppearance(transparent: isMap)
+    }
 
-        setMapOverlayMode(false)
-
-        let tab: String
-        switch viewController {
-        case profileProxyVC: tab = "profile"
-        case adminProxyVC:   tab = "admin"
-        default:             tab = "inbox"
+    private func applyTabBarAppearance(transparent: Bool) {
+        let appearance = UITabBarAppearance()
+        if transparent {
+            appearance.configureWithTransparentBackground()
+        } else {
+            appearance.configureWithOpaqueBackground()
         }
-        currentWebTab = tab
-        let route = lastRoutes[tab] ?? "/\(tab)"
-        embedBridge(in: viewController, navigate: true, route: route)
+        tabBar.standardAppearance = appearance
+        tabBar.scrollEdgeAppearance = appearance
     }
 }
 
 // MARK: - Notification names
 
 extension Notification.Name {
-    static let peekPokeRoleChanged           = Notification.Name("peekPokeRoleChanged")
-    static let peekPokeAuthTokenChanged      = Notification.Name("peekPokeAuthTokenChanged")
-    static let peekPokeMapInteractiveRects   = Notification.Name("peekPokeMapInteractiveRects")
+    static let peekPokeRoleChanged         = Notification.Name("peekPokeRoleChanged")
+    static let peekPokeAuthTokenChanged    = Notification.Name("peekPokeAuthTokenChanged")
+    static let peekPokeMapInteractiveRects = Notification.Name("peekPokeMapInteractiveRects")
+    // Web → Native: bridge sends pin data / camera commands
+    static let peekPokeMapPins             = Notification.Name("peekPokeMapPins")
+    static let peekPokeMapCamera           = Notification.Name("peekPokeMapCamera")
+    // Native → Web: native map emits camera position and pin tap events
+    static let peekPokeMapCameraDidChange  = Notification.Name("peekPokeMapCameraDidChange")
+    static let peekPokeMapPinTapped        = Notification.Name("peekPokeMapPinTapped")
 }
