@@ -86,6 +86,65 @@ Web: Supabase session cookies validated in `src/middleware.ts`. Native: `/api/au
 | `mapCameraChanged` | `{ lat, lng, zoom, bearing, pitch, isUserGesture, bounds? }` | Mapbox map idle after pan/zoom |
 | `mapPinTapped` | `{ id, kind, childIds? }` | Annotation tapped |
 
+### Push Notifications
+
+**Architecture — three layers:**
+
+```
+iOS (APNs) → AppDelegate.swift → @capacitor/push-notifications → NativeBridgeProvider.tsx
+                                                                  → /api/profile/push-token (stores token)
+
+Server: sendPushToUser(userId, payload)  →  src/lib/push/send.ts  →  @parse/node-apn  →  APNs  →  device
+```
+
+**Files:**
+- `src/lib/push-notifications.ts` — client init, permission request, token upload, deep-link on tap
+- `src/lib/push/send.ts` — `sendPushToUser(userId, PushPayload)`: fetches tokens from DB, sends via APNs, prunes invalid tokens
+- `src/lib/push/apns.ts` — singleton APNs provider, reads env vars
+- `src/app/api/profile/push-token/route.ts` — POST stores token, DELETE removes on sign-out
+- `ios/App/App/AppDelegate.swift` — **must** contain the two APNs callbacks below
+
+**Critical AppDelegate requirement** (`@capacitor/push-notifications` v4+ does not use swizzling):
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+}
+func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+}
+```
+Without these, iOS calls back with the device token but nothing forwards it to Capacitor → `registration` event never fires → token never reaches the DB → no push possible. Symptom: `profiles.push_tokens` is empty for all users.
+
+**Sending a push** from any API route:
+```typescript
+import { sendPushToUser } from "@/lib/push/send";
+await sendPushToUser(recipientId, {
+  title: "Hello",
+  body: "Message text",
+  route: "/chat/thread-id",   // deep-links into the app on tap
+  threadId: "thread-id",      // iOS notification coalescing
+  badge: 3,                   // optional app icon badge count
+});
+```
+`sendPushToUser` is fire-and-forget (never throws). Non-deliverable tokens are pruned automatically (APNs 410). Non-410 APNs rejections are logged to Vercel as `sendPushToUser APNs rejections:`.
+
+**Deep links on tap:** `notification.data.route` is read in `pushNotificationActionPerformed` and routed via Next.js router. Allowed prefixes: `/inbox`, `/chat`, `/profile`, `/admin`.
+
+**Token storage:** `profiles.push_tokens` — jsonb array of `{ token, platform }`, max 20 per user, deduped on upload.
+
+**One-time setup:**
+1. Xcode → App target → Signing & Capabilities → `+ Capability` → **Push Notifications** (creates `App.entitlements` with `aps-environment`)
+2. Apple Developer → Keys → `+` → Apple Push Notifications service → download `.p8` once
+3. Env vars (Vercel + `.env.local`): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_KEY_P8` (raw `.p8` content or base64), `APNS_BUNDLE_ID` (`com.peekpoke.app`), `APNS_PRODUCTION`
+
+**APNs environment — must match build type:**
+| Build | Token type | `APNS_PRODUCTION` |
+|---|---|---|
+| Xcode debug → device | Sandbox | `false` |
+| TestFlight or App Store | Production | `true` |
+
+Mismatch is silent (APNs drops the notification). Check Vercel logs for `BadDeviceToken` reason if pushes stop working after a build type change.
+
 ## Quirks & Traps
 
 **Capacitor sync**: Use `npm run cap:sync`, never `npx cap sync` — the npm script patches `swift-tools-version` in `ios/App/CapApp-SPM/Package.swift` without which Xcode builds fail.
@@ -100,10 +159,7 @@ Web: Supabase session cookies validated in `src/middleware.ts`. Native: `/api/au
 
 **Capacitor environment**: `capacitor.config.ts` switches `server.url` between `localhost:3000` (dev) and the production domain based on `NODE_ENV`.
 
-**Push notifications**: Client uses `@capacitor/push-notifications` (official). Wiring in `src/lib/push-notifications.ts` registers + uploads tokens to `/api/profile/push-token`; deep-link routes ride in `notification.data.route`. Server sends via `@parse/node-apn` from `src/lib/push/send.ts`; call `sendPushToUser(userId, payload)` from any API route. Requires:
-1. **Xcode**: open `ios/App/App.xcworkspace`, select the App target → Signing & Capabilities → `+ Capability` → **Push Notifications**. This auto-creates `App.entitlements` with `aps-environment`.
-2. **APNs auth key**: Apple Developer → Keys → `+` → enable Apple Push Notifications service → download the `.p8` once.
-3. **Env vars** (Vercel + `.env.local`): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_KEY_P8` (paste the .p8 contents *or* base64 of it), `APNS_BUNDLE_ID` (e.g. `com.peekpoke.app`), `APNS_PRODUCTION` (`false` for dev/TestFlight, `true` for App Store builds).
+**Push notifications**: Full flow documented in the Architecture section below.
 
 ## Workflow
 

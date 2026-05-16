@@ -57,6 +57,18 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   try {
     const result = await getApnsProvider().send(note, tokens.map((t) => t.token));
 
+    // Log non-410 APNs failures for diagnostics (environment mismatch, bad topic, etc.)
+    const nonInvalidFailures = result.failed.filter(
+      (f) => Number(f.status) !== 410 && f.response?.reason !== "Unregistered"
+    );
+    if (nonInvalidFailures.length > 0) {
+      console.error("sendPushToUser APNs rejections:", JSON.stringify(nonInvalidFailures.map((f) => ({
+        device: f.device?.slice(0, 8) + "…",
+        status: f.status,
+        reason: f.response?.reason,
+      }))));
+    }
+
     // Prune invalid tokens (status 410 = device unregistered).
     const invalid = result.failed
       .filter((f) => Number(f.status) === 410 || f.response?.reason === "Unregistered")
