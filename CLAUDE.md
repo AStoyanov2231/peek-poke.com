@@ -1,39 +1,114 @@
-## Workflow Orchestration
+# Peek & Poke
 
-### 1. Plan Mode Default
-– Enter plan mode for ANY non-trivial task (3+ steps)
-– If something goes sideways, STOP and re-plan immediately
+Mobile-first social presence app: find nearby people on a live map, earn coins for IRL meetups, send DMs. Deployed on Vercel; iOS via Capacitor wrapping Next.js with native Swift extensions.
 
-### 2. Subagent Strategy
-– Use subagents liberally to keep main context window clean
-– One task per subagent for focused execution
-– For complex problems, throw more compute at it
+**Stack:** Next.js 16.1 (App Router) · React 19 · TypeScript 5 strict · Supabase (Postgres + Auth + Realtime) · Zustand 5 (UI state) · React Query 5 (server state) · Capacitor 8 · Mapbox GL 3 · Stripe · Tailwind + shadcn/ui · Vitest 4
 
-### 3. Self-Improvement Loop
-– After ANY correction: update tasks/lessons.md
-– Write rules that prevent the same mistake
-– Ruthlessly iterate until mistake rate drops
+## Directory Map
 
-### 4. Verification Before Done
-– Never mark a task complete without proving it works
-– Ask yourself: “Would a staff engineer approve this?”
-– Run tests, check logs, demonstrate correctness
+```
+src/app/(auth)/          # Unauthenticated pages: login, welcome, OAuth callback
+src/app/(main)/          # Protected pages: map, inbox, friends, profile, admin
+src/app/api/             # 38 API routes: profile, dm, friends, coins, stripe, preload
+src/components/          # React components; map/, layout/, profile/, ui/ subdirs
+src/hooks/               # useGeolocation, usePresence, useRealtimeDM, useMeetingDetection…
+src/lib/                 # supabase/, peekpoke-bridge.ts, geo.ts, auth.ts, stripe.ts
+src/stores/              # Zustand: appStore.ts + selectors.ts
+ios/App/App/Native/      # Swift: RootTabBarController, MapTabViewController, AuthStore…
+ios/App/App/Plugins/     # PeekPokeBridgePlugin.swift (custom Capacitor plugin)
+tasks/                   # todo.md (active plan), lessons.md (corrections log)
+```
 
-### 5. Demand Elegance (Balanced)
-– Pause and ask “is there a more elegant way?”
-– Skip this for simple fixes — don’t over-engineer
+## Commands
 
-### 6. Autonomous Bug Fixing
-– When given a bug report: just fix it
-– Zero context switching required from the user
+```bash
+# Web
+npm run dev              # Next.js + Turbopack on :3000
+npm run build && npm run start   # Production build check
+npm run test             # Vitest watch
+npm run test:coverage    # Vitest with coverage (targets: 70% stmt/line, 60% branch)
 
-### 7. Task Management
-- Plan First: Write plan to tasks/todo.md
-- Verify Plan: Check in before starting
-- Track Progress: Mark items complete as you go
-- Capture Lessons: Update lessons.md after corrections
+# iOS / Capacitor — always use these npm scripts, not bare npx cap commands
+npm run cap:sync         # Build + sync to Xcode (auto-patches swift-tools-version)
+npm run cap:open         # Open Xcode workspace
+```
 
-### 8. Core Principles
-– Simplicity First: Make every change as simple as possible
-– No Laziness: Find root causes. No temporary fixes
-– Minimal Impact: Only touch what’s necessary
+## Architecture
+
+### Native Bridge
+`PeekPokeBridgePlugin.swift` ↔ `src/lib/peekpoke-bridge.ts` ↔ `NativeBridgeProvider.tsx`
+New bridge calls must be defined in all three layers. Types live in `src/types/native.d.ts`.
+
+### Two Map Implementations
+- **iOS native**: `MapTabViewController.swift` + `MapTabAnnotations.swift` (Mapbox iOS SDK)
+- **Web/desktop**: `src/components/map/PersistentMapHost.tsx` (react-map-gl)
+Interactive rects are synced from web → native via `setMapInteractiveRects` bridge call.
+
+### State Ownership
+- **Zustand** (`appStore.ts`): UI/client state — profile, friends list, messages, coins, blocks
+- **React Query**: server-fetched data with cache invalidation
+Don't mix these. Async server data belongs in React Query, not Zustand.
+
+### Auth Flow
+Web: Supabase session cookies validated in `src/middleware.ts`. Native: `/api/auth/native-handoff` exchanges tokens; `AuthStore.swift` holds the atomic `AuthSession` in Keychain; web refresh is Supabase-owned. On cold launch, `SceneDelegate` reads Keychain tokens and posts them to the handoff endpoint to mint WebView cookies.
+
+### Native / Web Contract
+
+**Ownership — native owns:** tab bar, Mapbox map rendering + annotation management, touch passthrough hit-testing, Keychain token storage, app/tab badge counts. Push notifications go through the official `@capacitor/push-notifications` plugin (not the custom bridge).
+
+**Ownership — web/server owns:** all Supabase data access, auth session refresh, location reporting (`/api/location`), nearby user discovery (`/api/nearby`), clustering logic, all in-WebView UI.
+
+**Rule: native must not add Supabase data clients, Realtime channels, or direct database calls.** All data flows through Next.js API routes. The only Supabase-adjacent thing native touches is writing tokens to Keychain on `setAuth`.
+
+**Bridge calls — Web → Native (`src/lib/peekpoke-bridge.ts` → `PeekPokeBridgePlugin.swift`):**
+
+| Method | Purpose |
+|---|---|
+| `setAuth(accessToken, refreshToken, expiresAt)` | Write token triple to Keychain atomically |
+| `clearAuth()` | Clear Keychain — **only on explicit sign-out or account deletion** |
+| `getAuth()` | Read stored token triple from Keychain |
+| `setRole({ isAdmin })` | Show/hide admin tab (created lazily, destroyed on revoke) |
+| `setTabBadge({ tab, count })` | Set badge on a named tab item |
+| `setAppBadge({ count })` | Set iOS app icon badge number |
+| `openExternal({ url })` | Open URL in Safari |
+| `setMapInteractiveRects([rects])` | Declare web UI hit areas; touches outside pass to Mapbox |
+| `setMapPins({ pins })` | Send annotated pin array to native Mapbox for rendering |
+| `setMapCamera(options)` | Fly/animate Mapbox camera |
+| `setMapClusterConfig(options)` | Reserved — currently no-op |
+
+**Bridge events — Native → Web (`PeekPokeBridgePlugin.swift` → `NativeBridgeProvider.tsx`):**
+
+| Event | Payload | When |
+|---|---|---|
+| `navigate` | `{ route, source }` | Tab bar tap or deeplink |
+| `appResumed` | `{ route }` | App foregrounded |
+| `authRefresh` | `{ accessToken, refreshToken, expiresAt }` | Cold-launch handoff complete |
+| `mapCameraChanged` | `{ lat, lng, zoom, bearing, pitch, isUserGesture, bounds? }` | Mapbox map idle after pan/zoom |
+| `mapPinTapped` | `{ id, kind, childIds? }` | Annotation tapped |
+
+## Quirks & Traps
+
+**Capacitor sync**: Use `npm run cap:sync`, never `npx cap sync` — the npm script patches `swift-tools-version` in `ios/App/CapApp-SPM/Package.swift` without which Xcode builds fail.
+
+**Mapbox token**: Stored in `ios/App/Secrets.xcconfig` as `MAPBOX_ACCESS_TOKEN` (Xcode build variable). Copy from `Secrets.xcconfig.example`. Never put it in `.env` or commit the file.
+
+**iOS target**: Swift 6.2, iOS 26 minimum. Requires latest Xcode beta — older Xcode will not compile.
+
+**CSP**: All external resources must be allowlisted in `next.config.ts`. Mapbox, Supabase, Stripe, and Google are already there. New third-party scripts/fonts/workers need explicit CSP entries.
+
+**Dating feature**: `discover`, `matches`, age-gate, and onboarding flow were intentionally removed. Do not re-add.
+
+**Capacitor environment**: `capacitor.config.ts` switches `server.url` between `localhost:3000` (dev) and the production domain based on `NODE_ENV`.
+
+**Push notifications**: Client uses `@capacitor/push-notifications` (official). Wiring in `src/lib/push-notifications.ts` registers + uploads tokens to `/api/profile/push-token`; deep-link routes ride in `notification.data.route`. Server sends via `@parse/node-apn` from `src/lib/push/send.ts`; call `sendPushToUser(userId, payload)` from any API route. Requires:
+1. **Xcode**: open `ios/App/App.xcworkspace`, select the App target → Signing & Capabilities → `+ Capability` → **Push Notifications**. This auto-creates `App.entitlements` with `aps-environment`.
+2. **APNs auth key**: Apple Developer → Keys → `+` → enable Apple Push Notifications service → download the `.p8` once.
+3. **Env vars** (Vercel + `.env.local`): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_KEY_P8` (paste the .p8 contents *or* base64 of it), `APNS_BUNDLE_ID` (e.g. `com.peekpoke.app`), `APNS_PRODUCTION` (`false` for dev/TestFlight, `true` for App Store builds).
+
+## Workflow
+
+- **Plan first**: write plan to `tasks/todo.md`, check in before starting
+- **After any correction**: update `tasks/lessons.md` with a rule that prevents the repeat
+- **Verification**: never mark complete without running tests or demonstrating in-app
+- **Subagents**: use for isolated tasks to keep the main context clean
+- **Principles**: simplest solution that solves the problem; find root causes, no temporary fixes

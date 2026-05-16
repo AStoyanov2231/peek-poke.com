@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => {
   const removeStub = vi.fn()
   const pushMock = vi.fn()
   const replaceMock = vi.fn()
-  const setLastRouteMock = vi.fn()
   const getAuthMock = vi.fn(async () => ({}))
   const setAuthMock = vi.fn(async () => {})
   const fetchMock = vi.fn(async () => ({
@@ -22,7 +21,7 @@ const mocks = vi.hoisted(() => {
   const isNativeMock = vi.fn(() => true)
   const pathnameMock = vi.fn(() => '/inbox')
   return {
-    listeners, removeStub, pushMock, replaceMock, setLastRouteMock,
+    listeners, removeStub, pushMock, replaceMock,
     getAuthMock, setAuthMock, fetchMock, getSessionMock, getUserMock, refreshSessionMock,
     setSessionMock, isNativeMock, pathnameMock,
   }
@@ -48,7 +47,6 @@ vi.mock('@/lib/peekpoke-bridge', () => ({
       mocks.listeners[event].push(cb)
       return Promise.resolve({ remove: mocks.removeStub })
     }),
-    setLastRoute: (...args: unknown[]) => mocks.setLastRouteMock(...args),
     getAuth: (...args: unknown[]) => mocks.getAuthMock(...args),
     setAuth: (...args: unknown[]) => mocks.setAuthMock(...args),
   },
@@ -61,8 +59,17 @@ vi.mock('@/lib/supabase/client', () => ({
       getUser: (...args: unknown[]) => mocks.getUserMock(...args),
       refreshSession: (...args: unknown[]) => mocks.refreshSessionMock(...args),
       setSession: (...args: unknown[]) => mocks.setSessionMock(...args),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
     },
   }),
+}))
+
+vi.mock('@/lib/push-notifications', () => ({
+  initPushNotifications: vi.fn(async () => () => {}),
+  unregisterPushNotifications: vi.fn(async () => {}),
+  getCurrentPushToken: vi.fn(() => null),
 }))
 
 vi.mock('@/lib/native', () => ({
@@ -164,33 +171,6 @@ describe('NativeBridgeProvider', () => {
     })
   })
 
-  describe('setLastRoute', () => {
-    it('reports inbox tab for /inbox', () => {
-      renderProvider('/inbox')
-      expect(mocks.setLastRouteMock).toHaveBeenCalledWith({ tab: 'inbox', route: '/inbox' })
-    })
-
-    it('reports inbox tab for /chat/<id>', () => {
-      renderProvider('/chat/room1')
-      expect(mocks.setLastRouteMock).toHaveBeenCalledWith({ tab: 'inbox', route: '/chat/room1' })
-    })
-
-    it('reports profile tab for /profile/<id>', () => {
-      renderProvider('/profile/xyz')
-      expect(mocks.setLastRouteMock).toHaveBeenCalledWith({ tab: 'profile', route: '/profile/xyz' })
-    })
-
-    it('reports admin tab for /admin', () => {
-      renderProvider('/admin')
-      expect(mocks.setLastRouteMock).toHaveBeenCalledWith({ tab: 'admin', route: '/admin' })
-    })
-
-    it('does not call setLastRoute for untracked routes like /', () => {
-      renderProvider('/')
-      expect(mocks.setLastRouteMock).not.toHaveBeenCalled()
-    })
-  })
-
   describe('appResumed event', () => {
     it('pushes /login when user is not authenticated', async () => {
       mocks.getUserMock.mockResolvedValueOnce({ data: { user: null } })
@@ -200,7 +180,7 @@ describe('NativeBridgeProvider', () => {
     })
 
     it('does not push /login when user is authenticated', async () => {
-      mocks.getUserMock.mockResolvedValueOnce({ data: { user: { id: 'u1' } } })
+      mocks.getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
       renderProvider()
       await act(async () => fireEvent('appResumed'))
       expect(mocks.pushMock).not.toHaveBeenCalled()

@@ -2,6 +2,12 @@ import Foundation
 import Security
 import Combine
 
+struct AuthSession {
+    let accessToken: String
+    let refreshToken: String
+    let expiresAt: Date?
+}
+
 final class AuthStore: ObservableObject {
     static let shared = AuthStore()
 
@@ -10,39 +16,44 @@ final class AuthStore: ObservableObject {
     private let refreshTokenKey = "supabase_refresh_token"
     private let expiresAtKey = "supabase_expires_at"
 
-    @Published private(set) var accessToken: String?
-    @Published private(set) var refreshToken: String?
-    @Published private(set) var expiresAt: Date?
+    @Published private(set) var session: AuthSession?
     @Published private(set) var isAuthenticated: Bool = false
 
     private init() {
-        accessToken = read(account: accessTokenKey)
-        refreshToken = read(account: refreshTokenKey)
-        if let raw = read(account: expiresAtKey), let interval = TimeInterval(raw) {
-            expiresAt = Date(timeIntervalSince1970: interval)
+        if let accessToken = read(account: accessTokenKey),
+           let refreshToken = read(account: refreshTokenKey) {
+            var expiresAt: Date?
+            if let raw = read(account: expiresAtKey), let interval = TimeInterval(raw) {
+                expiresAt = Date(timeIntervalSince1970: interval)
+            }
+            session = AuthSession(accessToken: accessToken, refreshToken: refreshToken, expiresAt: expiresAt)
         }
-        isAuthenticated = accessToken != nil
+        isAuthenticated = session != nil
     }
 
-    func update(accessToken: String?, refreshToken: String?, expiresAt: Date?) {
-        write(account: accessTokenKey, value: accessToken)
-        write(account: refreshTokenKey, value: refreshToken)
-        if let expiresAt {
-            write(account: expiresAtKey, value: String(expiresAt.timeIntervalSince1970))
+    func update(_ session: AuthSession?) {
+        if let session {
+            write(account: accessTokenKey, value: session.accessToken)
+            write(account: refreshTokenKey, value: session.refreshToken)
+            if let expiresAt = session.expiresAt {
+                write(account: expiresAtKey, value: String(expiresAt.timeIntervalSince1970))
+            } else {
+                write(account: expiresAtKey, value: nil)
+            }
         } else {
+            write(account: accessTokenKey, value: nil)
+            write(account: refreshTokenKey, value: nil)
             write(account: expiresAtKey, value: nil)
         }
 
         DispatchQueue.main.async {
-            self.accessToken = accessToken
-            self.refreshToken = refreshToken
-            self.expiresAt = expiresAt
-            self.isAuthenticated = accessToken != nil
+            self.session = session
+            self.isAuthenticated = session != nil
         }
     }
 
     func clear() {
-        update(accessToken: nil, refreshToken: nil, expiresAt: nil)
+        update(nil)
     }
 
     // MARK: Keychain primitives
@@ -53,12 +64,21 @@ final class AuthStore: ObservableObject {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        SecItemDelete(baseQuery as CFDictionary)
-        guard let value, let data = value.data(using: .utf8) else { return }
-        var addQuery = baseQuery
-        addQuery[kSecValueData as String] = data
-        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(addQuery as CFDictionary, nil)
+        guard let value, let data = value.data(using: .utf8) else {
+            SecItemDelete(baseQuery as CFDictionary)
+            return
+        }
+        let updateAttrs: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+        ]
+        let status = SecItemUpdate(baseQuery as CFDictionary, updateAttrs as CFDictionary)
+        if status == errSecItemNotFound {
+            var addQuery = baseQuery
+            addQuery[kSecValueData as String] = data
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            SecItemAdd(addQuery as CFDictionary, nil)
+        }
     }
 
     private func read(account: String) -> String? {

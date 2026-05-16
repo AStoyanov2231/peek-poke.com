@@ -6,7 +6,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mocks = vi.hoisted(() => {
   const setAuthMock = vi.fn(async () => {})
   const clearAuthMock = vi.fn(async () => {})
-  const notifyReadyMock = vi.fn(async () => {})
   const setRoleMock = vi.fn()
   const isNativeMock = vi.fn(() => true)
   const getSessionMock = vi.fn(async () => ({ data: { session: null } }))
@@ -17,7 +16,7 @@ const mocks = vi.hoisted(() => {
   const storeSubscribeMock = vi.fn(() => vi.fn())
   const storeGetStateMock = vi.fn(() => ({ profile: null }))
   return {
-    setAuthMock, clearAuthMock, notifyReadyMock, setRoleMock, isNativeMock,
+    setAuthMock, clearAuthMock, setRoleMock, isNativeMock,
     getSessionMock, unsubscribeMock, onAuthStateChangeMock,
     storeSubscribeMock, storeGetStateMock,
   }
@@ -39,7 +38,6 @@ vi.mock('@/lib/peekpoke-bridge', () => ({
   PeekPokeBridge: {
     setAuth: (...a: unknown[]) => mocks.setAuthMock(...a),
     clearAuth: (...a: unknown[]) => mocks.clearAuthMock(...a),
-    notifyReady: (...a: unknown[]) => mocks.notifyReadyMock(...a),
     setRole: (...a: unknown[]) => mocks.setRoleMock(...a),
   },
 }))
@@ -109,18 +107,11 @@ describe('AuthBridgeProvider', () => {
     })
   })
 
-  it('calls clearAuth when no session on mount', async () => {
+  it('does not call clearAuth when initial session is null (not a sign-out)', async () => {
     mocks.getSessionMock.mockResolvedValueOnce({ data: { session: null } })
     render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
     await act(async () => {})
-    expect(mocks.clearAuthMock).toHaveBeenCalled()
-  })
-
-  it('calls notifyReady once after first session check', async () => {
-    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
-    await act(async () => {})
-    expect(mocks.notifyReadyMock).toHaveBeenCalledOnce()
-    expect(mocks.notifyReadyMock).toHaveBeenCalledWith({ route: '/inbox' })
+    expect(mocks.clearAuthMock).not.toHaveBeenCalled()
   })
 
   it('calls setAuth when onAuthStateChange fires with a session', async () => {
@@ -144,7 +135,7 @@ describe('AuthBridgeProvider', () => {
     })
   })
 
-  it('calls clearAuth when onAuthStateChange fires with null session', async () => {
+  it('calls clearAuth when onAuthStateChange fires SIGNED_OUT', async () => {
     let authCallback: ((event: string, session: unknown) => void) | null = null
     mocks.onAuthStateChangeMock.mockImplementation((cb) => {
       authCallback = cb
@@ -159,6 +150,23 @@ describe('AuthBridgeProvider', () => {
     })
 
     expect(mocks.clearAuthMock).toHaveBeenCalled()
+  })
+
+  it('does not call clearAuth when onAuthStateChange fires with null session but non-SIGNED_OUT event', async () => {
+    let authCallback: ((event: string, session: unknown) => void) | null = null
+    mocks.onAuthStateChangeMock.mockImplementation((cb) => {
+      authCallback = cb
+      return { data: { subscription: { unsubscribe: mocks.unsubscribeMock } } }
+    })
+
+    render(<AuthBridgeProvider><span /></AuthBridgeProvider>)
+    await act(async () => {})
+
+    await act(async () => {
+      authCallback?.('INITIAL_SESSION', null)
+    })
+
+    expect(mocks.clearAuthMock).not.toHaveBeenCalled()
   })
 
   it('unsubscribes on unmount', async () => {

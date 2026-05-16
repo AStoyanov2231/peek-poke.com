@@ -32,7 +32,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneWillEnterForeground(_ scene: UIScene) {
         guard let container = window?.rootViewController as? RootContainerViewController,
               let root = container.tabBar else { return }
-        root.sharedBridgeVC.notifyAppResumed(route: root.currentRouteForResume())
+        root.notifyCurrentBridgeAppResumed()
     }
 }
 
@@ -66,7 +66,7 @@ final class RootContainerViewController: UIViewController {
     private func installChild(authenticated: Bool) {
         let new: UIViewController = authenticated
             ? RootTabBarController()
-            : SharedBridgeViewController()
+            : WebTabBridgeViewController(route: "/login", transparent: false)
 
         if let old = currentChild {
             old.willMove(toParent: nil)

@@ -17,19 +17,15 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		829DA8B8627647E082679538 /* SharedBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F43AC679C0B74ECC9A6B6834 /* SharedBridgeViewController.swift */; };
-		A18E30652FAF92E30077257D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A18E30642FAF92E30077257D /* Supabase */; };
 		A18E30682FAF932D0077257D /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = A18E30672FAF932D0077257D /* MapboxMaps */; };
-		A18E30762FAF97040077257D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E30692FAF97040077257D /* APIClient.swift */; };
 		A18E30772FAF97040077257D /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E306B2FAF97040077257D /* AuthStore.swift */; };
 		A18E30782FAF97040077257D /* MapboxStyleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E306C2FAF97040077257D /* MapboxStyleManager.swift */; };
-		A18E30792FAF97040077257D /* SupabaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E30732FAF97040077257D /* SupabaseClient.swift */; };
-		A18E307A2FAF97040077257D /* PresenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E306F2FAF97040077257D /* PresenceManager.swift */; };
 		A18E307B2FAF97040077257D /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E306A2FAF97040077257D /* AppConfig.swift */; };
 		A18E307E2FAF97040077257D /* RootTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E30712FAF97040077257D /* RootTabBarController.swift */; };
 		A18E307F2FAF97040077257D /* ProfileCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E30702FAF97040077257D /* ProfileCardView.swift */; };
 		A18E30802FAF97040077257D /* MapTabViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E306D2FAF97040077257D /* MapTabViewController.swift */; };
 		A18E30812FAF97040077257D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18E30722FAF97040077257D /* SceneDelegate.swift */; };
-		C0DA00102FAF97040077257D /* NativeAuthCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DA00112FAF97040077257D /* NativeAuthCoordinator.swift */; };
+		DD7A00022FAF97040077257D /* MapTabAnnotations.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7A00012FAF97040077257D /* MapTabAnnotations.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,17 +40,15 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
-		A18E30692FAF97040077257D /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A17C02C72FB8F9EE00F997C1 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A18E306A2FAF97040077257D /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		A18E306B2FAF97040077257D /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
 		A18E306C2FAF97040077257D /* MapboxStyleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapboxStyleManager.swift; sourceTree = "<group>"; };
 		A18E306D2FAF97040077257D /* MapTabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapTabViewController.swift; sourceTree = "<group>"; };
-		A18E306F2FAF97040077257D /* PresenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceManager.swift; sourceTree = "<group>"; };
 		A18E30702FAF97040077257D /* ProfileCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCardView.swift; sourceTree = "<group>"; };
 		A18E30712FAF97040077257D /* RootTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabBarController.swift; sourceTree = "<group>"; };
 		A18E30722FAF97040077257D /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		A18E30732FAF97040077257D /* SupabaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseClient.swift; sourceTree = "<group>"; };
-		C0DA00112FAF97040077257D /* NativeAuthCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAuthCoordinator.swift; sourceTree = "<group>"; };
+		DD7A00012FAF97040077257D /* MapTabAnnotations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapTabAnnotations.swift; sourceTree = "<group>"; };
 		F43AC679C0B74ECC9A6B6834 /* SharedBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedBridgeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -64,7 +58,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A18E30682FAF932D0077257D /* MapboxMaps in Frameworks */,
-				A18E30652FAF92E30077257D /* Supabase in Frameworks */,
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -92,6 +85,7 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				A17C02C72FB8F9EE00F997C1 /* App.entitlements */,
 				A18E30752FAF97040077257D /* Native */,
 				F6898C014DF4408B86E9E893 /* Plugins */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -109,18 +103,15 @@
 		A18E30752FAF97040077257D /* Native */ = {
 			isa = PBXGroup;
 			children = (
-				A18E30692FAF97040077257D /* APIClient.swift */,
 				A18E306A2FAF97040077257D /* AppConfig.swift */,
 				A18E306B2FAF97040077257D /* AuthStore.swift */,
 				A18E306C2FAF97040077257D /* MapboxStyleManager.swift */,
 				A18E306D2FAF97040077257D /* MapTabViewController.swift */,
-				C0DA00112FAF97040077257D /* NativeAuthCoordinator.swift */,
-				A18E306F2FAF97040077257D /* PresenceManager.swift */,
+				DD7A00012FAF97040077257D /* MapTabAnnotations.swift */,
 				A18E30702FAF97040077257D /* ProfileCardView.swift */,
 				A18E30712FAF97040077257D /* RootTabBarController.swift */,
 				A18E30722FAF97040077257D /* SceneDelegate.swift */,
 				F43AC679C0B74ECC9A6B6834 /* SharedBridgeViewController.swift */,
-				A18E30732FAF97040077257D /* SupabaseClient.swift */,
 			);
 			path = Native;
 			sourceTree = "<group>";
@@ -151,7 +142,6 @@
 			name = App;
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
-				A18E30642FAF92E30077257D /* Supabase */,
 				A18E30672FAF932D0077257D /* MapboxMaps */,
 			);
 			productName = App;
@@ -185,7 +175,6 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
-				A18E30632FAF92E30077257D /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				A18E30662FAF932D0077257D /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
@@ -218,19 +207,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A18E30762FAF97040077257D /* APIClient.swift in Sources */,
 				A18E30772FAF97040077257D /* AuthStore.swift in Sources */,
 				A18E30782FAF97040077257D /* MapboxStyleManager.swift in Sources */,
-				A18E30792FAF97040077257D /* SupabaseClient.swift in Sources */,
-				A18E307A2FAF97040077257D /* PresenceManager.swift in Sources */,
 				A18E307B2FAF97040077257D /* AppConfig.swift in Sources */,
 				A18E307E2FAF97040077257D /* RootTabBarController.swift in Sources */,
 				A18E307F2FAF97040077257D /* ProfileCardView.swift in Sources */,
 				A18E30802FAF97040077257D /* MapTabViewController.swift in Sources */,
+				DD7A00022FAF97040077257D /* MapTabAnnotations.swift in Sources */,
 				A18E30812FAF97040077257D /* SceneDelegate.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				829DA8B8627647E082679538 /* SharedBridgeViewController.swift in Sources */,
-				C0DA00102FAF97040077257D /* NativeAuthCoordinator.swift in Sources */,
 				05AD45407B314CBD930B45F4 /* PeekPokeBridgePlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -371,6 +357,7 @@
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = GNCXNSU2H8;
@@ -385,8 +372,6 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.peekpoke.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0b2p2bndwbnB1aGt5am5jd3huIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1NDI5MTksImV4cCI6MjA4MzExODkxOX0.CMpmzrJyaXFj8-WQd7cWP91XCbNBQKdEjxHU5IWw6a4";
-				SUPABASE_URL = "https://ttojvnwpnpuhkyjncwxn.supabase.co";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -397,6 +382,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = GNCXNSU2H8;
@@ -410,8 +396,6 @@
 				MBX_ACCESS_TOKEN = "$(MAPBOX_ACCESS_TOKEN)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.peekpoke.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0b2p2bndwbnB1aGt5am5jd3huIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1NDI5MTksImV4cCI6MjA4MzExODkxOX0.CMpmzrJyaXFj8-WQd7cWP91XCbNBQKdEjxHU5IWw6a4";
-				SUPABASE_URL = "https://ttojvnwpnpuhkyjncwxn.supabase.co";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -449,14 +433,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		A18E30632FAF92E30077257D /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/supabase/supabase-swift";
-			requirement = {
-				kind = revision;
-				revision = dd29b624b9ceea87612d0b00457e1400f7d22c2e;
-			};
-		};
 		A18E30662FAF932D0077257D /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mapbox/mapbox-maps-ios";
@@ -472,11 +448,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
-		};
-		A18E30642FAF92E30077257D /* Supabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A18E30632FAF92E30077257D /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
 		};
 		A18E30672FAF932D0077257D /* MapboxMaps */ = {
 			isa = XCSwiftPackageProductDependency;

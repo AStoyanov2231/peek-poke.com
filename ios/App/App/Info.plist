@@ -26,11 +26,7 @@
 	<true/>
 	<key>MBXAccessToken</key>
 	<string>$(MBX_ACCESS_TOKEN)</string>
-	<key>SupabaseURL</key>
-	<string>$(SUPABASE_URL)</string>
-	<key>SupabaseAnonKey</key>
-	<string>$(SUPABASE_ANON_KEY)</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
+<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Peek Poke uses your location to show nearby people on the map.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

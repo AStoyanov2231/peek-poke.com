@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MapView } from "./MapViewDynamic";
+import { NativeMapBridge } from "./NativeMapBridge";
 import { useAppStore } from "@/stores/appStore";
 import { isNativeApp } from "@/lib/native";
 
@@ -15,18 +16,22 @@ export function PersistentMapHost() {
   useEffect(() => { setNative(isNativeApp()); }, []);
 
   useEffect(() => {
-    if (native) return;
     if (isMap) setActivated(true);
-  }, [isMap, native]);
+  }, [isMap]);
 
-  // Stop orbit animation when user leaves the map
+  // Clear highlighted user when leaving the map on web
   useEffect(() => {
-    if (native || !isMap) {
+    if (!native && !isMap) {
       useAppStore.getState().setHighlightedUserId(null);
     }
   }, [isMap, native]);
 
-  if (native || !activated) return null;
+  // On native: mount NativeMapBridge (invisible) to drive the Swift Mapbox map
+  if (native) {
+    return activated ? <NativeMapBridge /> : null;
+  }
+
+  if (!activated) return null;
 
   return (
     <div

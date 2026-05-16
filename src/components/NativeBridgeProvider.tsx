@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { isNativeApp } from "@/lib/native";
 import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
+import { initPushNotifications } from "@/lib/push-notifications";
 import { createClient } from "@/lib/supabase/client";
-import { SplashScreen } from "@capacitor/splash-screen";
 
 /**
  * Routes native-initiated navigation to the Next.js router via Capacitor plugin events.
@@ -35,14 +35,6 @@ function isAllowed(route: string): boolean {
   );
 }
 
-/** Derive the logical tab name from a route for setLastRoute reporting. */
-function routeToTab(route: string): string | null {
-  if (route.startsWith("/inbox") || route.startsWith("/chat")) return "inbox";
-  if (route.startsWith("/profile")) return "profile";
-  if (route.startsWith("/admin")) return "admin";
-  return null;
-}
-
 async function mintWebSessionFromNativeAuth(next: string): Promise<string | false> {
   const stored = await PeekPokeBridge.getAuth();
   if (!stored.accessToken || !stored.refreshToken) return false;
@@ -68,6 +60,8 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
   const router = useRouter();
   const pathname = usePathname();
   const handoffAttempted = useRef(false);
+  const lastChecked = useRef<number>(0);
+  const pathnameRef = useRef(pathname);
 
   // Auto-handoff: native cold-launch lands on /login while Keychain has valid tokens.
   // WKHTTPCookieStore was empty (reinstall/clear), so cookies weren't set. Use the
@@ -89,12 +83,6 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
     attemptHandoff();
   }, [pathname, router]);
 
-  // Hide the native splash screen once the web UI is mounted.
-  useEffect(() => {
-    if (!isNativeApp()) return;
-    SplashScreen.hide({ fadeOutDuration: 300 });
-  }, []);
-
   // Mark <html> as native so CSS can apply edge-to-edge safe area handling.
   useEffect(() => {
     if (!isNativeApp()) return;
@@ -102,21 +90,9 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
     return () => { document.documentElement.classList.remove("is-native"); };
   }, []);
 
-  // Toggle native-map class on <html> so CSS can make the layout background transparent
-  // when the shared WebView is acting as a map overlay over the native Mapbox canvas.
+  // Keep pathnameRef in sync so the navigate listener can read current pathname without stale closure
   useEffect(() => {
-    if (!isNativeApp()) return;
-    const isMapRoute = pathname === "/";
-    document.documentElement.classList.toggle("native-map", isMapRoute);
-  }, [pathname]);
-
-  // Track current route so native can restore per-tab last-route
-  useEffect(() => {
-    if (!isNativeApp()) return;
-    const tab = routeToTab(pathname);
-    if (tab) {
-      PeekPokeBridge.setLastRoute({ tab, route: pathname });
-    }
+    pathnameRef.current = pathname;
   }, [pathname]);
 
   // Subscribe to native navigation, foreground, and refresh events
@@ -129,34 +105,22 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
     // Native tab tap or map pin tap → SPA navigate
     const navigateHandle = PeekPokeBridge.addListener("navigate", ({ route }) => {
       if (!isAllowed(route)) return;
+      if (route === pathnameRef.current) return;
       router.push(route);
     });
     handles.push(navigateHandle);
 
-    // App foregrounded → re-validate session
+    // App foregrounded → re-validate session (throttled to once per 5 minutes)
     const resumeHandle = PeekPokeBridge.addListener("appResumed", async () => {
+      const now = Date.now();
+      if (now - lastChecked.current < 5 * 60 * 1000) return;
+      lastChecked.current = now;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/login");
       }
     });
     handles.push(resumeHandle);
-
-    // Native APIClient got a 401 → refresh session and hand new tokens back
-    const refreshHandle = PeekPokeBridge.addListener("refreshNeeded", async () => {
-      const { data, error } = await supabase.auth.refreshSession();
-      if (!error && data.session) {
-        await PeekPokeBridge.setAuth({
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-          expiresAt: data.session.expires_at ?? null,
-        });
-      } else {
-        // Refresh failed — push user to login
-        router.push("/login");
-      }
-    });
-    handles.push(refreshHandle);
 
     // Native performed a proactive refresh (e.g. cold launch) → sync back to WebView session
     const authRefreshHandle = PeekPokeBridge.addListener("authRefresh", async ({ accessToken, refreshToken }) => {
@@ -166,6 +130,39 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
 
     return () => {
       handles.forEach((h) => h.then((handle) => handle.remove()).catch(() => {}));
+    };
+  }, [router]);
+
+  // Push notifications — initialize once we have a signed-in user.
+  // Re-running on auth-state-change keeps the token current after sign-in/out.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+
+    const supabase = createClient();
+    const start = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      cleanup = await initPushNotifications({
+        onNavigate: (route) => router.push(route),
+      });
+      if (cancelled) cleanup?.();
+    };
+    start();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") {
+        cleanup?.();
+        start();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+      sub.subscription.unsubscribe();
     };
   }, [router]);
 
