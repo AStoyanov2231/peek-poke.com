@@ -1,0 +1,261 @@
+openapi: "3.1.0"
+info:
+  title: Peek & Poke
+  description: Access your Peek & Poke profile, friends, inbox, coins, and nearby users.
+  version: "1.0.0"
+servers:
+  - url: https://peek-poke.com
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Your personal Peek & Poke API key from Settings → Integrations.
+  schemas:
+    Profile:
+      type: object
+      properties:
+        id:            { type: string, format: uuid }
+        username:      { type: string }
+        display_name:  { type: string, nullable: true }
+        bio:           { type: string, nullable: true }
+        avatar_url:    { type: string, nullable: true }
+        location_text: { type: string, nullable: true }
+        is_online:     { type: boolean }
+        last_seen_at:  { type: string, format: date-time, nullable: true }
+    Thread:
+      type: object
+      properties:
+        thread_id:        { type: string, format: uuid }
+        other_user_id:    { type: string, format: uuid }
+        other_username:   { type: string }
+        other_display_name: { type: string, nullable: true }
+        other_avatar_url: { type: string, nullable: true }
+        last_message:     { type: string, nullable: true }
+        last_message_at:  { type: string, format: date-time, nullable: true }
+        unread_count:     { type: integer }
+    Message:
+      type: object
+      properties:
+        id:           { type: string, format: uuid }
+        sender_id:    { type: string, format: uuid }
+        content:      { type: string }
+        message_type: { type: string, enum: [text, image] }
+        created_at:   { type: string, format: date-time }
+        is_deleted:   { type: boolean }
+    Friend:
+      type: object
+      properties:
+        friendship_id:  { type: string, format: uuid }
+        friend_id:      { type: string, format: uuid }
+        username:       { type: string }
+        display_name:   { type: string, nullable: true }
+        avatar_url:     { type: string, nullable: true }
+        is_online:      { type: boolean }
+        coins_shared:   { type: integer }
+    NearbyUser:
+      type: object
+      properties:
+        userId:       { type: string, format: uuid }
+        username:     { type: string }
+        display_name: { type: string, nullable: true }
+        avatar_url:   { type: string, nullable: true }
+        distance_km:  { type: number }
+
+paths:
+  /api/gpt/me:
+    get:
+      operationId: getMyProfile
+      summary: Get my profile and coin balance
+      description: Returns the authenticated user's profile and current coin balance.
+      responses:
+        "200":
+          description: Profile and coins
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile: { $ref: "#/components/schemas/Profile" }
+                  coins:   { type: integer }
+        "401":
+          description: Invalid or missing API key
+
+  /api/gpt/friends:
+    get:
+      operationId: getFriends
+      summary: Get my friends list
+      responses:
+        "200":
+          description: List of friends
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friends:
+                    type: array
+                    items: { $ref: "#/components/schemas/Friend" }
+
+  /api/gpt/friends/requests:
+    get:
+      operationId: getFriendRequests
+      summary: Get pending friend requests (incoming and sent)
+      responses:
+        "200":
+          description: Incoming and sent requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incoming:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        friendship_id: { type: string, format: uuid }
+                        from_user_id:  { type: string, format: uuid }
+                        username:      { type: string }
+                        display_name:  { type: string, nullable: true }
+                  sent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        friendship_id: { type: string, format: uuid }
+                        to_user_id:    { type: string, format: uuid }
+                        username:      { type: string }
+                        display_name:  { type: string, nullable: true }
+
+  /api/gpt/friends/{friendshipId}:
+    patch:
+      operationId: respondToFriendRequest
+      summary: Accept or decline a friend request
+      parameters:
+        - name: friendshipId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, declined]
+      responses:
+        "200":
+          description: Updated friendship
+
+  /api/gpt/inbox:
+    get:
+      operationId: getInbox
+      summary: Get all DM threads
+      description: Returns all conversations, ordered by most recent message. Use thread_id to read or send messages.
+      responses:
+        "200":
+          description: List of threads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  threads:
+                    type: array
+                    items: { $ref: "#/components/schemas/Thread" }
+    post:
+      operationId: startThread
+      summary: Start or find a DM thread with a user
+      description: Pass a userId to find or create a conversation. Returns the thread_id to use for sending messages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: The UUID of the user to start a conversation with
+      responses:
+        "200":
+          description: Thread found or created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  thread_id: { type: string, format: uuid }
+
+  /api/gpt/inbox/{threadId}:
+    get:
+      operationId: getMessages
+      summary: Get messages in a thread
+      description: Returns the conversation history for a thread. Most recent messages last.
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages in the thread
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/Message" }
+    post:
+      operationId: sendMessage
+      summary: Send a message in a thread
+      description: Send a text message. Always confirm the content with the user before calling this.
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 2000
+      responses:
+        "200":
+          description: Message sent
+
+  /api/gpt/nearby:
+    get:
+      operationId: getNearbyUsers
+      summary: Get users near my last known location
+      description: Uses your last reported location from the Peek & Poke app. Open the app to update your location first.
+      responses:
+        "200":
+          description: Nearby users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items: { $ref: "#/components/schemas/NearbyUser" }
+        "404":
+          description: No location on file — open the app to share your location first
