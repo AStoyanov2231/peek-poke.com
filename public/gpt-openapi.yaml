@@ -4,7 +4,7 @@ info:
   description: Access your Peek & Poke profile, friends, inbox, coins, and nearby users.
   version: "1.0.0"
 servers:
-  - url: https://peek-poke.com
+  - url: https://www.peek-poke.com
 security:
   - bearerAuth: []
 components:
