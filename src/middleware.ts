@@ -12,8 +12,9 @@ export async function middleware(request: NextRequest) {
   // CSRF protection for API mutation requests
   if (request.nextUrl.pathname.startsWith("/api/")) {
     if (["POST", "PATCH", "PUT", "DELETE"].includes(request.method)) {
-      // Webhook uses signature verification, not CSRF
-      if (request.nextUrl.pathname !== "/api/stripe/webhook") {
+      // Webhook uses signature verification; MCP uses its own transport protocol
+      const csrfExempt = ["/api/stripe/webhook", "/api/mcp", "/api/sse", "/api/message"];
+      if (!csrfExempt.includes(request.nextUrl.pathname)) {
         const authHeader = request.headers.get("authorization");
         const isNativeApp = authHeader?.startsWith("Bearer ");
         // Native apps authenticate via Bearer token, not cookies — skip Origin check
