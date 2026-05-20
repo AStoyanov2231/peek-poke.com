@@ -1,0 +1,14 @@
+
+> peek-and-poke@0.1.0 dev
+> next dev --turbopack
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.20.10.2:3000
+- Environments: .env.local
+✓ Ready in 469ms
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+Received GET MCP request
+ GET /api/mcp 405 in 2.1s (next.js: 2.0s, proxy.ts: 98ms, application-code: 23ms)
+[?25h
