@@ -7,164 +7,202 @@ const TEST_LNG = 27.9147;
 const WIDGET_URI = "ui://widget/nearby-map.html";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
-// Static map widget: uses Mapbox Static Images API (<img>) — no CDN JS needed.
-// Falls back to a plain user list if the image request is blocked.
+// Full Mapbox GL JS widget — interactive pan/zoom, popups, radius circle, avatar pins.
 const WIDGET_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"><\/script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
-    #map-wrap { position: relative; width: 100%; height: 300px; overflow: hidden; background: #e8e8e8; }
-    #map-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    #pins { position: absolute; inset: 0; pointer-events: none; }
-    .pin { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer; }
-    .avatar {
-      width: 32px; height: 32px; border-radius: 50%;
-      border: 2.5px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-      background: #7c3aed; color: white; font-weight: 700; font-size: 13px;
+    html, body { height: 100%; display: flex; flex-direction: column; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    #map-wrap { position: relative; flex: 1; min-height: 320px; }
+    #map { position: absolute; inset: 0; }
+
+    #loading {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: #f5f5f5; font-size: 13px; color: #999;
+      gap: 8px;
+    }
+    .spinner {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid #ddd; border-top-color: #7c3aed;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Avatar marker */
+    .m-wrap { cursor: pointer; }
+    .m-av {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 2.5px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      background: #7c3aed; color: white; font-weight: 700; font-size: 15px;
       display: flex; align-items: center; justify-content: center; overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .tip {
-      display: none; position: absolute; bottom: 38px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.82); color: white; border-radius: 6px;
-      padding: 4px 8px; font-size: 11px; white-space: nowrap; z-index: 10;
+    .m-wrap:hover .m-av {
+      transform: scale(1.18);
+      box-shadow: 0 4px 14px rgba(124,58,237,0.55);
     }
-    .pin:hover .tip { display: block; }
-    .center-dot {
-      position: absolute; width: 10px; height: 10px; border-radius: 50%;
-      background: #7c3aed; border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-      transform: translate(-50%, -50%); pointer-events: none;
+    .m-av img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* Center dot */
+    .m-center {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #7c3aed; border: 2.5px solid white;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
     }
+
+    /* Popup */
+    .mapboxgl-popup-content {
+      border-radius: 10px !important; padding: 10px 14px !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.13) !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-width: 140px;
+    }
+    .mapboxgl-popup-tip { display: none; }
+    .p-name { font-weight: 700; font-size: 14px; color: #111; }
+    .p-user { font-size: 12px; color: #999; margin-top: 1px; }
+    .p-dist { font-size: 11px; color: #7c3aed; font-weight: 600; margin-top: 5px; }
+
+    /* Bottom bar */
     #bar {
-      padding: 8px 12px; font-size: 12px; color: #555; background: white;
-      border-top: 1px solid #eee; display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; padding: 8px 14px; background: white;
+      border-top: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: #666;
     }
     #expand-btn {
-      background: none; border: 1px solid #7c3aed; color: #7c3aed;
-      border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer;
+      background: none; border: 1.5px solid #7c3aed; color: #7c3aed;
+      border-radius: 6px; padding: 3px 10px; font-size: 11px;
+      cursor: pointer; font-weight: 600; transition: background 0.12s;
     }
     #expand-btn:hover { background: #f3f0ff; }
-    #fallback { display: none; padding: 12px; }
-    #fallback ul { padding-left: 16px; font-size: 13px; color: #333; margin-top: 4px; }
-    #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #888; }
   </style>
 </head>
 <body>
   <div id="map-wrap">
-    <div id="loading">Loading map…</div>
-    <img id="map-img" alt="Map" style="display:none" />
-    <div id="pins"></div>
+    <div id="loading"><div class="spinner"></div>Loading map…</div>
+    <div id="map"></div>
   </div>
-  <div id="fallback"></div>
   <div id="bar">
     <span id="status">—</span>
     <button id="expand-btn" onclick="expand()">⛶ Expand</button>
   </div>
 
   <script>
-    const TOKEN = '${MAPBOX_TOKEN}';
-    const W = 600, H = 300;
+    mapboxgl.accessToken = '${MAPBOX_TOKEN}';
 
-    function zoomFor(r) {
-      if (r <= 0.5) return 15;
-      if (r <= 1)   return 14;
-      if (r <= 2)   return 13;
-      if (r <= 5)   return 12;
-      if (r <= 10)  return 11;
-      return 10;
+    const DEFAULT = { lat: 43.2141, lng: 27.9147 };
+    let map, markers = [];
+
+    map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [DEFAULT.lng, DEFAULT.lat],
+      zoom: 12,
+      attributionControl: false,
+    });
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+
+    map.on('load', () => {
+      document.getElementById('loading').style.display = 'none';
+      const initial = window.openai?.toolOutput;
+      if (initial) renderData(initial);
+    });
+
+    function clearMap() {
+      markers.forEach(m => m.remove());
+      markers = [];
+      ['radius-fill', 'radius-line'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+      if (map.getSource('radius')) map.removeSource('radius');
     }
 
-    function toPixel(lat, lng, cLat, cLng, z) {
-      const scale = 512 * Math.pow(2, z) / 360;
-      const x = W / 2 + (lng - cLng) * scale;
-      const y = H / 2 - (lat - cLat) * scale / Math.cos(cLat * Math.PI / 180);
-      return { x, y };
+    function radiusGeoJSON(lat, lng, km, steps = 64) {
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [Array.from({ length: steps + 1 }, (_, i) => {
+            const a = (i / steps) * 2 * Math.PI;
+            return [
+              lng + (km / 6371) * Math.sin(a) / Math.cos(lat * Math.PI / 180) * (180 / Math.PI),
+              lat + (km / 6371) * Math.cos(a) * (180 / Math.PI),
+            ];
+          })],
+        },
+      };
     }
 
-    function dist(lat1, lng1, lat2, lng2) {
+    function haversine(lat1, lng1, lat2, lng2) {
       const R = 6371, dL = (lat2-lat1)*Math.PI/180, dN = (lng2-lng1)*Math.PI/180;
       const a = Math.sin(dL/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dN/2)**2;
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    function render(data) {
+    function renderData(data) {
       if (!data) return;
-      const { users = [], center = { lat: 43.2141, lng: 27.9147 }, radius_km = 5 } = data;
-      const z = zoomFor(radius_km);
+      if (!map.loaded()) { map.once('load', () => renderData(data)); return; }
 
-      const img = document.getElementById('map-img');
-      img.style.display = 'none';
-      document.getElementById('loading').style.display = 'flex';
-      document.getElementById('fallback').style.display = 'none';
+      const { users = [], center = DEFAULT, radius_km = 5 } = data;
+      clearMap();
 
-      img.onload = () => {
-        document.getElementById('loading').style.display = 'none';
-        img.style.display = 'block';
-        renderPins(users, center, z);
-      };
-      img.onerror = () => {
-        document.getElementById('loading').style.display = 'none';
-        renderFallback(users, radius_km);
-      };
+      // Radius circle
+      map.addSource('radius', { type: 'geojson', data: radiusGeoJSON(center.lat, center.lng, radius_km) });
+      map.addLayer({ id: 'radius-fill', type: 'fill', source: 'radius', paint: { 'fill-color': '#7c3aed', 'fill-opacity': 0.07 } });
+      map.addLayer({ id: 'radius-line', type: 'line', source: 'radius', paint: { 'line-color': '#7c3aed', 'line-width': 1.5, 'line-dasharray': [2, 2] } });
 
-      img.src = \`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/\${center.lng},\${center.lat},\${z},0/\${W}x\${H}?access_token=\${TOKEN}&attribution=false&logo=false\`;
+      // Center marker
+      const centerEl = document.createElement('div');
+      centerEl.className = 'm-center';
+      markers.push(new mapboxgl.Marker({ element: centerEl }).setLngLat([center.lng, center.lat]).addTo(map));
 
-      const n = users.length;
-      document.getElementById('status').textContent = n > 0
-        ? \`\${n} user\${n > 1 ? 's' : ''} within \${radius_km} km of Varna\`
-        : \`No users within \${radius_km} km\`;
-    }
-
-    function renderPins(users, center, z) {
-      const layer = document.getElementById('pins');
-      layer.innerHTML = '';
-
-      const dot = document.createElement('div');
-      dot.className = 'center-dot';
-      dot.style.left = '50%';
-      dot.style.top = '50%';
-      layer.appendChild(dot);
-
+      // User markers
       users.filter(u => u.lat && u.lng).forEach(u => {
-        const { x, y } = toPixel(u.lat, u.lng, center.lat, center.lng, z);
-        if (x < -20 || x > W + 20 || y < -20 || y > H + 20) return;
-
         const name = u.displayName || u.username;
-        const pin = document.createElement('div');
-        pin.className = 'pin';
-        pin.style.left = x + 'px';
-        pin.style.top = y + 'px';
+        const d = haversine(center.lat, center.lng, u.lat, u.lng);
 
+        const wrap = document.createElement('div');
+        wrap.className = 'm-wrap';
         const av = document.createElement('div');
-        av.className = 'avatar';
+        av.className = 'm-av';
         if (u.avatarUrl) {
-          const im = document.createElement('img');
-          im.src = u.avatarUrl;
-          im.onerror = () => { im.remove(); av.textContent = name[0].toUpperCase(); };
-          av.appendChild(im);
+          const img = document.createElement('img');
+          img.src = u.avatarUrl;
+          img.onerror = () => { img.remove(); av.textContent = name[0].toUpperCase(); };
+          av.appendChild(img);
         } else {
           av.textContent = name[0].toUpperCase();
         }
+        wrap.appendChild(av);
 
-        const tip = document.createElement('div');
-        tip.className = 'tip';
-        tip.textContent = \`\${name} · \${dist(center.lat, center.lng, u.lat, u.lng).toFixed(2)} km\`;
+        const popup = new mapboxgl.Popup({ offset: 22, closeButton: false, maxWidth: '200px' })
+          .setHTML(\`<div class="p-name">\${name}</div><div class="p-user">@\${u.username}</div><div class="p-dist">\${d.toFixed(2)} km away</div>\`);
 
-        pin.appendChild(av);
-        pin.appendChild(tip);
-        layer.appendChild(pin);
+        markers.push(
+          new mapboxgl.Marker({ element: wrap }).setLngLat([u.lng, u.lat]).setPopup(popup).addTo(map)
+        );
       });
-    }
 
-    function renderFallback(users, radius_km) {
-      const fb = document.getElementById('fallback');
-      fb.style.display = 'block';
-      fb.innerHTML = \`<strong>\${users.length} user(s) within \${radius_km} km</strong><ul>\${users.map(u => \`<li>\${u.displayName || u.username} (@\${u.username})</li>\`).join('')}</ul>\`;
-      document.getElementById('map-wrap').style.display = 'none';
+      // Fit map to content
+      const coords = [[center.lng, center.lat], ...users.filter(u => u.lat).map(u => [u.lng, u.lat])];
+      if (coords.length > 1) {
+        const bounds = coords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds(coords[0], coords[0]));
+        map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 900 });
+      } else {
+        map.flyTo({ center: [center.lng, center.lat], zoom: 13, duration: 900 });
+      }
+
+      const n = users.length;
+      document.getElementById('status').innerHTML = n > 0
+        ? \`<strong>\${n}</strong> user\${n > 1 ? 's' : ''} within <strong>\${radius_km} km</strong>\`
+        : \`No users within \${radius_km} km\`;
     }
 
     function expand() {
@@ -172,22 +210,18 @@ const WIDGET_HTML = `<!DOCTYPE html>
       window.webplus?.requestDisplayMode?.({ mode: 'fullscreen' });
     }
 
-    // MCP Apps bridge (JSON-RPC postMessage)
+    // MCP Apps bridge
     window.addEventListener('message', (e) => {
       if (e.source !== window.parent) return;
       const m = e.data;
       if (!m || m.jsonrpc !== '2.0') return;
-      if (m.method === 'ui/notifications/tool-result') render(m.params?.structuredContent);
+      if (m.method === 'ui/notifications/tool-result') renderData(m.params?.structuredContent);
     }, { passive: true });
 
-    // Apps SDK compat
     window.addEventListener('openai:set_globals', (e) => {
-      render(e.detail?.globals?.toolOutput ?? window.openai?.toolOutput);
+      renderData(e.detail?.globals?.toolOutput ?? window.openai?.toolOutput);
     }, { passive: true });
-
-    const initial = window.openai?.toolOutput;
-    if (initial) render(initial);
-  </script>
+  <\/script>
 </body>
 </html>`;
 
@@ -213,7 +247,6 @@ function mapUsers(data: UserRow[] | null) {
 
 const handler = createMcpHandler(
   (server) => {
-    // Register the map widget HTML as an MCP resource
     server.registerResource(
       "nearby-map-widget",
       WIDGET_URI,
@@ -231,20 +264,24 @@ const handler = createMcpHandler(
             _meta: {
               "openai/outputTemplate": WIDGET_URI,
               "openai/widgetAccessible": true,
-              ui: { csp: { resourceDomains: ["https://api.mapbox.com"] } },
+              ui: {
+                csp: {
+                  connectDomains: ["https://events.mapbox.com", "https://api.mapbox.com"],
+                  resourceDomains: ["https://api.mapbox.com"],
+                },
+              },
             },
           },
         ],
       })
     );
 
-    // Data tool — returns text + structuredContent, no widget
     server.registerTool(
       "nearby_users",
       {
         title: "Nearby Users",
         description:
-          "Find Peek & Poke users near a location. Returns a list of nearby users. Use render_nearby_map instead if the user wants a visual map.",
+          "Find Peek & Poke users near a location. Returns a list. Use render_nearby_map if the user wants a visual map.",
         inputSchema: {
           radius_km: z
             .number()
@@ -282,22 +319,17 @@ const handler = createMcpHandler(
                   : `No users found within ${radius_km}km of Varna.`,
             },
           ],
-          structuredContent: {
-            users,
-            center: { lat: TEST_LAT, lng: TEST_LNG },
-            radius_km,
-          },
+          structuredContent: { users, center: { lat: TEST_LAT, lng: TEST_LNG }, radius_km },
         };
       }
     );
 
-    // Render tool — fetches data and returns the map widget
     server.registerTool(
       "render_nearby_map",
       {
         title: "Nearby Users Map",
         description:
-          "Show an interactive map of nearby Peek & Poke users with avatar pins. Use this whenever the user asks to see nearby users on a map or visually.",
+          "Show an interactive Mapbox map of nearby Peek & Poke users with avatar pins, radius circle, and click-to-inspect popups. Use this when the user wants to see nearby users visually on a map.",
         inputSchema: {
           radius_km: z
             .number()
@@ -341,11 +373,7 @@ const handler = createMcpHandler(
                   : `No users found within ${radius_km}km of Varna.`,
             },
           ],
-          structuredContent: {
-            users,
-            center: { lat: TEST_LAT, lng: TEST_LNG },
-            radius_km,
-          },
+          structuredContent: { users, center: { lat: TEST_LAT, lng: TEST_LNG }, radius_km },
         };
       }
     );
