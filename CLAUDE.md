@@ -2,7 +2,7 @@
 
 Mobile-first social presence app: find nearby people on a live map, earn coins for IRL meetups, send DMs. Deployed on Vercel; iOS via Capacitor wrapping Next.js with native Swift extensions.
 
-**Stack:** Next.js 16.1 (App Router) · React 19 · TypeScript 5 strict · Supabase (Postgres + Auth + Realtime) · Zustand 5 (UI state) · React Query 5 (server state) · Capacitor 8 · Mapbox GL 3 · Stripe · Tailwind + shadcn/ui · Vitest 4
+**Stack:** Next.js 16.1 (App Router) · React 19 · TypeScript 5 strict · Supabase (Postgres + Auth + Realtime) · Zustand 5 (UI state) · React Query 5 (server state) · Capacitor 8 · Mapbox GL 3 · Stripe · Tailwind + shadcn/ui · Vitest 4 · Playwright (E2E)
 
 ## Directory Map
 

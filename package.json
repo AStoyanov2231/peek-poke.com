@@ -11,6 +11,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
     "cap:sync": "cap sync && sed -i '' 's/swift-tools-version: 5.9/swift-tools-version: 6.2/g' ios/App/CapApp-SPM/Package.swift",
     "cap:sync:ios": "cap sync ios && sed -i '' 's/swift-tools-version: 5.9/swift-tools-version: 6.2/g' ios/App/CapApp-SPM/Package.swift",
     "cap:sync:dev": "CAP_ENV=development cap sync && sed -i '' 's/swift-tools-version: 5.9/swift-tools-version: 6.2/g' ios/App/CapApp-SPM/Package.swift"
@@ -64,6 +67,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.3.3",
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

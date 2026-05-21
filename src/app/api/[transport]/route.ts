@@ -182,8 +182,13 @@ const WIDGET_HTML = `<!DOCTYPE html>
         }
         wrap.appendChild(av);
 
+        const popupEl = document.createElement('div');
+        const pName = document.createElement('div'); pName.className = 'p-name'; pName.textContent = name;
+        const pUser = document.createElement('div'); pUser.className = 'p-user'; pUser.textContent = '@' + u.username;
+        const pDist = document.createElement('div'); pDist.className = 'p-dist'; pDist.textContent = d.toFixed(2) + ' km away';
+        popupEl.append(pName, pUser, pDist);
         const popup = new mapboxgl.Popup({ offset: 22, closeButton: false, maxWidth: '200px' })
-          .setHTML(\`<div class="p-name">\${name}</div><div class="p-user">@\${u.username}</div><div class="p-dist">\${d.toFixed(2)} km away</div>\`);
+          .setDOMContent(popupEl);
 
         markers.push(
           new mapboxgl.Marker({ element: wrap }).setLngLat([u.lng, u.lat]).setPopup(popup).addTo(map)
