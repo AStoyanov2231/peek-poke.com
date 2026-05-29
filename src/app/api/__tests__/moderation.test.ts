@@ -37,11 +37,9 @@ describe('GET /api/moderation/photos', () => {
 
   it('returns 403 for non-moderator', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'regular-user' } }, error: null })
-    // GET route delegates permission check to the RPC itself
-    mockClient.rpc.mockResolvedValue({
-      data: { error: 'Forbidden', status: 403 },
-      error: null,
-    })
+    mockClient.rpc
+      .mockResolvedValueOnce({ data: false, error: null })  // user_has_role moderator
+      .mockResolvedValueOnce({ data: false, error: null })  // user_has_role admin
 
     const req = createNextRequest('http://localhost:3000/api/moderation/photos')
     const res = await GET(req)
@@ -54,18 +52,18 @@ describe('GET /api/moderation/photos', () => {
   it('defaults to "pending" status filter', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'mod-123' } }, error: null })
     mockClient.rpc
-      .mockResolvedValueOnce({ data: true, error: null })
-      .mockResolvedValueOnce({ data: false, error: null })
-      .mockResolvedValueOnce({ data: { photos: [], total: 0 }, error: null })
+      .mockResolvedValueOnce({ data: true, error: null })   // user_has_role moderator
+      .mockResolvedValueOnce({ data: false, error: null })  // user_has_role admin
+
+    const builder = createMockQueryBuilder([], null)
+    mockClient.from.mockReturnValue(builder)
 
     // No status param -> defaults to "pending"
     const req = createNextRequest('http://localhost:3000/api/moderation/photos')
     await GET(req)
 
-    const queueCall = mockClient.rpc.mock.calls.find(
-      (c: unknown[]) => c[0] === 'get_moderation_queue'
-    )
-    expect(queueCall?.[1]).toMatchObject({ p_status: 'pending' })
+    expect(mockClient.from).toHaveBeenCalledWith('profile_photos')
+    expect(builder.eq).toHaveBeenCalledWith('approval_status', 'pending')
   })
 
   it('returns 400 for invalid status param', async () => {
@@ -84,9 +82,14 @@ describe('GET /api/moderation/photos', () => {
     expect(json.error).toBeDefined()
   })
 
-  it('returns 500 when RPC call fails', async () => {
+  it('returns 500 when DB query fails', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'mod-123' } }, error: null })
-    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB connection failed' } })
+    mockClient.rpc
+      .mockResolvedValueOnce({ data: true, error: null })   // user_has_role moderator
+      .mockResolvedValueOnce({ data: false, error: null })  // user_has_role admin
+
+    const builder = createMockQueryBuilder(null, { message: 'DB connection failed' })
+    mockClient.from.mockReturnValue(builder)
 
     const req = createNextRequest('http://localhost:3000/api/moderation/photos', {
       searchParams: { status: 'pending' },

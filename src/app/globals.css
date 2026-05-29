@@ -248,6 +248,10 @@
 .btn-press { transition: transform 100ms; }
 .btn-press:active { transform: scale(0.97); }
 
+/* PiP drag — overrides the global touch-action:pan-x pan-y so framer-motion
+   drag works on touch screens (higher specificity beats the * !important). */
+.call-pip-drag { touch-action: none !important; }
+
 /* Status indicators */
 .status-online {
   width: 12px; height: 12px; border-radius: 999px;

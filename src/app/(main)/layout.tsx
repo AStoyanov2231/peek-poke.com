@@ -11,6 +11,7 @@ import { AuthBridgeProvider } from "@/components/AuthBridgeProvider";
 import { PersistentMapHost } from "@/components/map/PersistentMapHost";
 import { StoreHydrator } from "@/components/StoreHydrator";
 import { getPreloadData } from "@/lib/preload-server";
+import { CallProvider } from "@/components/call/CallProvider";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -33,6 +34,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
               <DesktopNav />
               <ContentWrapper>{children}</ContentWrapper>
               <MobileNav />
+              <CallProvider />
             </div>
           </AuthBridgeProvider>
         </NativeBridgeProvider>

@@ -9,6 +9,7 @@ import { usePresence } from "@/hooks/usePresence";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyPresence } from "@/hooks/useNearbyPresence";
 import { useMeetingDetection } from "@/hooks/useMeetingDetection";
+import { useIncomingCall } from "@/hooks/useIncomingCall";
 
 interface PreloadProviderProps {
   children: ReactNode;
@@ -20,6 +21,7 @@ function DeferredEffects({ profileId }: { profileId: string | undefined }) {
   useGeolocation();
   useNearbyPresence(profileId);
   useMeetingDetection(profileId);
+  useIncomingCall(profileId);
   return null;
 }
 

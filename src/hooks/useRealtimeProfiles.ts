@@ -12,15 +12,17 @@ interface UseRealtimeProfilesParams {
 
 export function useRealtimeProfiles({ isPreloading }: UseRealtimeProfilesParams) {
   const isSetupRef = useRef<boolean>(false);
+  const currentUserId = useAppStore((s) => s.profile?.id);
 
   useEffect(() => {
     if (isPreloading) return;
+    if (!currentUserId) return;
     if (isSetupRef.current) return;
     isSetupRef.current = true;
 
     let isMounted = true;
 
-    // Channel for profile updates - useful if profile is updated elsewhere
+    // Channel for profile updates - scoped to own profile only
     const profilesChannel = supabase
       .channel("global-profiles")
       .on(
@@ -29,6 +31,7 @@ export function useRealtimeProfiles({ isPreloading }: UseRealtimeProfilesParams)
           event: "UPDATE",
           schema: "public",
           table: "profiles",
+          filter: `id=eq.${currentUserId}`,
         },
         (payload) => {
           if (!isMounted) return;
@@ -47,5 +50,5 @@ export function useRealtimeProfiles({ isPreloading }: UseRealtimeProfilesParams)
       isSetupRef.current = false;
       supabase.removeChannel(profilesChannel);
     };
-  }, [isPreloading]);
+  }, [isPreloading, currentUserId]);
 }

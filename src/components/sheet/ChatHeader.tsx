@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, User } from "lucide-react";
+import { ChevronLeft, User, Video } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { isPremium, type Profile } from "@/types/database";
@@ -10,9 +10,10 @@ interface ChatHeaderProps {
   isOnline: boolean;
   distanceMeters: number | null;
   onBack: () => void;
+  onStartCall?: () => void;
 }
 
-export function ChatHeader({ other, isOnline, distanceMeters, onBack }: ChatHeaderProps) {
+export function ChatHeader({ other, isOnline, distanceMeters, onBack, onStartCall }: ChatHeaderProps) {
   const name = other.display_name || other.username;
 
   const subtitle = isOnline
@@ -47,6 +48,18 @@ export function ChatHeader({ other, isOnline, distanceMeters, onBack }: ChatHead
         </div>
         <p className={`t-caption ${isOnline ? "text-success-600" : "muted"}`}>{subtitle}</p>
       </div>
+
+      {/* Video call button — shown on all screen sizes */}
+      {onStartCall && (
+        <button
+          onClick={onStartCall}
+          aria-label="Start video call"
+          className="iconbtn flex-shrink-0"
+          style={{ width: 36, height: 36 }}
+        >
+          <Video size={18} />
+        </button>
+      )}
 
       <div className="hidden md:flex items-center gap-2 flex-shrink-0">
         <a

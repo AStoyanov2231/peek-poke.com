@@ -34,8 +34,8 @@ export async function POST(request: Request) {
     username: row.username,
     display_name: row.display_name,
     avatar_url: row.avatar_url,
-    lat: row.lat,
-    lng: row.lng,
+    lat: Math.round(row.lat * 1000) / 1000,
+    lng: Math.round(row.lng * 1000) / 1000,
   }));
 
   return NextResponse.json({ users });

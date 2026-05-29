@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { ChatHeader } from "@/components/sheet/ChatHeader";
 import { ChatProximityBanner } from "@/components/sheet/ChatProximityBanner";
 import { ChatMessageList } from "@/components/sheet/ChatMessageList";
 import { ChatComposer } from "@/components/sheet/ChatComposer";
+import { useCallStore } from "@/stores/callStore";
 
 type ThreadWithParticipants = DMThread & {
   participant_1: Profile;
@@ -39,6 +40,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
 
   const storeMessages = useThreadMessages(threadId);
   const setThreadMessages = useAppStore((s) => s.setThreadMessages);
+  const startOutgoingCall = useCallStore((s) => s.startOutgoingCall);
   const markThreadRead = useAppStore((s) => s.markThreadRead);
   const setActiveThreadId = useAppStore((s) => s.setActiveThreadId);
 
@@ -118,6 +120,21 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     }
   };
 
+  const other = thread
+    ? (thread.participant_1_id === user?.id ? thread.participant_2 : thread.participant_1)
+    : null;
+
+  const handleStartCall = useCallback(() => {
+    if (!other) return;
+    const callId = crypto.randomUUID();
+    startOutgoingCall(threadId, callId, {
+      id: other.id,
+      display_name: other.display_name,
+      username: other.username,
+      avatar_url: other.avatar_url,
+    });
+  }, [threadId, other, startOutgoingCall]);
+
   if (isLoading || !thread) {
     return (
       <div className="flex flex-col h-full">
@@ -139,8 +156,6 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     );
   }
 
-  const other = thread.participant_1_id === user?.id ? thread.participant_2 : thread.participant_1;
-
   return (
     <div className="relative flex flex-col h-full">
       <ChatHeader
@@ -148,6 +163,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         isOnline={isOtherOnline}
         distanceMeters={distanceMeters}
         onBack={() => router.push("/inbox")}
+        onStartCall={handleStartCall}
       />
 
       {isNearby && distanceMeters !== null && (

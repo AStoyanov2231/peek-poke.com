@@ -93,6 +93,7 @@ export const PATCH = withAuth<{ photoId: string }>(async (request, { user, supab
     .from("profile_photos")
     .update(updates)
     .eq("id", photoId)
+    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -127,7 +128,8 @@ export const DELETE = withAuth<{ photoId: string }>(async (_request, { user, sup
   const { error } = await supabase
     .from("profile_photos")
     .delete()
-    .eq("id", photoId);
+    .eq("id", photoId)
+    .eq("user_id", user.id);
 
   if (error) {
     console.error("profile/photos/[photoId]:", error);
