@@ -135,7 +135,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     });
   }, [threadId, other, startOutgoingCall]);
 
-  if (isLoading || !thread) {
+  if (isLoading || !thread || !other) {
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 flex items-center gap-4 border-b border-hairline">
