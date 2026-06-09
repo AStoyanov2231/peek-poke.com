@@ -2,13 +2,14 @@
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
-import { isPremium, type Profile } from "@/types/database";
+import { isPremium, type Profile, type ProfileStats } from "@/types/database";
 
 interface ProfileIdentityProps {
   profile: Profile;
   avatarSizeMobile?: number;
   avatarSizeDesktop?: number;
   actions?: React.ReactNode;
+  stats?: ProfileStats;
 }
 
 export function ProfileIdentity({
@@ -16,6 +17,7 @@ export function ProfileIdentity({
   avatarSizeMobile = 96,
   avatarSizeDesktop = 128,
   actions,
+  stats,
 }: ProfileIdentityProps) {
   const name = profile.display_name || profile.username;
   const joinedYear = new Date(profile.created_at).getFullYear();
@@ -61,7 +63,7 @@ export function ProfileIdentity({
       </div>
 
       {/* ── DESKTOP: horizontal row ── */}
-      <div className="hidden md:flex items-end gap-6 px-10 -mt-14">
+      <div className="hidden md:flex items-center gap-6 px-10 mt-8">
         <div
           className="flex-shrink-0 rounded-full overflow-hidden"
           style={{ width: avatarSizeDesktop, height: avatarSizeDesktop, padding: 5, background: "var(--ink-1)" }}
@@ -77,6 +79,28 @@ export function ProfileIdentity({
             {isPremium(profile) && <PremiumBadge showText />}
           </div>
           <p className="t-callout muted mt-1">{metaText}</p>
+          {stats && (
+            <div className="flex items-center gap-5 mt-2">
+              <span className="t-callout text-ink-9">
+                <strong className="font-semibold">{stats.friends_count}</strong>
+                <span className="muted ml-1">Friends</span>
+              </span>
+              <span className="t-callout text-ink-9">
+                <strong className="font-semibold">{stats.meetings_count ?? 0}</strong>
+                <span className="muted ml-1">Meetings</span>
+              </span>
+              <span className="t-callout text-ink-9">
+                <strong className="font-semibold">{stats.photos_count}</strong>
+                <span className="muted ml-1">Photos</span>
+              </span>
+              {stats.radius_km != null && (
+                <span className="t-callout text-ink-9">
+                  <strong className="font-semibold">{stats.radius_km} km</strong>
+                  <span className="muted ml-1">Radius</span>
+                </span>
+              )}
+            </div>
+          )}
         </div>
         {actions && <div className="flex gap-2 pb-3 flex-shrink-0">{actions}</div>}
       </div>

@@ -12,6 +12,7 @@ interface PhotoGalleryProps {
   photos: ProfilePhoto[];
   isOwner: boolean;
   maxPhotos?: number;
+  masonry?: boolean;
   onUpload?: (file: File) => Promise<void>;
   onDelete?: (photoId: string) => Promise<void>;
   onSetAvatar?: (photoId: string) => Promise<void>;
@@ -23,6 +24,7 @@ export function PhotoGallery({
   photos,
   isOwner,
   maxPhotos = 12,
+  masonry = false,
   onUpload,
   onDelete,
   onSetAvatar,
@@ -137,40 +139,76 @@ export function PhotoGallery({
         </div>
       ) : (
         <>
-          <div ref={gridRef} className="grid grid-cols-3 gap-1 md:gap-2">
-            {photos.map((photo, index) => (
-              <PhotoCard
-                key={photo.id}
-                photo={photo}
-                index={index}
-                isOwner={isOwner}
-                menuOpen={menuOpen}
-                isDeleting={deletingId === photo.id}
-                isSettingAvatar={settingAvatarId === photo.id}
-                isTogglingPrivate={togglingPrivateId === photo.id}
-                onOpenViewer={openViewer}
-                onToggleMenu={setMenuOpen}
-                onDelete={handleDelete}
-                onSetAvatar={handleSetAvatar}
-                onTogglePrivate={handleTogglePrivate}
-              />
-            ))}
-            {Array.from({ length: emptyCount }).map((_, i) =>
-              i === 0 && isOwner && canUpload ? (
-                <button
-                  key="cta"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="aspect-square rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center gap-1 text-primary/50 hover:border-primary/60 hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
-                >
-                  {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" weight="fill" />}
-                  <span className="text-[11px] font-medium">Add Photo</span>
-                </button>
-              ) : (
-                <div key={`empty-${i}`} className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30" />
-              )
-            )}
-          </div>
+          {masonry ? (
+            <div ref={gridRef} className="columns-3 gap-2">
+              {photos.map((photo, index) => (
+                <div key={photo.id} className="break-inside-avoid mb-2">
+                  <PhotoCard
+                    photo={photo}
+                    index={index}
+                    isOwner={isOwner}
+                    masonry
+                    menuOpen={menuOpen}
+                    isDeleting={deletingId === photo.id}
+                    isSettingAvatar={settingAvatarId === photo.id}
+                    isTogglingPrivate={togglingPrivateId === photo.id}
+                    onOpenViewer={openViewer}
+                    onToggleMenu={setMenuOpen}
+                    onDelete={handleDelete}
+                    onSetAvatar={handleSetAvatar}
+                    onTogglePrivate={handleTogglePrivate}
+                  />
+                </div>
+              ))}
+              {isOwner && canUpload && (
+                <div className="break-inside-avoid mb-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full aspect-square rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center gap-1 text-primary/50 hover:border-primary/60 hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" weight="fill" />}
+                    <span className="text-[11px] font-medium">Add Photo</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div ref={gridRef} className="grid grid-cols-3 gap-1 md:gap-2">
+              {photos.map((photo, index) => (
+                <PhotoCard
+                  key={photo.id}
+                  photo={photo}
+                  index={index}
+                  isOwner={isOwner}
+                  menuOpen={menuOpen}
+                  isDeleting={deletingId === photo.id}
+                  isSettingAvatar={settingAvatarId === photo.id}
+                  isTogglingPrivate={togglingPrivateId === photo.id}
+                  onOpenViewer={openViewer}
+                  onToggleMenu={setMenuOpen}
+                  onDelete={handleDelete}
+                  onSetAvatar={handleSetAvatar}
+                  onTogglePrivate={handleTogglePrivate}
+                />
+              ))}
+              {Array.from({ length: emptyCount }).map((_, i) =>
+                i === 0 && isOwner && canUpload ? (
+                  <button
+                    key="cta"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="aspect-square rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center gap-1 text-primary/50 hover:border-primary/60 hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" weight="fill" />}
+                    <span className="text-[11px] font-medium">Add Photo</span>
+                  </button>
+                ) : (
+                  <div key={`empty-${i}`} className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30" />
+                )
+              )}
+            </div>
+          )}
           <div className={cn(
             "sticky bottom-0 flex justify-center py-2 pointer-events-none transition-opacity duration-300",
             showScrollHint ? "opacity-100" : "opacity-0"

@@ -22,6 +22,7 @@ interface PhotoCardProps {
   isDeleting: boolean;
   isSettingAvatar: boolean;
   isTogglingPrivate: boolean;
+  masonry?: boolean;
   onOpenViewer: (index: number) => void;
   onToggleMenu: (photoId: string | null) => void;
   onDelete: (photoId: string) => void;
@@ -37,6 +38,7 @@ export function PhotoCard({
   isDeleting,
   isSettingAvatar,
   isTogglingPrivate,
+  masonry = false,
   onOpenViewer,
   onToggleMenu,
   onDelete,
@@ -47,14 +49,18 @@ export function PhotoCard({
 
   return (
     <div
-      className="relative aspect-square group cursor-pointer overflow-hidden rounded-lg"
+      className={cn(
+        "relative group cursor-pointer overflow-hidden rounded-lg",
+        masonry ? "w-full" : "aspect-square"
+      )}
       onClick={() => onOpenViewer(index)}
     >
       <img
-        src={photo.thumbnail_url || photo.url}
+        src={masonry ? photo.url : (photo.thumbnail_url || photo.url)}
         alt=""
         className={cn(
-          "w-full h-full object-cover transition-transform group-hover:scale-105",
+          "w-full object-cover",
+          masonry ? "h-auto max-h-64" : "h-full transition-transform group-hover:scale-105",
           (isDeleting || isSettingAvatar) && "opacity-50"
         )}
       />

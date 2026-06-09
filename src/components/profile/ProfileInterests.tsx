@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect, useEffect } from "react";
+import { useState, useRef, useLayoutEffect, useEffect, forwardRef, useImperativeHandle } from "react";
 import { X, Loader2, Pencil, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InterestPicker } from "@/components/profile/InterestPicker";
 import type { ProfileInterest, InterestTag } from "@/types/database";
+
+export interface ProfileInterestsRef {
+  save: () => Promise<void>;
+}
 
 interface ProfileInterestsProps {
   interests: ProfileInterest[];
@@ -13,6 +17,10 @@ interface ProfileInterestsProps {
   onAddInterest?: (tagId: string) => Promise<void>;
   onRemoveInterest?: (interestId: string) => Promise<void>;
   className?: string;
+  isEditing?: boolean;
+  onDone?: () => void;
+  hideEditButton?: boolean;
+  hideTitle?: boolean;
 }
 
 const COLORS = [
@@ -25,19 +33,34 @@ const COLORS = [
 ];
 
 
-export function ProfileInterests({
+export const ProfileInterests = forwardRef<ProfileInterestsRef, ProfileInterestsProps>(function ProfileInterests({
   interests,
   allTags = [],
   isOwner,
   onAddInterest,
   onRemoveInterest,
   className,
-}: ProfileInterestsProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  isEditing,
+  onDone,
+  hideEditButton = false,
+  hideTitle = false,
+}: ProfileInterestsProps, ref: React.Ref<ProfileInterestsRef>) {
+  const isControlled = isEditing !== undefined;
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = isControlled ? isEditing : internalExpanded;
+  const setIsExpanded = (v: boolean) => { if (!isControlled) setInternalExpanded(v); };
   // Local state — only synced to DB when Done is pressed
   const [localSelectedIds, setLocalSelectedIds] = useState<Set<string>>(
     () => new Set(interests.map((i) => i.tag_id))
   );
+
+  // When controlled edit mode opens, reset local state to server state
+  useEffect(() => {
+    if (isControlled && isEditing) {
+      setLocalSelectedIds(new Set(interests.map((i) => i.tag_id)));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing]);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -152,9 +175,9 @@ export function ProfileInterests({
         ...toRemove.map((i) => onRemoveInterest?.(i.id)),
       ]);
 
-      setIsExpanded(false);
+      if (isControlled) onDone?.();
+      else setIsExpanded(false);
     } catch {
-      // On failure revert to server state
       setLocalSelectedIds(new Set(interests.map((i) => i.tag_id)));
     } finally {
       setIsSaving(false);
@@ -166,6 +189,8 @@ export function ProfileInterests({
     setLocalSelectedIds(new Set(interests.map((i) => i.tag_id)));
     setIsExpanded(true);
   };
+
+  useImperativeHandle(ref, () => ({ save: handleDone }));
 
   const makeTagRef = (tagId: string) => (el: HTMLElement | null) => {
     if (el) tagRefs.current.set(tagId, el);
@@ -200,10 +225,13 @@ export function ProfileInterests({
 
   return (
     <div className={cn("px-4 md:px-6 py-4", className)}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[16px] font-semibold text-foreground">Interests</h3>
-        {isOwner && (
-          isExpanded ? (
+      {(!hideTitle || (isOwner && isExpanded)) && (
+        <div className="flex items-center justify-between mb-3">
+          {!hideTitle
+            ? <h3 className="text-[16px] font-semibold text-foreground">Interests</h3>
+            : <div />
+          }
+          {isOwner && (isExpanded ? (
             <button
               onClick={handleDone}
               disabled={isSaving}
@@ -212,7 +240,7 @@ export function ProfileInterests({
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               Done
             </button>
-          ) : (
+          ) : !hideEditButton ? (
             <button
               onClick={handleOpen}
               className="iconbtn"
@@ -221,9 +249,9 @@ export function ProfileInterests({
             >
               <Pencil className="h-[15px] w-[15px]" strokeWidth={2} />
             </button>
-          )
-        )}
-      </div>
+          ) : null)}
+        </div>
+      )}
 
       {/* Selected tags */}
       <div className="flex flex-wrap gap-2 min-h-[28px] p-1">
@@ -307,4 +335,4 @@ export function ProfileInterests({
       )}
     </div>
   );
-}
+});

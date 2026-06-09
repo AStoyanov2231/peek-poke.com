@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Pencil, Share2, Settings } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { ProfileInterests } from "./ProfileInterests";
+import { ProfileInterests, type ProfileInterestsRef } from "./ProfileInterests";
 import { PhotoGallery } from "./PhotoGallery";
 import { SettingsSheet } from "./SettingsSheet";
 import { ShareSheet } from "./ShareSheet";
@@ -45,11 +45,13 @@ export function ProfilePageClient({
   allTags: initialAllTags,
   stats: initialStats,
 }: ProfilePageClientProps) {
-  const [isBioEditing, setIsBioEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isMobileBioEditing, setIsMobileBioEditing] = useState(false);
   const [editBioText, setEditBioText] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const interestsRef = useRef<ProfileInterestsRef>(null);
 
   const storeProfile = useStoreProfile();
   const storePhotos = useStorePhotos();
@@ -211,9 +213,9 @@ export function ProfilePageClient({
     <Card className="p-4 flex flex-col gap-2.5">
       <div className="flex justify-between items-center">
         <h3 className="t-body-b text-ink-9">About</h3>
-        {!isBioEditing && (
+        {!isMobileBioEditing && (
           <button
-            onClick={() => { setEditBioText(profile.bio || ""); setIsBioEditing(true); }}
+            onClick={() => { setEditBioText(profile.bio || ""); setIsMobileBioEditing(true); }}
             className="iconbtn"
             style={{ width: 36, height: 36, borderRadius: "50%" }}
             aria-label="Edit bio"
@@ -222,7 +224,7 @@ export function ProfilePageClient({
           </button>
         )}
       </div>
-      {isBioEditing ? (
+      {isMobileBioEditing ? (
         <div className="flex flex-col gap-2">
           <textarea
             value={editBioText}
@@ -237,14 +239,14 @@ export function ProfilePageClient({
             <span className="t-caption muted">{editBioText.length}/500</span>
             <div className="flex gap-2">
               <button
-                onClick={() => { setEditBioText(profile.bio || ""); setIsBioEditing(false); }}
+                onClick={() => { setEditBioText(profile.bio || ""); setIsMobileBioEditing(false); }}
                 className="btn btn-secondary btn-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={async () => {
-                  try { await handleBioSave(editBioText); setIsBioEditing(false); } catch { /* keep editing */ }
+                  try { await handleBioSave(editBioText); setIsMobileBioEditing(false); } catch { /* keep editing */ }
                 }}
                 className="btn btn-primary btn-sm"
               >
@@ -337,22 +339,22 @@ export function ProfilePageClient({
 
       {/* ── DESKTOP ── full-width scrollable page ── */}
       <div className="hidden md:block overflow-y-auto no-scrollbar">
-        {/* Cover — full width */}
-        <ProfileCover heightDesktop={220} />
-
-        {/* Identity row — overlaps cover by 56px */}
+        {/* Identity row */}
         <ProfileIdentity
           profile={profile}
           avatarSizeDesktop={128}
+          stats={stats}
           actions={
             <>
               <button
-                className="iconbtn"
-                style={{ width: 36, height: 36, borderRadius: "50%" }}
-                onClick={() => { /* navigate to edit */ }}
-                aria-label="Edit profile"
+                className="btn btn-secondary btn-md"
+                style={{ borderRadius: 12 }}
+                onClick={() => {
+                  setEditBioText(profile.bio || "");
+                  setIsEditing(true);
+                }}
               >
-                <Pencil size={15} strokeWidth={2} />
+                <Pencil size={14} strokeWidth={2} /> Edit
               </button>
               <button
                 className="btn btn-primary btn-md"
@@ -372,33 +374,81 @@ export function ProfilePageClient({
           }
         />
 
-        {/* Stats */}
-        <div className="px-10 mt-6">
-          <ProfileStatsRow stats={stats} showMeetings showRadius />
-        </div>
-
         {/* Two-column grid */}
         <div
           className="px-10 py-6 pb-10 grid gap-6"
           style={{ gridTemplateColumns: "1fr 1.6fr" }}
         >
           <div className="flex flex-col gap-4">
-            {aboutCard}
-            {interestsCard}
-            <PremiumCard isPremiumUser={isPremium(profile)} />
+            {/* Combined Bio card */}
+            <Card className="p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h3 className="t-body-b text-ink-9">Bio</h3>
+                {isEditing && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await Promise.all([
+                          handleBioSave(editBioText),
+                          interestsRef.current?.save(),
+                        ]);
+                        setIsEditing(false);
+                      } catch { /* keep editing */ }
+                    }}
+                    className="btn btn-primary btn-sm"
+                  >
+                    Save
+                  </button>
+                )}
+              </div>
+              {isEditing ? (
+                <textarea
+                  value={editBioText}
+                  onChange={(e) => setEditBioText(e.target.value.slice(0, 500))}
+                  maxLength={500}
+                  rows={3}
+                  autoFocus
+                  placeholder="Write something about yourself..."
+                  className="w-full bg-ink-1 border border-hairline rounded-md px-3 py-2 t-body text-ink-8 resize-none focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              ) : (
+                <p className="t-body muted leading-relaxed">
+                  {profile.bio || "Add a bio to tell others about yourself."}
+                </p>
+              )}
+              <div className="border-t border-hairline pt-1">
+                <ProfileInterests
+                  ref={interestsRef}
+                  interests={interests}
+                  allTags={allTags}
+                  isOwner={true}
+                  onAddInterest={handleAddInterest}
+                  onRemoveInterest={handleRemoveInterest}
+                  isEditing={isEditing}
+                  onDone={() => setIsEditing(false)}
+                  hideEditButton={true}
+                  hideTitle={true}
+                  className="!p-0"
+                />
+              </div>
+            </Card>
+            <div className={`transition-opacity duration-300 ${isEditing ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+              <PremiumCard isPremiumUser={isPremium(profile)} />
+            </div>
           </div>
-          <Card className="p-4">
-            <PhotoGallery
-              photos={photos}
-              isOwner={true}
-              maxPhotos={12}
-              onUpload={handlePhotoUpload}
-              onDelete={handlePhotoDelete}
-              onSetAvatar={handleSetAvatar}
-              onTogglePrivate={handleTogglePrivate}
-              className="!p-0 [&_.photo-grid]:grid-cols-4"
-            />
-          </Card>
+
+          {/* Pinterest-style gallery */}
+          <PhotoGallery
+            photos={photos}
+            isOwner={true}
+            maxPhotos={12}
+            masonry
+            onUpload={handlePhotoUpload}
+            onDelete={handlePhotoDelete}
+            onSetAvatar={handleSetAvatar}
+            onTogglePrivate={handleTogglePrivate}
+            className="!px-0"
+          />
         </div>
       </div>
 
