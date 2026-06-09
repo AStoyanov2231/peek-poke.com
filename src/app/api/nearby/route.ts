@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth";
-import { enforceRateLimit } from "@/lib/rate-limit";
 import { coordsSchema, parseBody } from "@/lib/validators";
 import { apiError } from "@/lib/api-error";
 import type { NearbyUser } from "@/types/database";
 
-export const POST = withAuth(async (request, { user, supabase }) => {
-  const limited = await enforceRateLimit("nearby", user.id);
-  if (limited) return limited;
-
+export const POST = withAuth(async (request, { supabase }) => {
   const [body, err] = await parseBody(request, coordsSchema);
   if (err) return err;
 
