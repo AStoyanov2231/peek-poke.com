@@ -76,6 +76,11 @@ export const photoUpdateSchema = z.object({
   is_private: z.boolean().optional(),
 });
 
+export const coordsSchema = z.object({
+  lat: z.number().min(-90, "lat must be between -90 and 90").max(90, "lat must be between -90 and 90"),
+  lng: z.number().min(-180, "lng must be between -180 and 180").max(180, "lng must be between -180 and 180"),
+});
+
 /** Parse request JSON with a Zod schema. Returns [data, null] or [null, errorResponse]. */
 export async function parseBody<T>(
   request: Request,

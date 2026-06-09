@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth, verifyThreadParticipant } from "@/lib/auth";
 import { isValidUUID } from "@/lib/validation";
+import { apiError } from "@/lib/api-error";
 
 export const DELETE = withAuth<{ threadId: string }>(async (_request, { user, supabase, params }) => {
   const { threadId } = params;
@@ -13,32 +14,18 @@ export const DELETE = withAuth<{ threadId: string }>(async (_request, { user, su
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }
 
-  // TODO: Replace these two sequential operations with a clear_thread_messages() RPC
-  // for atomic execution. Currently, if the thread update fails after messages are soft-deleted,
-  // the thread preview will remain stale.
-  // Soft-delete all messages in the thread
-  const { error: deleteError } = await supabase
-    .from("dm_messages")
-    .update({ is_deleted: true })
-    .eq("thread_id", threadId);
+  const { data, error } = await supabase.rpc("clear_thread_messages", {
+    p_thread_id: threadId,
+    p_user_id: user.id,
+  });
 
-  if (deleteError) {
-    console.error("dm/[threadId]/messages:", deleteError);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  if (error) {
+    console.error("dm/[threadId]/messages:", error);
+    return apiError("Internal server error", 500, "CLEAR_MESSAGES_FAILED");
   }
 
-  // Reset thread preview
-  const { error: updateError } = await supabase
-    .from("dm_threads")
-    .update({
-      last_message_at: null,
-      last_message_preview: null,
-    })
-    .eq("id", threadId);
-
-  if (updateError) {
-    console.error("dm/[threadId]/messages:", updateError);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  if (data?.error) {
+    return apiError(data.error, data.status || 400, "CLEAR_MESSAGES_FAILED");
   }
 
   return NextResponse.json({ success: true });

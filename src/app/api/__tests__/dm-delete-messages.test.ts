@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createMockSupabaseClient, createMockQueryBuilder } from '../../../../test/mocks/supabase'
+import { createMockSupabaseClient } from '../../../../test/mocks/supabase'
 import { createNextRequest } from '../../../../test/mocks/next'
 
 const mockVerifyThreadParticipant = vi.hoisted(() => vi.fn(() => Promise.resolve(true)))
@@ -34,13 +34,13 @@ beforeEach(() => {
   vi.mocked(supabaseServer.createClient).mockResolvedValue(mockClient as never)
 })
 
+// ─── POST /api/dm/[threadId]/delete ─────────────────────────────────────────
+
 describe('POST /api/dm/[threadId]/delete', () => {
   it('should return 401 when unauthenticated', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, {
-      method: 'POST',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, { method: 'POST' })
     const res = await deleteThread(req, makeParams())
 
     expect(res.status).toBe(401)
@@ -49,9 +49,7 @@ describe('POST /api/dm/[threadId]/delete', () => {
   it('should return 400 for invalid thread ID UUID', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const req = createNextRequest('http://localhost:3000/api/dm/not-a-uuid/delete', {
-      method: 'POST',
-    })
+    const req = createNextRequest('http://localhost:3000/api/dm/not-a-uuid/delete', { method: 'POST' })
     const res = await deleteThread(req, makeParams('not-a-uuid'))
 
     expect(res.status).toBe(400)
@@ -63,9 +61,7 @@ describe('POST /api/dm/[threadId]/delete', () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
     mockVerifyThreadParticipant.mockResolvedValueOnce(false)
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, {
-      method: 'POST',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, { method: 'POST' })
     const res = await deleteThread(req, makeParams())
 
     expect(res.status).toBe(404)
@@ -73,13 +69,11 @@ describe('POST /api/dm/[threadId]/delete', () => {
     expect(body.error).toMatch(/thread not found/i)
   })
 
-  it('should return 500 when messages update fails', async () => {
+  it('should return 500 when RPC errors', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null, { message: 'DB error' }))
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, {
-      method: 'POST',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, { method: 'POST' })
     const res = await deleteThread(req, makeParams())
 
     expect(res.status).toBe(500)
@@ -87,46 +81,40 @@ describe('POST /api/dm/[threadId]/delete', () => {
     expect(body).toHaveProperty('error')
   })
 
-  it('should return 500 when thread delete fails', async () => {
+  it('should return 400 when RPC returns data.error', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(null, null))
-      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'DB error' }))
+    mockClient.rpc.mockResolvedValue({ data: { error: 'Thread not found', status: 404 }, error: null })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, {
-      method: 'POST',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, { method: 'POST' })
     const res = await deleteThread(req, makeParams())
 
-    expect(res.status).toBe(500)
-    const body = await res.json()
-    expect(body).toHaveProperty('error')
+    expect(res.status).toBe(404)
   })
 
-  it('should return 200 with success on valid delete', async () => {
+  it('should call delete_thread_and_messages RPC and return 200 on success', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(null, null))
-      .mockReturnValueOnce(createMockQueryBuilder(null, null))
+    mockClient.rpc.mockResolvedValue({ data: { success: true }, error: null })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, {
-      method: 'POST',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/delete`, { method: 'POST' })
     const res = await deleteThread(req, makeParams())
 
+    expect(mockClient.rpc).toHaveBeenCalledWith('delete_thread_and_messages', {
+      p_thread_id: THREAD_ID,
+      p_user_id: USER_ID,
+    })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toEqual({ success: true })
   })
 })
 
+// ─── DELETE /api/dm/[threadId]/messages ──────────────────────────────────────
+
 describe('DELETE /api/dm/[threadId]/messages', () => {
   it('should return 401 when unauthenticated', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, {
-      method: 'DELETE',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, { method: 'DELETE' })
     const res = await clearMessages(req, makeParams())
 
     expect(res.status).toBe(401)
@@ -135,9 +123,7 @@ describe('DELETE /api/dm/[threadId]/messages', () => {
   it('should return 400 for invalid thread ID UUID', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const req = createNextRequest('http://localhost:3000/api/dm/not-a-uuid/messages', {
-      method: 'DELETE',
-    })
+    const req = createNextRequest('http://localhost:3000/api/dm/not-a-uuid/messages', { method: 'DELETE' })
     const res = await clearMessages(req, makeParams('not-a-uuid'))
 
     expect(res.status).toBe(400)
@@ -149,9 +135,7 @@ describe('DELETE /api/dm/[threadId]/messages', () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
     mockVerifyThreadParticipant.mockResolvedValueOnce(false)
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, {
-      method: 'DELETE',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, { method: 'DELETE' })
     const res = await clearMessages(req, makeParams())
 
     expect(res.status).toBe(404)
@@ -159,13 +143,11 @@ describe('DELETE /api/dm/[threadId]/messages', () => {
     expect(body.error).toMatch(/thread not found/i)
   })
 
-  it('should return 500 when messages soft-delete fails', async () => {
+  it('should return 500 when RPC errors', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null, { message: 'DB error' }))
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, {
-      method: 'DELETE',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, { method: 'DELETE' })
     const res = await clearMessages(req, makeParams())
 
     expect(res.status).toBe(500)
@@ -173,33 +155,27 @@ describe('DELETE /api/dm/[threadId]/messages', () => {
     expect(body).toHaveProperty('error')
   })
 
-  it('should return 500 when thread metadata update fails', async () => {
+  it('should return 400 when RPC returns data.error', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(null, null))
-      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'DB error' }))
+    mockClient.rpc.mockResolvedValue({ data: { error: 'Thread not found', status: 404 }, error: null })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, {
-      method: 'DELETE',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, { method: 'DELETE' })
     const res = await clearMessages(req, makeParams())
 
-    expect(res.status).toBe(500)
-    const body = await res.json()
-    expect(body).toHaveProperty('error')
+    expect(res.status).toBe(404)
   })
 
-  it('should return 200 with success on valid clear', async () => {
+  it('should call clear_thread_messages RPC and return 200 on success', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(null, null))
-      .mockReturnValueOnce(createMockQueryBuilder(null, null))
+    mockClient.rpc.mockResolvedValue({ data: { success: true }, error: null })
 
-    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, {
-      method: 'DELETE',
-    })
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/messages`, { method: 'DELETE' })
     const res = await clearMessages(req, makeParams())
 
+    expect(mockClient.rpc).toHaveBeenCalledWith('clear_thread_messages', {
+      p_thread_id: THREAD_ID,
+      p_user_id: USER_ID,
+    })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toEqual({ success: true })

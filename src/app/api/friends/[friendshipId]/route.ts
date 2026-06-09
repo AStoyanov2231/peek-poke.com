@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/auth";
+import { withAuth, verifyFriendshipParticipant } from "@/lib/auth";
 import { isValidUUID } from "@/lib/validation";
 import { friendshipUpdateSchema, parseBody } from "@/lib/validators";
+import { apiError } from "@/lib/api-error";
 
 export const PATCH = withAuth<{ friendshipId: string }>(async (request, { user, supabase, params }) => {
   const { friendshipId } = params;
@@ -41,6 +42,12 @@ export const DELETE = withAuth<{ friendshipId: string }>(async (_request, { user
 
   if (!isValidUUID(friendshipId)) {
     return NextResponse.json({ error: "Invalid friendship ID" }, { status: 400 });
+  }
+
+  // Authorize: verify caller is a participant of this friendship
+  const friendship = await verifyFriendshipParticipant(supabase, friendshipId, user.id);
+  if (!friendship) {
+    return apiError("Friendship not found", 404, "FRIENDSHIP_NOT_FOUND");
   }
 
   const { data, error } = await supabase.rpc("unfriend", {

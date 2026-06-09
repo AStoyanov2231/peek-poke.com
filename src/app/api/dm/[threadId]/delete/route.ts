@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth, verifyThreadParticipant } from "@/lib/auth";
 import { isValidUUID } from "@/lib/validation";
+import { apiError } from "@/lib/api-error";
 
 export const POST = withAuth<{ threadId: string }>(async (_request, { user, supabase, params }) => {
   const { threadId } = params;
@@ -13,28 +14,18 @@ export const POST = withAuth<{ threadId: string }>(async (_request, { user, supa
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }
 
-  // TODO: Replace with delete_thread_and_messages() RPC for atomicity.
-  // If message soft-delete succeeds but thread delete fails, messages are orphaned.
-  // Soft-delete messages first
-  const { error: msgError } = await supabase
-    .from("dm_messages")
-    .update({ is_deleted: true })
-    .eq("thread_id", threadId);
-
-  if (msgError) {
-    console.error("dm/[threadId]/delete:", msgError);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-
-  // Hard-delete the thread
-  const { error } = await supabase
-    .from("dm_threads")
-    .delete()
-    .eq("id", threadId);
+  const { data, error } = await supabase.rpc("delete_thread_and_messages", {
+    p_thread_id: threadId,
+    p_user_id: user.id,
+  });
 
   if (error) {
     console.error("dm/[threadId]/delete:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500, "DELETE_THREAD_FAILED");
+  }
+
+  if (data?.error) {
+    return apiError(data.error, data.status || 400, "DELETE_THREAD_FAILED");
   }
 
   return NextResponse.json({ success: true });

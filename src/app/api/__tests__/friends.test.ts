@@ -8,12 +8,26 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: vi.fn(),
 }))
 
+const VALID_UUID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+const FRIENDSHIP_ID = 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22'
+const USER_ID = 'user-123'
+
+// verifyFriendshipParticipant is the new authorization gate in DELETE — mock it
+const mockVerifyFriendshipParticipant = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({
+    id: FRIENDSHIP_ID,
+    requester_id: USER_ID,
+    addressee_id: 'other-user',
+  }))
+)
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth')
+  return { ...actual, verifyFriendshipParticipant: mockVerifyFriendshipParticipant }
+})
+
 import { GET, POST } from '@/app/api/friends/route'
 import { PATCH, DELETE } from '@/app/api/friends/[friendshipId]/route'
 import * as supabaseServer from '@/lib/supabase/server'
-
-const VALID_UUID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
-const FRIENDSHIP_ID = 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22'
 
 let mockClient: ReturnType<typeof createMockSupabaseClient>
 
@@ -21,6 +35,11 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockClient = createMockSupabaseClient()
   vi.mocked(supabaseServer.createClient).mockResolvedValue(mockClient as never)
+  mockVerifyFriendshipParticipant.mockResolvedValue({
+    id: FRIENDSHIP_ID,
+    requester_id: USER_ID,
+    addressee_id: 'other-user',
+  })
 })
 
 describe('GET /api/friends', () => {
@@ -204,8 +223,20 @@ describe('PATCH /api/friends/[friendshipId] (accept/decline)', () => {
 })
 
 describe('DELETE /api/friends/[friendshipId] (unfriend)', () => {
+  it('returns 404 when caller is not a friendship participant', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    mockVerifyFriendshipParticipant.mockResolvedValueOnce(null)
+
+    const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, { method: 'DELETE' })
+    const res = await DELETE(req, { params: Promise.resolve({ friendshipId: FRIENDSHIP_ID }) })
+
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.code).toBe('FRIENDSHIP_NOT_FOUND')
+  })
+
   it('should remove friendship', async () => {
-    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
     mockClient.rpc.mockResolvedValue({ data: { success: true, refunded: false, balance: null }, error: null })
 
     const req = createNextRequest(`http://localhost:3000/api/friends/${FRIENDSHIP_ID}`, {

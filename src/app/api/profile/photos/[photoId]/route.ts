@@ -59,30 +59,23 @@ export const PATCH = withAuth<{ photoId: string }>(async (request, { user, supab
       return apiError("Cannot set a private photo as avatar. Make the photo public first.", 400, "PHOTO_UPDATE_FAILED");
     }
 
-    // TODO: Wrap in set_avatar() RPC for full atomicity across these 3 operations
-    // Clear other avatars first
-    const { error: clearAvatarError } = await supabase
-      .from("profile_photos")
-      .update({ is_avatar: false })
-      .eq("user_id", user.id);
+    // Atomic: clear all other avatars + mark this photo + sync profiles.avatar_url
+    const { data: avatarData, error: avatarError } = await supabase.rpc("set_avatar", {
+      p_user_id: user.id,
+      p_photo_id: photoId,
+    });
 
-    if (clearAvatarError) {
-      console.error("profile/photos/[photoId]:", clearAvatarError);
+    if (avatarError) {
+      console.error("profile/photos/[photoId]:", avatarError);
       return apiError("Internal server error", 500, "PHOTO_UPDATE_FAILED");
     }
 
-    updates.is_avatar = true;
-
-    // Also update profile avatar_url
-    const { error: avatarUrlError } = await supabase
-      .from("profiles")
-      .update({ avatar_url: existing.url })
-      .eq("id", user.id);
-
-    if (avatarUrlError) {
-      console.error("profile/photos/[photoId]:", avatarUrlError);
-      return apiError("Internal server error", 500, "PHOTO_UPDATE_FAILED");
+    if (avatarData?.error) {
+      return apiError(avatarData.error, avatarData.status || 400, "PHOTO_UPDATE_FAILED");
     }
+
+    // set_avatar already applied all updates — return the photo from the RPC
+    return NextResponse.json({ photo: avatarData });
   }
 
   if (Object.keys(updates).length === 0) {
@@ -112,10 +105,10 @@ export const DELETE = withAuth<{ photoId: string }>(async (_request, { user, sup
     return apiError("Invalid photo ID", 400, "PHOTO_NOT_FOUND");
   }
 
-  // Get photo to delete
+  // Get photo to check existence and ownership before calling RPC
   const { data: photo } = await supabase
     .from("profile_photos")
-    .select("*")
+    .select("storage_path, thumbnail_url")
     .eq("id", photoId)
     .eq("user_id", user.id)
     .single();
@@ -124,37 +117,35 @@ export const DELETE = withAuth<{ photoId: string }>(async (_request, { user, sup
     return apiError("Photo not found", 404, "PHOTO_NOT_FOUND");
   }
 
-  // Delete database record first — if this fails, storage is untouched
-  const { error } = await supabase
-    .from("profile_photos")
-    .delete()
-    .eq("id", photoId)
-    .eq("user_id", user.id);
+  // Atomic: delete record + clear profiles.avatar_url if it was the avatar
+  const { data: rpcData, error: rpcError } = await supabase.rpc("delete_photo", {
+    p_user_id: user.id,
+    p_photo_id: photoId,
+  });
 
-  if (error) {
-    console.error("profile/photos/[photoId]:", error);
+  if (rpcError) {
+    console.error("profile/photos/[photoId]:", rpcError);
     return apiError("Internal server error", 500, "PHOTO_DELETE_FAILED");
   }
 
-  // If this was the avatar, clear profile avatar_url
-  if (photo.is_avatar) {
-    await supabase
-      .from("profiles")
-      .update({ avatar_url: null })
-      .eq("id", user.id);
+  if (rpcData?.error) {
+    return apiError(rpcData.error, rpcData.status || 400, "PHOTO_DELETE_FAILED");
   }
 
   // Clean up storage best-effort after successful DB delete
+  const storagePath: string = rpcData?.storage_path ?? photo.storage_path;
+  const thumbnailUrl: string | null = rpcData?.thumbnail_url ?? photo.thumbnail_url;
+
   const { error: storageError } = await supabase.storage
     .from("profile-photos")
-    .remove([photo.storage_path]);
+    .remove([storagePath]);
   if (storageError) {
     console.error("profile/photos/[photoId]: storage removal failed (non-fatal):", storageError);
   }
 
   // Delete thumbnail if exists (best-effort)
-  if (photo.thumbnail_url) {
-    const thumbPath = photo.storage_path.replace(/\.(\w+)$/, "_thumb.$1");
+  if (thumbnailUrl) {
+    const thumbPath = storagePath.replace(/\.(\w+)$/, "_thumb.$1");
     const { error: thumbError } = await supabase.storage
       .from("profile-photos")
       .remove([thumbPath]);

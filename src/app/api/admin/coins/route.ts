@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth, requireAdminRole } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { apiError } from "@/lib/api-error";
 
 export const GET = withAuth(async (_req: NextRequest, { user, supabase }) => {
@@ -21,6 +22,9 @@ export const GET = withAuth(async (_req: NextRequest, { user, supabase }) => {
 export const POST = withAuth(async (req: NextRequest, { user, supabase }) => {
   const denied = await requireAdminRole(supabase, user.id);
   if (denied) return denied;
+
+  const limited = await enforceRateLimit("adminCoins", user.id);
+  if (limited) return limited;
 
   const body = await req.json();
   const lat = parseFloat(body.lat);

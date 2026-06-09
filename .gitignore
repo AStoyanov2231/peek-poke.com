@@ -40,7 +40,7 @@ next-env.d.ts
 .vercel
 
 # Supabase
-supabase/.temp/
+supabase/
 /supabase_alerts
 supabase-schema.sql
 .env*.local

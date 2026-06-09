@@ -102,6 +102,31 @@ export async function requireAdminRole(
   return null;
 }
 
+/**
+ * Verifies that userId is a participant (requester or addressee) of the given
+ * friendship. Returns the friendship row on success, or null if not found / not
+ * a participant — use as a route-layer authorization gate before the unfriend RPC.
+ */
+export async function verifyFriendshipParticipant(
+  supabase: SupabaseClient,
+  friendshipId: string,
+  userId: string
+) {
+  const { data: friendship } = await supabase
+    .from("friendships")
+    .select("id, requester_id, addressee_id")
+    .eq("id", friendshipId)
+    .single();
+
+  if (
+    !friendship ||
+    (friendship.requester_id !== userId && friendship.addressee_id !== userId)
+  ) {
+    return null;
+  }
+  return friendship;
+}
+
 export async function hasSubscriberRole(
   supabase: SupabaseClient,
   userId: string

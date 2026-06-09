@@ -8,6 +8,19 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: vi.fn(),
 }))
 
+// verifyThreadParticipant is now a route-layer gate on POST — mock it
+const mockVerifyThreadParticipant = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({
+    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    participant_1_id: 'user-123',
+    participant_2_id: 'other-user',
+  }))
+)
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth')
+  return { ...actual, verifyThreadParticipant: mockVerifyThreadParticipant }
+})
+
 import { GET, POST } from '@/app/api/dm/[threadId]/route'
 import { PATCH, DELETE } from '@/app/api/dm/[threadId]/[messageId]/route'
 import * as supabaseServer from '@/lib/supabase/server'
@@ -30,6 +43,11 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockClient = createMockSupabaseClient()
   vi.mocked(supabaseServer.createClient).mockResolvedValue(mockClient as never)
+  mockVerifyThreadParticipant.mockResolvedValue({
+    id: THREAD_ID,
+    participant_1_id: USER_ID,
+    participant_2_id: 'other-user',
+  })
 })
 
 describe('GET /api/dm/[threadId] (get conversation)', () => {
@@ -97,10 +115,12 @@ describe('POST /api/dm/[threadId] (send message)', () => {
 })
 
 describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
+  // Note: verifyThreadParticipant is mocked at module level (returns the thread object
+  // by default), so tests here do NOT need a .from() mock for the thread lookup.
+
   it('should edit own message within 15 min window', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: USER_ID,
@@ -111,7 +131,6 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
     const updatedMessage = { ...message, content: 'Edited!', is_edited: true }
 
     mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
       .mockReturnValueOnce(createMockQueryBuilder(message))
       .mockReturnValueOnce(createMockQueryBuilder(updatedMessage))
 
@@ -129,7 +148,6 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
   it("should return 403 when editing another user's message", async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: 'other-user',
@@ -138,9 +156,7 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
       created_at: new Date().toISOString(),
     })
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(message))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(message))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'PATCH',
@@ -154,7 +170,6 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
   it('should return 400 when edit window expired (>15 min)', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const oldDate = new Date(Date.now() - 20 * 60 * 1000).toISOString()
     const message = buildDMMessage({
       id: MESSAGE_ID,
@@ -164,9 +179,7 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
       created_at: oldDate,
     })
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(message))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(message))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'PATCH',
@@ -182,7 +195,6 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
   it('should return 400 when message already deleted', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: USER_ID,
@@ -191,9 +203,7 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
       created_at: new Date().toISOString(),
     })
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(message))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(message))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'PATCH',
@@ -208,10 +218,11 @@ describe('PATCH /api/dm/[threadId]/[messageId] (edit message)', () => {
 })
 
 describe('DELETE /api/dm/[threadId]/[messageId] (delete message)', () => {
+  // Note: verifyThreadParticipant is mocked — no .from() mock needed for thread lookup.
+
   it('should soft-delete own message', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: USER_ID,
@@ -221,7 +232,6 @@ describe('DELETE /api/dm/[threadId]/[messageId] (delete message)', () => {
     const deletedMessage = { ...message, is_deleted: true, content: null }
 
     mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
       .mockReturnValueOnce(createMockQueryBuilder(message))
       .mockReturnValueOnce(createMockQueryBuilder(deletedMessage))
 
@@ -238,7 +248,6 @@ describe('DELETE /api/dm/[threadId]/[messageId] (delete message)', () => {
   it("should return 403 when deleting another user's message", async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: 'other-user',
@@ -246,9 +255,7 @@ describe('DELETE /api/dm/[threadId]/[messageId] (delete message)', () => {
       is_deleted: false,
     })
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(message))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(message))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'DELETE',
@@ -261,7 +268,6 @@ describe('DELETE /api/dm/[threadId]/[messageId] (delete message)', () => {
   it('should return 400 for already deleted message', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
 
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: USER_ID,
@@ -269,9 +275,7 @@ describe('DELETE /api/dm/[threadId]/[messageId] (delete message)', () => {
       is_deleted: true,
     })
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(message))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(message))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'DELETE',
@@ -305,6 +309,23 @@ describe('GET /api/dm/[threadId] — missing branches', () => {
     const res = await GET(req, makeThreadParams())
 
     expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /api/dm/[threadId] — authorization gate', () => {
+  it('should return 404 when caller is not a thread participant', async () => {
+    mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
+    mockVerifyThreadParticipant.mockResolvedValueOnce(null)
+
+    const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}`, {
+      method: 'POST',
+      body: { content: 'Hello!' },
+    })
+    const res = await POST(req, makeThreadParams())
+
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.code).toBe('THREAD_NOT_FOUND')
   })
 })
 
@@ -382,9 +403,7 @@ describe('PATCH /api/dm/[threadId]/[messageId] — missing branches', () => {
 
   it('should return 404 when not a thread participant', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    // verifyThreadParticipant uses supabase.from("dm_threads").select().eq().single()
-    // Returning null data causes it to return null (falsy)
-    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null))
+    mockVerifyThreadParticipant.mockResolvedValueOnce(null)
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'PATCH',
@@ -399,11 +418,8 @@ describe('PATCH /api/dm/[threadId]/[messageId] — missing branches', () => {
 
   it('should return 404 when message fetch returns error', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'not found' }))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null, { message: 'not found' }))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'PATCH',
@@ -418,11 +434,8 @@ describe('PATCH /api/dm/[threadId]/[messageId] — missing branches', () => {
 
   it('should return 404 when message is null (not found)', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(null, null))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null, null))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'PATCH',
@@ -435,7 +448,6 @@ describe('PATCH /api/dm/[threadId]/[messageId] — missing branches', () => {
 
   it('should return 500 when DB update fails', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: USER_ID,
@@ -445,7 +457,6 @@ describe('PATCH /api/dm/[threadId]/[messageId] — missing branches', () => {
     })
 
     mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
       .mockReturnValueOnce(createMockQueryBuilder(message))
       .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'update failed' }))
 
@@ -473,7 +484,7 @@ describe('DELETE /api/dm/[threadId]/[messageId] — missing branches', () => {
 
   it('should return 404 when not a thread participant', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null))
+    mockVerifyThreadParticipant.mockResolvedValueOnce(null)
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'DELETE',
@@ -487,11 +498,8 @@ describe('DELETE /api/dm/[threadId]/[messageId] — missing branches', () => {
 
   it('should return 404 when message fetch returns error', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
 
-    mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
-      .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'not found' }))
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null, { message: 'not found' }))
 
     const req = createNextRequest(`http://localhost:3000/api/dm/${THREAD_ID}/${MESSAGE_ID}`, {
       method: 'DELETE',
@@ -505,7 +513,6 @@ describe('DELETE /api/dm/[threadId]/[messageId] — missing branches', () => {
 
   it('should return 500 when DB soft-delete update fails', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null })
-    const thread = { id: THREAD_ID, participant_1_id: USER_ID, participant_2_id: 'other-user' }
     const message = buildDMMessage({
       id: MESSAGE_ID,
       sender_id: USER_ID,
@@ -514,7 +521,6 @@ describe('DELETE /api/dm/[threadId]/[messageId] — missing branches', () => {
     })
 
     mockClient.from
-      .mockReturnValueOnce(createMockQueryBuilder(thread))
       .mockReturnValueOnce(createMockQueryBuilder(message))
       .mockReturnValueOnce(createMockQueryBuilder(null, { message: 'update failed' }))
 

@@ -22,9 +22,9 @@ Full details for each item in `SECURITY_REVIEW_REPORT.md`.
 
 - [ ] **SEC-008** — Photos auto-approve, bypassing moderation — default new uploads to `approval_status: "pending"`; hide pending photos from public APIs
 - [ ] **SEC-012** — Realtime global subscriptions — verify Supabase Realtime RLS on `dm_messages`, `profiles`, `friendships`; add per-thread filter where possible; test with a non-participant account
-- [ ] **SEC-017** — `/api/location` accepts `NaN` and out-of-range values — validate `Number.isFinite(lat) && lat >= -90 && lat <= 90` (same for lng); use Zod schema
+- [x] **SEC-017** — `/api/location` accepts `NaN` and out-of-range values — validate `Number.isFinite(lat) && lat >= -90 && lat <= 90` (same for lng); use Zod schema
 - [ ] **SEC-023** — Universal Links broken — set `APPLE_TEAM_ID` env var in Vercel; add `com.apple.developer.associated-domains` entitlement to `App.entitlements`
-- [ ] **SEC-025** — `unblock_user` is a raw table delete — implement `unblock_user()` RPC that properly reverses all side effects of `block_user()`
+- [x] **SEC-025** — `unblock_user` is a raw table delete — implement `unblock_user()` RPC that properly reverses all side effects of `block_user()`
 
 ---
 
@@ -48,7 +48,7 @@ These are tracked here for awareness but are not dev-phase blockers:
 - [ ] **SEC-007** — Restrict `openExternal` to `https://` + domain allow-list in Swift
 - [ ] **SEC-010** — Enforce single-token-per-device on push token upload; delete from other profiles
 - [ ] **SEC-015** — Verify Stripe `paymentMethodId` belongs to calling customer before attach
-- [ ] **SEC-016** — Add Upstash rate limiting to all mutation endpoints
+- [x] **SEC-016** — Add Upstash rate limiting to all mutation endpoints
 - [ ] **SEC-019** — Validate APNs key parses correctly at module load; prefer base64-only env var
 - [ ] **SEC-021** — Remove Mapbox token `print` from DEBUG builds in `AppConfig.swift`
 - [ ] **SEC-022** — Strip `console.*` in production via `compiler.removeConsole`; use structured logger server-side

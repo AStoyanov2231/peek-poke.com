@@ -552,15 +552,12 @@ describe('DELETE /api/profile/photos/[photoId]', () => {
     expect(body.code).toBe('PHOTO_NOT_FOUND')
   })
 
-  it('returns 500 on DB delete error', async () => {
+  it('returns 500 on RPC error', async () => {
     authUser()
-    const photo = buildProfilePhoto({ is_avatar: false, thumbnail_url: null })
-    let callCount = 0
-    mockClient.from.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) return createMockQueryBuilder(photo) // select
-      return createMockQueryBuilder(null, { message: 'db error' }) // delete fails
-    })
+    const photo = buildProfilePhoto({ is_avatar: false, thumbnail_url: null, storage_path: 'user/123.jpg' })
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(photo)) // ownership select
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'db error' } })
+
     const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'DELETE' })
     const res = await photoDelete(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
     expect(res.status).toBe(500)
@@ -568,49 +565,31 @@ describe('DELETE /api/profile/photos/[photoId]', () => {
     expect(body.code).toBe('PHOTO_DELETE_FAILED')
   })
 
-  it('returns 200 on success', async () => {
+  it('returns 200 on success, calls delete_photo RPC', async () => {
     authUser()
-    const photo = buildProfilePhoto({ is_avatar: false, thumbnail_url: null })
-    let callCount = 0
-    mockClient.from.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) return createMockQueryBuilder(photo) // select
-      return createMockQueryBuilder(null) // delete succeeds
-    })
+    const photo = buildProfilePhoto({ is_avatar: false, thumbnail_url: null, storage_path: 'user/123.jpg' })
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(photo)) // ownership select
+    mockClient.rpc.mockResolvedValue({ data: { storage_path: 'user/123.jpg', thumbnail_url: null }, error: null })
+
     const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'DELETE' })
     const res = await photoDelete(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.success).toBe(true)
-  })
-
-  it('clears profile avatar_url when deleted photo was the avatar', async () => {
-    authUser()
-    const photo = buildProfilePhoto({ is_avatar: true, thumbnail_url: null })
-    let callCount = 0
-    mockClient.from.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) return createMockQueryBuilder(photo)  // select
-      if (callCount === 2) return createMockQueryBuilder(null)    // delete
-      return createMockQueryBuilder(null)                          // clear avatar_url on profiles
+    expect(mockClient.rpc).toHaveBeenCalledWith('delete_photo', {
+      p_user_id: 'user-123',
+      p_photo_id: VALID_PHOTO_ID,
     })
-    const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'DELETE' })
-    const res = await photoDelete(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
-    expect(res.status).toBe(200)
-    expect(mockClient.from).toHaveBeenCalledTimes(3)
   })
 
-  it('attempts thumbnail cleanup when thumbnail_url exists', async () => {
+  it('attempts thumbnail cleanup when thumbnail_url returned by RPC', async () => {
     authUser()
     const removeMock = vi.fn(() => Promise.resolve({ data: null, error: null }))
     mockClient.storage.from.mockReturnValue({ upload: vi.fn(), getPublicUrl: vi.fn(), remove: removeMock })
     const photo = buildProfilePhoto({ is_avatar: false, thumbnail_url: 'https://example.com/thumb.jpg', storage_path: 'user/123.jpg' })
-    let callCount = 0
-    mockClient.from.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) return createMockQueryBuilder(photo)
-      return createMockQueryBuilder(null)
-    })
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(photo))
+    mockClient.rpc.mockResolvedValue({ data: { storage_path: 'user/123.jpg', thumbnail_url: 'https://example.com/thumb.jpg' }, error: null })
+
     const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'DELETE' })
     const res = await photoDelete(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
     expect(res.status).toBe(200)
@@ -822,15 +801,12 @@ describe('PATCH /api/profile/photos/[photoId]', () => {
     expect(body.code).toBe('PHOTO_UPDATE_FAILED')
   })
 
-  it('returns 500 when clearing other avatars fails', async () => {
+  it('returns 500 when set_avatar RPC errors', async () => {
     authUser()
     const photo = buildProfilePhoto({ is_avatar: false, is_private: false, approval_status: 'approved' })
-    let callCount = 0
-    mockClient.from.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) return createMockQueryBuilder(photo)
-      return createMockQueryBuilder(null, { message: 'db error' })
-    })
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(photo)) // ownership select
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'db error' } })
+
     const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
     const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
     expect(res.status).toBe(500)
@@ -838,39 +814,32 @@ describe('PATCH /api/profile/photos/[photoId]', () => {
     expect(body.code).toBe('PHOTO_UPDATE_FAILED')
   })
 
-  it('returns 500 when updating profile avatar_url fails', async () => {
+  it('returns 400 when set_avatar RPC returns data.error', async () => {
     authUser()
     const photo = buildProfilePhoto({ is_avatar: false, is_private: false, approval_status: 'approved' })
-    let callCount = 0
-    mockClient.from.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) return createMockQueryBuilder(photo)    // ownership
-      if (callCount === 2) return createMockQueryBuilder(null)      // clear other avatars OK
-      return createMockQueryBuilder(null, { message: 'db error' }) // profiles update fails
-    })
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(photo))
+    mockClient.rpc.mockResolvedValue({ data: { error: 'Photo not found', status: 404 }, error: null })
+
     const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
     const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
-    expect(res.status).toBe(500)
-    const body = await res.json()
-    expect(body.code).toBe('PHOTO_UPDATE_FAILED')
+    expect(res.status).toBe(404)
   })
 
-  it('sets photo as avatar successfully', async () => {
+  it('sets photo as avatar successfully via set_avatar RPC', async () => {
     authUser()
     const photo = buildProfilePhoto({ is_avatar: false, is_private: false, approval_status: 'approved' })
     const updated = { ...photo, is_avatar: true }
-    let callCount = 0
-    mockClient.from.mockImplementation(() => {
-      callCount++
-      if (callCount === 1) return createMockQueryBuilder(photo)    // ownership
-      if (callCount === 2) return createMockQueryBuilder(null)      // clear other avatars
-      if (callCount === 3) return createMockQueryBuilder(null)      // profiles update
-      return createMockQueryBuilder(updated)                         // photo update
-    })
+    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(photo)) // ownership select
+    mockClient.rpc.mockResolvedValue({ data: updated, error: null })
+
     const req = createNextRequest(`/api/profile/photos/${VALID_PHOTO_ID}`, { method: 'PATCH', body: { is_avatar: true } })
     const res = await photoPatch(req, { params: Promise.resolve({ photoId: VALID_PHOTO_ID }) })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.photo.is_avatar).toBe(true)
+    expect(mockClient.rpc).toHaveBeenCalledWith('set_avatar', {
+      p_user_id: 'user-123',
+      p_photo_id: VALID_PHOTO_ID,
+    })
   })
 })

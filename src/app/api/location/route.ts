@@ -1,22 +1,24 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { withAuth } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { coordsSchema, parseBody } from "@/lib/validators";
+import { apiError } from "@/lib/api-error";
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const POST = withAuth(async (request, { user, supabase }) => {
+  const limited = await enforceRateLimit("location", user.id);
+  if (limited) return limited;
 
-  const body = await request.json() as { lat?: unknown; lng?: unknown };
-  const lat = typeof body.lat === "number" ? body.lat : null;
-  const lng = typeof body.lng === "number" ? body.lng : null;
-  if (lat === null || lng === null) {
-    return NextResponse.json({ error: "lat and lng required" }, { status: 400 });
-  }
+  const [body, err] = await parseBody(request, coordsSchema);
+  if (err) return err;
 
   const { error } = await supabase
     .from("user_locations")
-    .upsert({ user_id: user.id, lat, lng, updated_at: new Date().toISOString() });
+    .upsert({ user_id: user.id, lat: body.lat, lng: body.lng, updated_at: new Date().toISOString() });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("location:", error);
+    return apiError("Internal server error", 500, "LOCATION_UPDATE_FAILED");
+  }
+
   return NextResponse.json({ ok: true });
-}
+});

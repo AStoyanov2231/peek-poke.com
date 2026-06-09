@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { isValidUUID } from "@/lib/validation";
 import { apiError } from "@/lib/api-error";
 
 export const POST = withAuth(async (request, { user, supabase }) => {
+  const limited = await enforceRateLimit("coinMeeting", user.id);
+  if (limited) return limited;
+
   const body = await request.json();
   const friendId = body.friend_id;
 

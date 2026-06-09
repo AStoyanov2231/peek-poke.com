@@ -40,3 +40,13 @@ export const COIN_SPENT_ANIMATION_MS = 600;
 
 // Presence tracking location update debounce in ms
 export const TRACK_DEBOUNCE_MS = 10_000;
+
+// Rate limits per endpoint: { limit: max requests, window: duration in seconds }
+export const RATE_LIMITS = {
+  sendMessage:   { limit: 30, window: 60 },
+  friendRequest: { limit: 20, window: 60 },
+  coinMeeting:   { limit: 10, window: 60 },
+  location:      { limit: 60, window: 60 },
+  nearby:        { limit: 60, window: 60 },
+  adminCoins:    { limit: 60, window: 60 },
+} as const;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth, verifyThreadParticipant } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { isValidUUID } from "@/lib/validation";
 import { dmMessageSchema, parseBody } from "@/lib/validators";
 import { apiError } from "@/lib/api-error";
@@ -36,6 +37,15 @@ export const POST = withAuth<{ threadId: string }>(async (request, { user, supab
     return apiError("Invalid thread ID", 400, "THREAD_NOT_FOUND");
   }
 
+  const limited = await enforceRateLimit("sendMessage", user.id);
+  if (limited) return limited;
+
+  // Authorize: verify caller is a thread participant before touching the RPC
+  const thread = await verifyThreadParticipant(supabase, threadId, user.id);
+  if (!thread) {
+    return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
+  }
+
   const [msg, err] = await parseBody(request, dmMessageSchema);
   if (err) return err;
 
@@ -60,7 +70,7 @@ export const POST = withAuth<{ threadId: string }>(async (request, { user, supab
   // Notify the other participant. Best-effort — failures must not break the send.
   void notifyRecipient({
     supabase,
-    threadId,
+    thread,
     senderId: user.id,
     content: msg.content,
     messageType: msg.message_type,
@@ -71,16 +81,17 @@ export const POST = withAuth<{ threadId: string }>(async (request, { user, supab
 
 async function notifyRecipient(args: {
   supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>;
-  threadId: string;
+  thread: { participant_1_id: string; participant_2_id: string; id: string };
   senderId: string;
   content: string;
   messageType: string;
 }) {
   try {
-    const thread = await verifyThreadParticipant(args.supabase, args.threadId, args.senderId);
-    if (!thread) return;
+    const { thread } = args;
     const recipientId =
-      thread.participant_1_id === args.senderId ? thread.participant_2_id : thread.participant_1_id;
+      thread.participant_1_id === args.senderId
+        ? thread.participant_2_id
+        : thread.participant_1_id;
 
     const { data: sender } = await args.supabase
       .from("profiles")
@@ -97,9 +108,9 @@ async function notifyRecipient(args: {
     await sendPushToUser(recipientId, {
       title,
       body,
-      route: `/chat/${args.threadId}`,
-      threadId: args.threadId,
-      data: { kind: "dm", threadId: args.threadId, senderId: args.senderId },
+      route: `/chat/${thread.id}`,
+      threadId: thread.id,
+      data: { kind: "dm", threadId: thread.id, senderId: args.senderId },
     });
   } catch (err) {
     console.error("notifyRecipient failed:", err);

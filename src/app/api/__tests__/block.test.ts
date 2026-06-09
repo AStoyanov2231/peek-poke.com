@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createMockSupabaseClient, createMockQueryBuilder } from '../../../../test/mocks/supabase'
+import { createMockSupabaseClient } from '../../../../test/mocks/supabase'
 import { createNextRequest } from '../../../../test/mocks/next'
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -79,7 +79,7 @@ describe('POST /api/users/[userId]/block', () => {
   })
 })
 
-describe('DELETE /api/users/[userId]/block', () => {
+describe('DELETE /api/users/[userId]/block (unblock)', () => {
   it('returns 401 when unauthenticated', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
@@ -100,9 +100,9 @@ describe('DELETE /api/users/[userId]/block', () => {
     expect(body).toHaveProperty('error', 'Invalid user ID')
   })
 
-  it('returns 500 on DB error', async () => {
+  it('returns 500 on RPC error', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: ACTOR_ID } }, error: null })
-    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null, { message: 'DB error' }))
+    mockClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
 
     const req = createNextRequest(`http://localhost:3000/api/users/${VALID_UUID}/block`, { method: 'DELETE' })
     const res = await DELETE(req, { params: Promise.resolve({ userId: VALID_UUID }) })
@@ -112,13 +112,17 @@ describe('DELETE /api/users/[userId]/block', () => {
     expect(body).toHaveProperty('error')
   })
 
-  it('returns { success: true } on success', async () => {
+  it('calls unblock_user RPC and returns { success: true } on success', async () => {
     mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: ACTOR_ID } }, error: null })
-    mockClient.from.mockReturnValueOnce(createMockQueryBuilder(null))
+    mockClient.rpc.mockResolvedValue({ data: { success: true }, error: null })
 
     const req = createNextRequest(`http://localhost:3000/api/users/${VALID_UUID}/block`, { method: 'DELETE' })
     const res = await DELETE(req, { params: Promise.resolve({ userId: VALID_UUID }) })
 
+    expect(mockClient.rpc).toHaveBeenCalledWith('unblock_user', {
+      p_blocker_id: ACTOR_ID,
+      p_blocked_id: VALID_UUID,
+    })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toEqual({ success: true })
