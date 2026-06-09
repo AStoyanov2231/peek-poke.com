@@ -45,6 +45,7 @@ export const POST = withAuth<{ threadId: string }>(async (request, { user, supab
     p_content: msg.content,
     p_message_type: msg.message_type,
     p_media_url: msg.media_url || null,
+    p_reply_to_id: msg.reply_to_id || null,
   });
 
   if (error) {

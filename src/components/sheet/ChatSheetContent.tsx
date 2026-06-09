@@ -36,10 +36,14 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   const router = useRouter();
   const rqClient = useQueryClient();
   const [input, setInput] = useState("");
+  const [replyingTo, setReplyingTo] = useState<DMMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<DMMessage | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const hasSeeded = useRef(false);
 
   const storeMessages = useThreadMessages(threadId);
   const setThreadMessages = useAppStore((s) => s.setThreadMessages);
+  const updateMessage = useAppStore((s) => s.updateMessage);
   const startOutgoingCall = useCallStore((s) => s.startOutgoingCall);
   const markThreadRead = useAppStore((s) => s.markThreadRead);
   const setActiveThreadId = useAppStore((s) => s.setActiveThreadId);
@@ -84,11 +88,13 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   }, [threadId, markThreadRead, setActiveThreadId]);
 
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, replyToId }: { content: string; replyToId: string | null }) => {
+      const body: Record<string, unknown> = { content };
+      if (replyToId) body.reply_to_id = replyToId;
       const res = await fetch(`/api/dm/${threadId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Failed to send message");
       return res.json() as Promise<{ message: DMMessage }>;
@@ -104,12 +110,46 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
+      const res = await fetch(`/api/dm/${threadId}/${messageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error || "Failed to edit message");
+      }
+      return res.json() as Promise<{ message: DMMessage }>;
+    },
+    onSuccess: ({ message }) => {
+      updateMessage(threadId, message.id, message);
+      setEditingMessage(null);
+      setEditError(null);
+      setInput("");
+    },
+    onError: (err: Error) => {
+      setEditError(err.message);
+    },
+  });
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || sendMutation.isPending) return;
     const content = input.trim();
+    if (!content) return;
+
+    if (editingMessage) {
+      if (editMutation.isPending) return;
+      editMutation.mutate({ messageId: editingMessage.id, content });
+      return;
+    }
+
+    if (sendMutation.isPending) return;
+    const currentReplyTo = replyingTo;
     setInput("");
-    sendMutation.mutate(content);
+    setReplyingTo(null);
+    sendMutation.mutate({ content, replyToId: currentReplyTo?.id ?? null });
   };
 
   const handleDelete = async (messageId: string) => {
@@ -119,6 +159,30 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
       console.error("Failed to delete message:", error);
     }
   };
+
+  const handleEdit = useCallback((msg: DMMessage) => {
+    setEditingMessage(msg);
+    setEditError(null);
+    setInput(msg.content ?? "");
+    setReplyingTo(null);
+  }, []);
+
+  const handleReply = useCallback((msg: DMMessage) => {
+    setReplyingTo(msg);
+    setEditingMessage(null);
+    setEditError(null);
+    setInput("");
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
+    setEditError(null);
+    setInput("");
+  }, []);
+
+  const handleCancelReply = useCallback(() => {
+    setReplyingTo(null);
+  }, []);
 
   const other = thread
     ? (thread.participant_1_id === user?.id ? thread.participant_2 : thread.participant_1)
@@ -134,6 +198,13 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
       avatar_url: other.avatar_url,
     });
   }, [threadId, other, startOutgoingCall]);
+
+  const replyingToDisplay = replyingTo ? {
+    senderName: replyingTo.sender_id === user?.id
+      ? "Yourself"
+      : (other?.display_name || other?.username || "User"),
+    content: replyingTo.content,
+  } : null;
 
   if (isLoading || !thread || !other) {
     return (
@@ -157,7 +228,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   }
 
   return (
-    <div className="relative flex flex-col h-full">
+    <div className="flex flex-col h-full">
       <ChatHeader
         other={other}
         isOnline={isOtherOnline}
@@ -178,13 +249,20 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         messages={messages}
         userId={user?.id ?? ""}
         onDelete={handleDelete}
+        onEdit={handleEdit}
+        onReply={handleReply}
       />
 
       <ChatComposer
         value={input}
         onChange={setInput}
         onSubmit={handleSend}
-        isPending={sendMutation.isPending}
+        isPending={sendMutation.isPending || editMutation.isPending}
+        replyingTo={replyingToDisplay}
+        onCancelReply={handleCancelReply}
+        isEditing={!!editingMessage}
+        editError={editError}
+        onCancelEdit={handleCancelEdit}
       />
     </div>
   );

@@ -73,6 +73,12 @@ export type DMThread = {
   participant_2?: Profile;
 };
 
+export type DMMessageReplySnippet = {
+  id: string;
+  sender_id: string;
+  content: string | null;
+};
+
 export type DMMessage = {
   id: string;
   thread_id: string;
@@ -85,6 +91,8 @@ export type DMMessage = {
   is_edited: boolean;
   is_deleted: boolean;
   created_at: string;
+  reply_to_id: string | null;
+  reply_to: DMMessageReplySnippet | null;
   sender?: Profile;
 };
 

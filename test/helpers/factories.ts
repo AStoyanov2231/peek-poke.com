@@ -79,6 +79,8 @@ export function buildDMMessage(overrides: Partial<DMMessage> = {}): DMMessage {
     is_edited: false,
     is_deleted: false,
     created_at: timestamp(),
+    reply_to_id: null,
+    reply_to: null,
     ...overrides,
   }
 }

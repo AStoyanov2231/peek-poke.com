@@ -49,6 +49,7 @@ export const dmMessageSchema = z.object({
   message_type: z.enum(["text", "image"]).default("text"),
   media_url: z.string().max(2048, "URL too long").refine((v) => isValidMediaUrl(v), "Invalid media URL").optional(),
   media_thumbnail_url: z.string().max(2048, "URL too long").refine((v) => isValidMediaUrl(v), "Invalid thumbnail URL").optional(),
+  reply_to_id: z.string().uuid().optional(),
 });
 
 export const dmMessageEditSchema = z.object({
