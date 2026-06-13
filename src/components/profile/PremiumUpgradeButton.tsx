@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import { Crown, Loader2 } from "lucide-react";
+import { isNativeApp } from "@/lib/native";
+import { UpgradeDialog } from "@/components/ui/UpgradeDialog";
 
 export function PremiumUpgradeButton({ fullWidth }: { fullWidth?: boolean }) {
   const [loading, setLoading] = useState(false);
+  const [showNativeNotice, setShowNativeNotice] = useState(false);
 
   const handleClick = async () => {
+    // Native never opens Stripe — UpgradeDialog shows the availability notice
+    if (isNativeApp()) {
+      setShowNativeNotice(true);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/stripe/checkout", { method: "POST" });
@@ -20,17 +28,20 @@ export function PremiumUpgradeButton({ fullWidth }: { fullWidth?: boolean }) {
   };
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={loading}
-      className={`bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-full px-4 py-2 text-sm font-semibold flex items-center gap-1.5 shadow-e-1 disabled:opacity-70 justify-center${fullWidth ? " w-full" : ""}`}
-    >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Crown className="h-4 w-4" />
-      )}
-      Upgrade to Premium
-    </button>
+    <>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className={`bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-full px-4 py-2 text-sm font-semibold flex items-center gap-1.5 shadow-e-1 disabled:opacity-70 justify-center${fullWidth ? " w-full" : ""}`}
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Crown className="h-4 w-4" />
+        )}
+        Upgrade to Premium
+      </button>
+      <UpgradeDialog open={showNativeNotice} onOpenChange={setShowNativeNotice} />
+    </>
   );
 }

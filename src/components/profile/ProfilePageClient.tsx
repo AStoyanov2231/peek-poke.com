@@ -12,6 +12,7 @@ import { ProfileIdentity } from "./ProfileIdentity";
 import { ProfileStatsRow } from "./ProfileStatsRow";
 import { PremiumCard } from "./PremiumCard";
 import { compressImage, createThumbnail } from "@/lib/image-compression";
+import { isNativeApp } from "@/lib/native";
 import { useAppStore } from "@/stores/appStore";
 import {
   useProfile as useStoreProfile,
@@ -84,6 +85,9 @@ export function ProfilePageClient({
   }, [isProfileLoaded, initialProfile, initialPhotos, initialInterests, initialAllTags, initialStats, setStoreProfile, setStorePhotos, setStoreInterests, setStoreAllTags, setStoreStats]);
 
   useEffect(() => {
+    // Desktop-browser bfcache only. In the native shell the WebView is persistent
+    // by design — a forced reload here would destroy all in-memory app state.
+    if (isNativeApp()) return;
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) window.location.reload();
     };

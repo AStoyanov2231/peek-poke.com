@@ -2,6 +2,7 @@
 
 import { useProfile, usePhotos, useInterests, useAllTags, useProfileStats, useIsProfileLoaded } from "@/stores/selectors";
 import { ProfilePageClient } from "@/components/profile/ProfilePageClient";
+import { RestoredScroll } from "@/components/layout/RestoredScroll";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProfilePage() {
@@ -23,7 +24,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <RestoredScroll storageKey="profile" className="h-full overflow-y-auto bg-background">
       <ProfilePageClient
         profile={profile}
         photos={photos}
@@ -31,6 +32,6 @@ export default function ProfilePage() {
         allTags={allTags}
         stats={stats}
       />
-    </div>
+    </RestoredScroll>
   );
 }

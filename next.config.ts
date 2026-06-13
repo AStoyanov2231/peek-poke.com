@@ -9,6 +9,16 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "places.googleapis.com" },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        // Apple requires this exact path (no extension, application/json) for
+        // universal links; an API route guarantees the content type.
+        source: "/.well-known/apple-app-site-association",
+        destination: "/api/apple-app-site-association",
+      },
+    ];
+  },
   async headers() {
     return [
       {

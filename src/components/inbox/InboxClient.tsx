@@ -7,6 +7,7 @@ import { FriendsTab } from "@/components/inbox/FriendsTab";
 import { RequestsTab } from "@/components/inbox/RequestsTab";
 import { InboxChatPanel } from "@/components/inbox/InboxChatPanel";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RestoredScroll } from "@/components/layout/RestoredScroll";
 import { useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
 
 type Tab = "chats" | "friends" | "requests";
@@ -85,11 +86,11 @@ export function InboxClient() {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <RestoredScroll storageKey={`inbox:${localTab}`} className="flex-1 min-h-0 overflow-y-auto">
           {localTab === "chats" && <ChatsTab onSelectThread={setThread} activeThreadId={threadId} />}
           {localTab === "friends" && <FriendsTab />}
           {localTab === "requests" && <RequestsTab />}
-        </div>
+        </RestoredScroll>
       </div>
 
       {/* Desktop right panel */}

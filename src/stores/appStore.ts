@@ -130,6 +130,13 @@ interface AppState {
   markFriendDeletionPending: (friendId: string) => void;
   clearFriendDeletionPending: (friendId: string) => void;
 
+  // In-progress chat input, keyed by threadId — survives section switches
+  drafts: Record<string, string>;
+  setDraft: (threadId: string, text: string) => void;
+
+  // Session expired mid-preload — PreloadProvider routes to /login (soft, keeps SPA alive)
+  sessionExpired: boolean;
+
   // Messages actions
   setThreads: (threads: Thread[]) => void;
   setThreadMessages: (threadId: string, messages: DMMessage[]) => void;
@@ -162,6 +169,9 @@ interface AppState {
 
   // Location state
   userLocation: { lat: number; lng: number } | null;
+  // Permission/fix lifecycle so the map page can explain a missing location
+  locationStatus: "idle" | "prompting" | "granted" | "denied";
+  setLocationStatus: (status: "idle" | "prompting" | "granted" | "denied") => void;
   nearbyUsers: NearbyUser[];
   visibleUsers: NearbyUser[];
   selectedClusterUserIds: string[] | null;
@@ -204,6 +214,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   threadMessages: {},
   totalUnread: 0,
   activeThreadId: null,
+  drafts: {},
+  sessionExpired: false,
   coins: 5,
   coinSpent: false,
   coinSpentCount: 0,
@@ -249,14 +261,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Preload all data
   preloadAll: async () => {
-    set({ isPreloading: true, preloadError: null });
+    set({ isPreloading: true, preloadError: null, sessionExpired: false });
 
     try {
       const res = await fetch("/api/preload");
 
       if (res.status === 401) {
-        set({ isPreloading: false });
-        window.location.href = "/login";
+        // Soft signal — PreloadProvider router.pushes to /login. A hard
+        // window.location redirect would reload the whole SPA (and on native,
+        // re-initialize the persistent WebView).
+        set({ isPreloading: false, sessionExpired: true });
         return;
       }
 
@@ -292,6 +306,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       threadMessages: {},
       totalUnread: 0,
       activeThreadId: null,
+      drafts: {},
+      sessionExpired: false,
       coins: 5,
       coinSpentCount: 0,
       metFriendIds: new Set<string>(),
@@ -305,6 +321,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       isMessagesLoaded: false,
       mapReady: false,
       userLocation: null,
+      // locationStatus intentionally survives logout — OS permission state
+      // doesn't change with the session.
       nearbyUsers: [],
       visibleUsers: [],
       selectedClusterUserIds: null,
@@ -419,6 +437,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }),
   setActiveThreadId: (threadId) => set({ activeThreadId: threadId }),
+  setDraft: (threadId, text) =>
+    set((state) => {
+      const drafts = { ...state.drafts };
+      if (text) drafts[threadId] = text;
+      else delete drafts[threadId];
+      return { drafts };
+    }),
   removeThread: (threadId) =>
     set((state) => ({
       threads: state.threads.filter((t) => t.id !== threadId),
@@ -501,6 +526,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeBot: (id) => set((s) => ({ bots: s.bots.filter((b) => b.id !== id) })),
 
   userLocation: null,
+  locationStatus: "idle",
   nearbyUsers: [],
   visibleUsers: [],
   selectedClusterUserIds: null,
@@ -508,6 +534,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingUserId: null,
   highlightedData: null,
   setUserLocation: (location) => set({ userLocation: location }),
+  setLocationStatus: (status) => set({ locationStatus: status }),
   setNearbyUsers: (users) => set((state) => {
     const seeded = state.nearbyUsers.filter(u => u.userId.startsWith("dev-seed-"));
     const next = seeded.length > 0 ? [...seeded, ...users] : users;

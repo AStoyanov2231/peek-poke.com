@@ -54,6 +54,7 @@ export const useIsFullyLoaded = () =>
 
 // Location selectors
 export const useUserLocation = () => useAppStore((state) => state.userLocation);
+export const useLocationStatus = () => useAppStore((state) => state.locationStatus);
 export const useNearbyUsers = () => useAppStore(useShallow((state) => state.nearbyUsers));
 export const useVisibleUsers = () => useAppStore(useShallow((state) => state.visibleUsers));
 export const useSelectedClusterUserIds = () => useAppStore(useShallow((state) => state.selectedClusterUserIds));

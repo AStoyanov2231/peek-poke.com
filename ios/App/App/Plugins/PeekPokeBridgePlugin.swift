@@ -5,7 +5,8 @@ import UIKit
 ///
 /// Web → Native calls:
 ///   setAuth, clearAuth, getAuth           — Keychain token management (AuthStore)
-///   setRole                               — show/hide admin tab (lazy)
+///   setRole                               — show/hide admin tab
+///   setActiveRoute                        — web reports route changes (tab sync)
 ///   setTabBadge, setAppBadge              — badge counts
 ///   openExternal                          — open URL in Safari
 ///   setMapInteractiveRects                — touch passthrough hit areas
@@ -30,12 +31,14 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "clearAuth",            returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAuth",              returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setRole",              returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setActiveRoute",       returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setTabBadge",          returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setAppBadge",          returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openExternal",         returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMapInteractiveRects", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMapPins",           returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMapCamera",         returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setMapOrbit",          returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMapClusterConfig",  returnType: CAPPluginReturnPromise),
     ]
 
@@ -50,6 +53,14 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         NotificationCenter.default.addObserver(
             self, selector: #selector(onNativePinTapped(_:)),
             name: .peekPokeMapPinTapped, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(onNativeMapTapped(_:)),
+            name: .peekPokeMapTapped, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(onOAuthCallback(_:)),
+            name: .peekPokeOAuthCallback, object: nil
         )
     }
 
@@ -72,8 +83,8 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func clearAuth(_ call: CAPPluginCall) {
-        // RootContainerViewController observes AuthStore.isAuthenticated and
-        // automatically swaps back to the login WebView on clear.
+        // RootShellViewController observes AuthStore.isAuthenticated and hides the
+        // tab bar; the WebView itself navigates to /login and is never torn down.
         AuthStore.shared.clear()
         call.resolve()
     }
@@ -100,11 +111,28 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
+    /// Web reports every client-side route change so the native shell can sync
+    /// tab selection, map visibility, and tab bar appearance.
+    @objc func setActiveRoute(_ call: CAPPluginCall) {
+        guard let route = call.getString("route") else {
+            call.resolve()
+            return
+        }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .peekPokeActiveRouteChanged,
+                object: nil,
+                userInfo: ["route": route]
+            )
+        }
+        call.resolve()
+    }
+
     @objc func setTabBadge(_ call: CAPPluginCall) {
         let tab   = call.getString("tab") ?? ""
         let count = call.getInt("count") ?? 0
         DispatchQueue.main.async {
-            Self.tabBar()?.setBadge(tab: tab, count: count)
+            Self.shell()?.setBadge(tab: tab, count: count)
         }
         call.resolve()
     }
@@ -117,13 +145,11 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
-    /// Resolves the active tab bar through `RootContainerViewController`.
-    /// Returns nil when the user is unauthenticated (login WebView is showing).
-    private static func tabBar() -> RootTabBarController? {
-        let container = UIApplication.shared.connectedScenes
+    /// Resolves the permanent root shell hosting the tab bar and the WebView.
+    private static func shell() -> RootShellViewController? {
+        UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first?.rootViewController as? RootContainerViewController
-        return container?.tabBar
+            .first?.windows.first?.rootViewController as? RootShellViewController
     }
 
     @objc func openExternal(_ call: CAPPluginCall) {
@@ -195,6 +221,19 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
+    /// Start/stop the slow camera orbit around the highlighted user.
+    @objc func setMapOrbit(_ call: CAPPluginCall) {
+        let active = call.getBool("active") ?? false
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .peekPokeMapOrbit,
+                object: nil,
+                userInfo: ["active": active]
+            )
+        }
+        call.resolve()
+    }
+
     @objc func setMapClusterConfig(_ call: CAPPluginCall) {
         // Reserved — native clustering config is currently set in MapTabViewController
         call.resolve()
@@ -210,5 +249,16 @@ public class PeekPokeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc private func onNativePinTapped(_ note: Notification) {
         guard let info = note.userInfo as? [String: Any] else { return }
         notifyListeners("mapPinTapped", data: info)
+    }
+
+    @objc private func onNativeMapTapped(_ note: Notification) {
+        notifyListeners("mapTapped", data: [:])
+    }
+
+    /// peekpoke://oauth-callback?code=… arrived (SceneDelegate). Retained until the
+    /// web layer consumes it — the app may still be cold-launching.
+    @objc private func onOAuthCallback(_ note: Notification) {
+        guard let url = note.userInfo?["url"] as? String else { return }
+        notifyListeners("oauthCallback", data: ["url": url], retainUntilConsumed: true)
     }
 }

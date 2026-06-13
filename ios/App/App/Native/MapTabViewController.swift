@@ -36,7 +36,7 @@ final class MapTabViewController: UIViewController {
 
     private var mapView: MapView!
     private var passthroughView: MapPassthroughView { view as! MapPassthroughView }
-    private var overlayBridgeVC: WebTabBridgeViewController?
+    private var overlayBridgeVC: MainBridgeViewController?
 
     // Annotation management
     private var annotationManager: PointAnnotationManager?
@@ -44,22 +44,33 @@ final class MapTabViewController: UIViewController {
     private var builtAnnotations: [String: PointAnnotation] = [:]  // id → built annotation (for diffing)
     private var cancellables = Set<AnyCancellable>()
     private var cameraDebounceTimer: Timer?
+    private var styleManager: MapboxStyleManager?
+
+    // Map-tap handling: annotation taps also reach onMapTap in some gesture
+    // orderings — suppress the empty-map tap event around an annotation tap.
+    private var lastAnnotationTapAt: Date = .distantPast
+
+    // Orbit (highlighted user): slow bearing rotation matching web MapView.tsx
+    private var orbitLink: CADisplayLink?
 
     override func loadView() {
         view = MapPassthroughView()
-        view.backgroundColor = .systemBackground
+        // Light app background (not .systemBackground, which goes black in dark
+        // mode) — shows through the non-opaque WebView wherever web hasn't painted.
+        view.backgroundColor = UIColor(red: 0.975, green: 0.974, blue: 0.977, alpha: 1)
     }
 
-    func embedBridgeVC(_ bridgeVC: WebTabBridgeViewController) {
+    func embedBridgeVC(_ bridgeVC: MainBridgeViewController) {
         overlayBridgeVC = bridgeVC
         addChild(bridgeVC)
         bridgeVC.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(bridgeVC.view)
         bridgeVC.didMove(toParent: self)
         passthroughView.overlayView = bridgeVC.view
+        // Full bounds: the WebView is transparent on the map route (raw map shows
+        // through the status bar area) and web CSS keeps content inside safe areas.
         NSLayoutConstraint.activate([
-            // Top pinned to safe area so the status bar shows raw map, not WebView glass
-            bridgeVC.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            bridgeVC.view.topAnchor.constraint(equalTo: view.topAnchor),
             bridgeVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bridgeVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bridgeVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -79,6 +90,10 @@ final class MapTabViewController: UIViewController {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleMapCamera(_:)),
             name: .peekPokeMapCamera, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleMapOrbit(_:)),
+            name: .peekPokeMapOrbit, object: nil
         )
     }
 
@@ -116,6 +131,12 @@ final class MapTabViewController: UIViewController {
             view.bringSubviewToFront(overlay.view)
         }
 
+        // Match web MapView.tsx: minZoom 16 keeps the map a local, street-level view
+        try? mv.mapboxMap.setCameraBounds(with: CameraBoundsOptions(minZoom: 16))
+
+        // Time-of-day light preset (dawn/day/dusk/night), reapplied on foreground
+        styleManager = MapboxStyleManager(mapView: mv)
+
         // Create annotation manager for user/bot pins
         let mgr = mv.annotations.makePointAnnotationManager()
         mgr.iconAllowOverlap = true
@@ -129,9 +150,17 @@ final class MapTabViewController: UIViewController {
         mv.mapboxMap.onMapIdle.observe { [weak self] _ in
             self?.emitCameraChanged(isUserGesture: true)
         }.store(in: &cancellables)
+
+        // Empty-map taps clear web selections (web MapView onClick parity)
+        mv.gestures.onMapTap.observe { [weak self] _ in
+            self?.handleMapTap()
+        }.store(in: &cancellables)
+
+        // Any user gesture cancels an active orbit (web parity: drag stops orbit)
+        mv.gestures.delegate = self
     }
 
-    /// Called by RootTabBarController when the map tab becomes/stops being the active overlay.
+    /// Called by RootShellViewController when the map tab becomes/stops being the active overlay.
     func setOverlayActive(_ active: Bool) {
         // Keep the previously-published interactiveRects on deactivation. The
         // persistent WebView's DOM doesn't change while another tab is showing,
@@ -143,6 +172,14 @@ final class MapTabViewController: UIViewController {
         // layer can bleed through opaque web tabs at the status bar and home
         // indicator edges depending on the iOS compositor state.
         mapView?.isHidden = !active
+        if !active { stopOrbit() }
+    }
+
+    private func handleMapTap() {
+        // Annotation taps can surface through onMapTap as well; the suppression
+        // window keeps a pin tap from also emitting an empty-map tap.
+        guard Date().timeIntervalSince(lastAnnotationTapAt) > 0.3 else { return }
+        NotificationCenter.default.post(name: .peekPokeMapTapped, object: nil)
     }
 
     @objc private func handleInteractiveRects(_ note: Notification) {
@@ -186,7 +223,7 @@ final class MapTabViewController: UIViewController {
             let img = MapPinRenderer.shared.image(for: pin) { [weak self] pinId, updatedImg in
                 self?.updateAnnotationImage(id: pinId, image: updatedImg)
             }
-            annotation.image = .init(image: img, name: "\(pin.id)_\(pin.kind)_\(pin.isOnline)")
+            annotation.image = .init(image: img, name: "\(pin.id)_\(pin.kind)_\(pin.isOnline)_\(pin.collectable)_\(pin.isSelected)")
             annotation.iconAnchor = .center
             annotations.append(annotation)
             newBuilt[pin.id] = annotation
@@ -201,13 +238,14 @@ final class MapTabViewController: UIViewController {
               let pin = currentPins[id],
               let idx = mgr.annotations.firstIndex(where: { $0.id == id }) else { return }
         var anns = mgr.annotations
-        anns[idx].image = .init(image: image, name: "\(id)_\(pin.kind)_\(pin.isOnline)_av")
+        anns[idx].image = .init(image: image, name: "\(id)_\(pin.kind)_\(pin.isOnline)_\(pin.collectable)_\(pin.isSelected)_av")
         mgr.annotations = anns
     }
 
     // MARK: - Camera handler
 
     @objc private func handleMapCamera(_ note: Notification) {
+        stopOrbit()
         guard let info = note.userInfo as? [String: Any],
               let lat      = info["lat"]      as? Double,
               let lng      = info["lng"]      as? Double,
@@ -234,6 +272,32 @@ final class MapTabViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + (animated ? duration / 1000 + 0.05 : 0.05)) {
             self.emitCameraChanged(isUserGesture: false)
         }
+    }
+
+    // MARK: - Orbit (highlighted user)
+
+    @objc private func handleMapOrbit(_ note: Notification) {
+        let active = note.userInfo?["active"] as? Bool ?? false
+        if active { startOrbit() } else { stopOrbit() }
+    }
+
+    private func startOrbit() {
+        stopOrbit()
+        let link = CADisplayLink(target: self, selector: #selector(orbitTick(_:)))
+        link.add(to: .main, forMode: .common)
+        orbitLink = link
+    }
+
+    private func stopOrbit() {
+        orbitLink?.invalidate()
+        orbitLink = nil
+    }
+
+    @objc private func orbitTick(_ link: CADisplayLink) {
+        guard let map = mapView?.mapboxMap else { return }
+        // 360° per 60 s — same speed as web MapView.tsx's orbit animation
+        let bearing = map.cameraState.bearing + (360.0 / 60.0) * link.duration
+        map.setCamera(to: CameraOptions(bearing: bearing))
     }
 
     // MARK: - Camera event emission
@@ -274,10 +338,19 @@ final class MapTabViewController: UIViewController {
 
 // MARK: - Annotation tap delegate
 
+extension MapTabViewController: GestureManagerDelegate {
+    func gestureManager(_ gestureManager: GestureManager, didBegin gestureType: GestureType) {
+        stopOrbit()
+    }
+    func gestureManager(_ gestureManager: GestureManager, didEnd gestureType: GestureType, willAnimate: Bool) {}
+    func gestureManager(_ gestureManager: GestureManager, didEndAnimatingFor gestureType: GestureType) {}
+}
+
 extension MapTabViewController: AnnotationInteractionDelegate {
     func annotationManager(_ manager: AnnotationManager, didDetectTappedAnnotations annotations: [Annotation]) {
         guard let annotation = annotations.first as? PointAnnotation,
               let pin = currentPins[annotation.id] else { return }
+        lastAnnotationTapAt = Date()
 
         var info: [String: Any] = ["id": pin.id, "kind": pin.kind]
         if pin.kind == "cluster" {

@@ -12,6 +12,8 @@ struct MapPinData: Equatable {
     let colorIndex: Int
     let isOnline: Bool
     let isPending: Bool
+    let collectable: Bool  // bot-only: user is within collection range
+    let isSelected: Bool   // cluster-only: tapped cluster gets a highlight ring
     let count: Int         // cluster count (0 for non-cluster)
     let childIds: [String] // cluster children (empty for non-cluster)
 }
@@ -38,6 +40,11 @@ private let HIGHLIGHTED_RING = UIColor(hex: "#4F8FFF")
 private let FRIEND_RING      = UIColor.white
 private let PENDING_RING     = UIColor(hex: "#94A3B8")
 private let ONLINE_DOT       = UIColor(hex: "#22C55E")
+// Bot pins mirror web BotPin.tsx: amber when collectable, muted gray otherwise
+private let BOT_COLLECTABLE  = PinColor(bg: UIColor(hex: "#F59E0B"), fg: .white)
+private let BOT_FAR          = PinColor(bg: UIColor(hex: "#CBD5E1"), fg: UIColor(hex: "#64748B"))
+// Selected cluster mirrors web .user-pin-cluster-selected (primary ring + scale)
+private let CLUSTER_SELECTED_RING = UIColor(hex: "#7C5CE0")
 
 // MARK: - Image renderer
 
@@ -100,13 +107,13 @@ final class MapPinRenderer {
     // MARK: - Private rendering
 
     private func cacheKey(for pin: MapPinData) -> String {
-        "\(pin.id)|\(pin.kind)|\(pin.colorIndex)|\(pin.isOnline)|\(pin.isPending)|\(pin.avatarUrl ?? "")"
+        "\(pin.id)|\(pin.kind)|\(pin.colorIndex)|\(pin.isOnline)|\(pin.isPending)|\(pin.collectable)|\(pin.isSelected)|\(pin.avatarUrl ?? "")"
     }
 
     private func render(pin: MapPinData, avatar: UIImage?) -> UIImage {
         switch pin.kind {
         case "cluster":
-            return renderCluster(count: pin.count, initial: pin.initial)
+            return renderCluster(count: pin.count, initial: pin.initial, isSelected: pin.isSelected)
         case "self":
             return renderUser(pin: pin, avatar: avatar, color: SELF_COLOR, size: 52, ringColor: nil)
         case "highlighted":
@@ -115,7 +122,7 @@ final class MapPinRenderer {
             let ring: UIColor = pin.isPending ? PENDING_RING : FRIEND_RING
             return renderUser(pin: pin, avatar: avatar, color: palette(pin), size: 44, ringColor: ring)
         case "bot":
-            return renderBot()
+            return renderBot(collectable: pin.collectable)
         default:
             return renderUser(pin: pin, avatar: avatar, color: palette(pin), size: 40, ringColor: nil)
         }
@@ -179,8 +186,10 @@ final class MapPinRenderer {
         }
     }
 
-    private func renderCluster(count: Int, initial: String) -> UIImage {
-        let size: CGFloat = count > 20 ? 52 : count > 5 ? 46 : 40
+    private func renderCluster(count: Int, initial: String, isSelected: Bool) -> UIImage {
+        let base: CGFloat = count > 20 ? 52 : count > 5 ? 46 : 40
+        // Web scales the selected cluster up 1.15× and swaps the border to primary
+        let size: CGFloat = isSelected ? base * 1.15 : base
         return UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { _ in
             let center = CGPoint(x: size / 2, y: size / 2)
             let radius = size / 2
@@ -188,9 +197,9 @@ final class MapPinRenderer {
             CLUSTER_COLOR.bg.setFill()
             UIBezierPath(arcCenter: center, radius: radius, startAngle: 0, endAngle: .pi * 2, clockwise: true).fill()
 
-            UIColor.white.withAlphaComponent(0.3).setStroke()
+            (isSelected ? CLUSTER_SELECTED_RING : UIColor.white.withAlphaComponent(0.3)).setStroke()
             let border = UIBezierPath(arcCenter: center, radius: radius - 1, startAngle: 0, endAngle: .pi * 2, clockwise: true)
-            border.lineWidth = 2
+            border.lineWidth = isSelected ? 3 : 2
             border.stroke()
 
             let fontSize = size * 0.36
@@ -204,18 +213,26 @@ final class MapPinRenderer {
         }
     }
 
-    private func renderBot() -> UIImage {
-        let size: CGFloat = 38
-        let color = PIN_PALETTE[5]
+    private func renderBot(collectable: Bool) -> UIImage {
+        // Mirrors web BotPin.tsx: 40pt circle, 3pt white border, coin glyph;
+        // amber when within collection range, muted gray otherwise.
+        let size: CGFloat = 40
+        let color = collectable ? BOT_COLLECTABLE : BOT_FAR
         return UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { _ in
             let center = CGPoint(x: size / 2, y: size / 2)
             color.bg.setFill()
             UIBezierPath(arcCenter: center, radius: size / 2, startAngle: 0, endAngle: .pi * 2, clockwise: true).fill()
+
+            UIColor.white.setStroke()
+            let border = UIBezierPath(arcCenter: center, radius: size / 2 - 1.5, startAngle: 0, endAngle: .pi * 2, clockwise: true)
+            border.lineWidth = 3
+            border.stroke()
+
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 18),
+                .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
                 .foregroundColor: color.fg,
             ]
-            let str = NSAttributedString(string: "🤖", attributes: attrs)
+            let str = NSAttributedString(string: "🪙", attributes: attrs)
             let strSize = str.size()
             str.draw(at: CGPoint(x: center.x - strSize.width / 2, y: center.y - strSize.height / 2))
         }
@@ -253,10 +270,12 @@ extension MapPinData {
             avatarUrl:  dict["avatarUrl"] as? String,
             initial:    dict["initial"]   as? String ?? "?",
             colorIndex: dict["colorIndex"] as? Int ?? 0,
-            isOnline:   dict["isOnline"]   as? Bool ?? false,
-            isPending:  dict["isPending"]  as? Bool ?? false,
-            count:      dict["count"]      as? Int ?? 0,
-            childIds:   dict["childIds"]  as? [String] ?? []
+            isOnline:    dict["isOnline"]    as? Bool ?? false,
+            isPending:   dict["isPending"]   as? Bool ?? false,
+            collectable: dict["collectable"] as? Bool ?? false,
+            isSelected:  dict["isSelected"]  as? Bool ?? false,
+            count:       dict["count"]       as? Int ?? 0,
+            childIds:    dict["childIds"]    as? [String] ?? []
         )
     }
 }

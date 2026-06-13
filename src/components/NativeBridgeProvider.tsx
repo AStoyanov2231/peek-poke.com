@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Browser } from "@capacitor/browser";
 import { isNativeApp } from "@/lib/native";
 import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
 import { initPushNotifications } from "@/lib/push-notifications";
@@ -21,6 +22,7 @@ const ALLOWED_PREFIXES = [
   "/onboarding",
   "/login",
   "/welcome",
+  "/invite",
 ];
 
 function isAllowed(route: string): boolean {
@@ -33,6 +35,67 @@ function isAllowed(route: string): boolean {
         route.startsWith(prefix + "/") ||
         route.startsWith(prefix + "?"))
   );
+}
+
+// The navigate listener is module-scoped and permanent: providers remount when
+// crossing layout groups (login ↔ main), and a per-mount listener leaves a gap
+// where a native tab tap can fire with no listener attached (the event is then
+// retained by Capacitor but consumed by the wrong/next subscriber). One global
+// listener routed through a mutable ref to the latest router closes that gap.
+const navigation: {
+  router: { push: (route: string) => void } | null;
+  pathname: string;
+} = { router: null, pathname: "/" };
+
+let navigateListenerAttached = false;
+
+function attachNavigateListener() {
+  if (navigateListenerAttached) return;
+  navigateListenerAttached = true;
+  PeekPokeBridge.addListener("navigate", ({ route }) => {
+    if (!isAllowed(route)) return;
+    if (route === navigation.pathname) return;
+    navigation.router?.push(route);
+  });
+}
+
+// OAuth return from the system browser (peekpoke://oauth-callback?code=…).
+// Module-scoped for the same reason as the navigate listener: it must survive
+// the login ↔ main layout-group remount that the sign-in itself triggers.
+let oauthListenerAttached = false;
+
+function attachOAuthListener() {
+  if (oauthListenerAttached) return;
+  oauthListenerAttached = true;
+  PeekPokeBridge.addListener("oauthCallback", async ({ url }) => {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return;
+    }
+    // The SFSafariViewController stays presented after the scheme redirect
+    await Browser.close().catch(() => {});
+
+    const code = parsed.searchParams.get("code");
+    if (!code) return;
+
+    // The PKCE verifier lives in this WebView's Supabase client storage —
+    // signInWithOAuth started here (native-oauth.ts), so the exchange must too.
+    const supabase = createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.warn("[oauth] code exchange failed:", error.message);
+      return;
+    }
+
+    const next = parsed.searchParams.get("next");
+    const safeNext =
+      next && next.startsWith("/") && !next.startsWith("//") && !next.includes("://")
+        ? next
+        : "/";
+    navigation.router?.push(safeNext);
+  });
 }
 
 async function mintWebSessionFromNativeAuth(next: string): Promise<string | false> {
@@ -50,6 +113,13 @@ async function mintWebSessionFromNativeAuth(next: string): Promise<string | fals
     }),
   });
 
+  if (response.status === 401 || response.status === 403) {
+    // Tokens are definitively dead (revoked/garbage) — clear the Keychain so the
+    // native shell hides the tab bar instead of showing tabs over the login page.
+    // Transient failures (network, 5xx) fall through and keep the tokens.
+    await PeekPokeBridge.clearAuth();
+    return false;
+  }
   if (!response.ok) return false;
 
   const payload = (await response.json()) as { next?: string };
@@ -61,7 +131,6 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const handoffAttempted = useRef(false);
   const lastChecked = useRef<number>(0);
-  const pathnameRef = useRef(pathname);
 
   // Auto-handoff: native cold-launch lands on /login while Keychain has valid tokens.
   // WKHTTPCookieStore was empty (reinstall/clear), so cookies weren't set. Use the
@@ -76,7 +145,8 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
       const { data: { session } } = await supabase.auth.getSession();
       if (session) return; // Already have a web session — no handoff needed
 
-      const next = await mintWebSessionFromNativeAuth("/inbox");
+      // "/" — land on the map, matching the shell's default selected tab
+      const next = await mintWebSessionFromNativeAuth("/");
       if (next) router.replace(next);
     };
 
@@ -84,31 +154,46 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
   }, [pathname, router]);
 
   // Mark <html> as native so CSS can apply edge-to-edge safe area handling.
+  // Permanent — the platform doesn't change mid-session, and removing it during
+  // layout-group remounts (login ↔ main) would flicker the safe-area layout.
   useEffect(() => {
     if (!isNativeApp()) return;
     document.documentElement.classList.add("is-native");
-    return () => { document.documentElement.classList.remove("is-native"); };
   }, []);
 
-  // Keep pathnameRef in sync so the navigate listener can read current pathname without stale closure
+  // Keep the module-level navigation ref current for the permanent navigate listener
   useEffect(() => {
-    pathnameRef.current = pathname;
+    navigation.router = router;
+  }, [router]);
+  useEffect(() => {
+    navigation.pathname = pathname;
   }, [pathname]);
 
-  // Subscribe to native navigation, foreground, and refresh events
+  // Single-WebView shell: report every route change so native syncs tab selection /
+  // map visibility, and toggle the transparent-map layout for the persistent WebView.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    document.documentElement.classList.toggle("native-map", pathname === "/");
+    PeekPokeBridge.setActiveRoute({ route: pathname });
+  }, [pathname]);
+
+  // Warm the section routes once so the first native tab switch is instant.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    router.prefetch("/inbox");
+    router.prefetch("/profile");
+  }, [router]);
+
+  // Subscribe to native foreground and refresh events; the navigate listener is
+  // permanent (module-scoped) so layout-group remounts can't drop tab taps.
   useEffect(() => {
     if (!isNativeApp()) return;
 
+    attachNavigateListener();
+    attachOAuthListener();
+
     const supabase = createClient();
     const handles: Array<Promise<{ remove: () => void }>> = [];
-
-    // Native tab tap or map pin tap → SPA navigate
-    const navigateHandle = PeekPokeBridge.addListener("navigate", ({ route }) => {
-      if (!isAllowed(route)) return;
-      if (route === pathnameRef.current) return;
-      router.push(route);
-    });
-    handles.push(navigateHandle);
 
     // App foregrounded → re-validate session (throttled to once per 5 minutes)
     const resumeHandle = PeekPokeBridge.addListener("appResumed", async () => {

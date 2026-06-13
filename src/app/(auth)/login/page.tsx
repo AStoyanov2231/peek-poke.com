@@ -10,6 +10,8 @@ import { InputWithIcon } from "@/components/ui/input-with-icon";
 import { AtSign, Lock, Loader2, AlertCircle, Mail } from "lucide-react";
 
 import { login, signup, signInWithGoogle, signInWithApple } from "../actions";
+import { isNativeApp } from "@/lib/native";
+import { nativeOAuthSignIn } from "@/lib/native-oauth";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -90,7 +92,16 @@ function LoginContent() {
   async function handleAppleSignIn() {
     setOauthLoading("apple");
     setError("");
-    const result = await signInWithApple(invite ? `/invite/${invite}` : (redirectTo || undefined));
+    const next = invite ? `/invite/${invite}` : (redirectTo || undefined);
+    // Native: providers block embedded webviews — run the flow in the system
+    // browser; NativeBridgeProvider finishes sign-in when the code bounces back.
+    if (isNativeApp()) {
+      const result = await nativeOAuthSignIn("apple", next);
+      if (result.error) setError(result.error);
+      setOauthLoading(null);
+      return;
+    }
+    const result = await signInWithApple(next);
     if (result?.error) {
       setError(result.error);
       setOauthLoading(null);
@@ -100,7 +111,14 @@ function LoginContent() {
   async function handleGoogleSignIn() {
     setOauthLoading("google");
     setError("");
-    const result = await signInWithGoogle(invite ? `/invite/${invite}` : (redirectTo || undefined));
+    const next = invite ? `/invite/${invite}` : (redirectTo || undefined);
+    if (isNativeApp()) {
+      const result = await nativeOAuthSignIn("google", next);
+      if (result.error) setError(result.error);
+      setOauthLoading(null);
+      return;
+    }
+    const result = await signInWithGoogle(next);
     if (result?.error) {
       setError(result.error);
       setOauthLoading(null);

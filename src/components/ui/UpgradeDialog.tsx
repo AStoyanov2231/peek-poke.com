@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useIsNative } from "@/hooks/useIsNative";
 
 interface UpgradeDialogProps {
   open: boolean;
@@ -18,6 +19,34 @@ interface UpgradeDialogProps {
 }
 
 export function UpgradeDialog({ open, onOpenChange, message }: UpgradeDialogProps) {
+  // The native app never opens Stripe (App Store rules; IAP comes later) —
+  // it shows an availability notice instead.
+  const native = useIsNative();
+
+  if (native) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" style={{ color: "var(--primary-500)" }} />
+              Premium
+            </DialogTitle>
+            <DialogDescription>
+              Premium subscriptions aren&apos;t available in the iOS app yet — they&apos;re
+              coming to the App Store soon.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

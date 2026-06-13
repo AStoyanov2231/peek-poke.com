@@ -4,5 +4,10 @@
 <dict>
 	<key>aps-environment</key>
 	<string>development</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:www.peek-poke.com</string>
+		<string>applinks:peek-poke.com</string>
+	</array>
 </dict>
 </plist>

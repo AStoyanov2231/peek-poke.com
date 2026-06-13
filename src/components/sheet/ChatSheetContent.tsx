@@ -35,7 +35,26 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   const { user } = useAuth();
   const router = useRouter();
   const rqClient = useQueryClient();
-  const [input, setInput] = useState("");
+  // Seed from the per-thread draft so in-progress input survives navigating
+  // away (native tab switches included); write-through keeps the draft current.
+  const [input, setInputState] = useState(
+    () => useAppStore.getState().drafts[threadId] ?? ""
+  );
+  const draftThreadRef = useRef(threadId);
+  const setInput = useCallback(
+    (text: string) => {
+      setInputState(text);
+      useAppStore.getState().setDraft(threadId, text);
+    },
+    [threadId]
+  );
+  useEffect(() => {
+    // Thread switched without a remount — load the new thread's draft
+    if (draftThreadRef.current !== threadId) {
+      draftThreadRef.current = threadId;
+      setInputState(useAppStore.getState().drafts[threadId] ?? "");
+    }
+  }, [threadId]);
   const [replyingTo, setReplyingTo] = useState<DMMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<DMMessage | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -165,20 +184,20 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     setEditError(null);
     setInput(msg.content ?? "");
     setReplyingTo(null);
-  }, []);
+  }, [setInput]);
 
   const handleReply = useCallback((msg: DMMessage) => {
     setReplyingTo(msg);
     setEditingMessage(null);
     setEditError(null);
     setInput("");
-  }, []);
+  }, [setInput]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingMessage(null);
     setEditError(null);
     setInput("");
-  }, []);
+  }, [setInput]);
 
   const handleCancelReply = useCallback(() => {
     setReplyingTo(null);

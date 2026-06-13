@@ -394,6 +394,46 @@ describe('clearStore', () => {
   })
 })
 
+// ─── Drafts ───────────────────────────────────────────────────────────────────
+
+describe('Drafts', () => {
+  it('setDraft stores in-progress input per thread', () => {
+    getState().setDraft('t1', 'hello')
+    getState().setDraft('t2', 'other')
+    expect(getState().drafts).toEqual({ t1: 'hello', t2: 'other' })
+  })
+
+  it('setDraft with empty text removes the draft', () => {
+    getState().setDraft('t1', 'hello')
+    getState().setDraft('t1', '')
+    expect(getState().drafts).toEqual({})
+  })
+
+  it('clearStore wipes drafts and sessionExpired', () => {
+    getState().setDraft('t1', 'hello')
+    useAppStore.setState({ sessionExpired: true })
+    getState().clearStore()
+    expect(getState().drafts).toEqual({})
+    expect(getState().sessionExpired).toBe(false)
+  })
+})
+
+// ─── Location status ──────────────────────────────────────────────────────────
+
+describe('Location status', () => {
+  it('follows setLocationStatus', () => {
+    useAppStore.setState({ locationStatus: 'idle' })
+    getState().setLocationStatus('denied')
+    expect(getState().locationStatus).toBe('denied')
+  })
+
+  it('survives clearStore — OS permission state is not session state', () => {
+    getState().setLocationStatus('granted')
+    getState().clearStore()
+    expect(getState().locationStatus).toBe('granted')
+  })
+})
+
 // ─── preloadAll ───────────────────────────────────────────────────────────────
 
 describe('preloadAll', () => {
@@ -465,24 +505,29 @@ describe('preloadAll', () => {
     vi.unstubAllGlobals()
   })
 
-  it('401 response redirects to /login', async () => {
+  it('401 response sets sessionExpired without a hard redirect', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       status: 401,
       ok: false,
       json: () => Promise.resolve({}),
     }))
 
-    // window.location.href assignment in jsdom doesn't navigate but shouldn't throw
-    const locationSpy = vi.spyOn(window, 'location', 'get').mockReturnValue({
-      ...window.location,
-      href: '',
-    } as Location)
+    await getState().preloadAll()
+
+    // Soft signal — PreloadProvider routes to /login; no error, no preloading
+    expect(getState().sessionExpired).toBe(true)
+    expect(getState().preloadError).toBeNull()
+    expect(getState().isPreloading).toBe(false)
+    vi.unstubAllGlobals()
+  })
+
+  it('starting a new preload clears sessionExpired', async () => {
+    useAppStore.setState({ sessionExpired: true })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network down')))
 
     await getState().preloadAll()
-    // Just assert no error is set — redirect branch returns early
-    expect(getState().preloadError).toBeNull()
 
-    locationSpy.mockRestore()
+    expect(getState().sessionExpired).toBe(false)
     vi.unstubAllGlobals()
   })
 

@@ -16,6 +16,7 @@ import { useAppStore } from "@/stores/appStore";
 import { useBots as useBotsHook } from "@/hooks/useBots";
 import { PeekPokeBridge, type MapPin } from "@/lib/peekpoke-bridge";
 import { haversineKm } from "@/lib/geo";
+import { collectBot, BOT_COLLECT_RANGE_KM } from "@/lib/bots";
 import type { PluginListenerHandle } from "@capacitor/core";
 
 // Mirrors the 6-color palette in web's avatarColor() and Swift's MapPinPalette.
@@ -71,6 +72,8 @@ export function NativeMapBridge() {
   useBotsHook();
 
   const [camera, setCamera] = useState<Camera | null>(null);
+  // Tapped cluster pin id — drives the selected ring (web's selectedClusterId)
+  const [selectedClusterPinId, setSelectedClusterPinId] = useState<string | null>(null);
   const hasCenteredRef = useRef(false);
   const rafRef = useRef<number | null>(null);
 
@@ -90,7 +93,7 @@ export function NativeMapBridge() {
     });
   }, [userLocation]);
 
-  // Fly native map to highlighted user
+  // Fly native map to highlighted user, then orbit (web MapView easeTo + orbit parity)
   useEffect(() => {
     if (!highlightedUserId) return;
     const user = useAppStore.getState().nearbyUsers.find((u) => u.userId === highlightedUserId);
@@ -103,6 +106,13 @@ export function NativeMapBridge() {
       animated: true,
       durationMs: 700,
     });
+    const orbitTimer = setTimeout(() => {
+      PeekPokeBridge.setMapOrbit({ active: true });
+    }, 700);
+    return () => {
+      clearTimeout(orbitTimer);
+      PeekPokeBridge.setMapOrbit({ active: false });
+    };
   }, [highlightedUserId]);
 
   // Forward recenter-map events from RecenterButton to native camera
@@ -156,8 +166,21 @@ export function NativeMapBridge() {
     let cleaned = false;
     PeekPokeBridge.addListener("mapPinTapped", (e) => {
       if (e.kind === "cluster") {
+        setSelectedClusterPinId(e.id);
         setSelectedClusterUserIds(e.childIds ?? null);
+      } else if (e.kind === "bot") {
+        // Web parity: BotPin collects when in range, hints otherwise
+        const { userLocation, bots } = useAppStore.getState();
+        const bot = bots.find((b) => b.id === e.id);
+        if (!bot || !userLocation) return;
+        if (haversineKm(userLocation.lat, userLocation.lng, bot.lat, bot.lng) <= BOT_COLLECT_RANGE_KM) {
+          collectBot(e.id);
+        } else {
+          window.dispatchEvent(new CustomEvent("peekpoke:bot-hint"));
+        }
       } else if (!e.id.startsWith("self_")) {
+        setSelectedClusterPinId(null);
+        setSelectedClusterUserIds(null);
         selectUser(e.id);
       }
     }).then((h) => {
@@ -169,6 +192,25 @@ export function NativeMapBridge() {
       handle?.remove();
     };
   }, [selectUser, setSelectedClusterUserIds]);
+
+  // Empty-map taps clear selections (web MapView onClick parity)
+  useEffect(() => {
+    let handle: PluginListenerHandle | null = null;
+    let cleaned = false;
+    PeekPokeBridge.addListener("mapTapped", () => {
+      setSelectedClusterPinId(null);
+      const store = useAppStore.getState();
+      store.setSelectedClusterUserIds(null);
+      store.setHighlightedUserId(null);
+    }).then((h) => {
+      if (cleaned) h.remove();
+      else handle = h;
+    });
+    return () => {
+      cleaned = true;
+      handle?.remove();
+    };
+  }, []);
 
   // Build Supercluster whenever user data changes (not on every camera move)
   const supercluster = useMemo(() => {
@@ -260,6 +302,7 @@ export function NativeMapBridge() {
               avatarUrl: null,
               initial: point_count > 99 ? "99+" : String(point_count),
               colorIndex: 0,
+              isSelected: selectedClusterPinId === `cluster_${cluster_id}`,
               count: point_count,
               childIds: leaves.map((l) => l.properties.userId),
             });
@@ -283,7 +326,7 @@ export function NativeMapBridge() {
         }
       }
 
-      // Bot pins
+      // Bot pins — collectable within range, mirroring web BotPin
       for (const b of bots) {
         pins.push({
           id: b.id,
@@ -293,6 +336,9 @@ export function NativeMapBridge() {
           avatarUrl: null,
           initial: "C",
           colorIndex: 5,
+          collectable:
+            !!userLocation &&
+            haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng) <= BOT_COLLECT_RANGE_KM,
         });
       }
 
@@ -301,7 +347,7 @@ export function NativeMapBridge() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [supercluster, camera, userLocation, profile, friendIds, pendingUserId, bots, onlineUsers, highlightedUserId, nearbyUsers]);
+  }, [supercluster, camera, userLocation, profile, friendIds, pendingUserId, bots, onlineUsers, highlightedUserId, nearbyUsers, selectedClusterPinId]);
 
   return null;
 }

@@ -3,7 +3,7 @@
 import { memo, useState } from "react";
 import { Marker } from "react-map-gl/mapbox";
 import { Coins } from "lucide-react";
-import { useAppStore } from "@/stores/appStore";
+import { collectBot } from "@/lib/bots";
 import type { Bot } from "@/stores/appStore";
 
 interface BotPinProps {
@@ -23,29 +23,9 @@ export const BotPin = memo(function BotPin({ bot, collectable }: BotPinProps) {
       return;
     }
     if (collecting) return;
-    const loc = useAppStore.getState().userLocation;
-    if (!loc) return;
     setCollecting(true);
-    try {
-      const res = await fetch("/api/bots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: bot.id, lat: loc.lat, lng: loc.lng }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        useAppStore.getState().removeBot(bot.id);
-        useAppStore.getState().setCoins(data.balance);
-        // Refill pool
-        fetch(`/api/bots?lat=${loc.lat}&lng=${loc.lng}`)
-          .then((r) => r.json())
-          .then((bots) => { if (Array.isArray(bots)) useAppStore.getState().setBots(bots); });
-      }
-    } catch (err) {
-      console.error("Bot collect failed:", err);
-    } finally {
-      setCollecting(false);
-    }
+    await collectBot(bot.id);
+    setCollecting(false);
   };
 
   return (

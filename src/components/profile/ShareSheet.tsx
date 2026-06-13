@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { X, Copy, Check, Share2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Share } from "@capacitor/share";
+import { isNativeApp } from "@/lib/native";
+import { useIsNative } from "@/hooks/useIsNative";
 
 interface ShareSheetProps {
   open: boolean;
@@ -12,6 +15,9 @@ interface ShareSheetProps {
 
 export function ShareSheet({ open, onOpenChange, userId }: ShareSheetProps) {
   const [copied, setCopied] = useState(false);
+  // WKWebView has no navigator.share — native uses the Capacitor Share plugin
+  const native = useIsNative();
+  const canShare = native || (typeof navigator !== "undefined" && "share" in navigator);
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/invite/${userId}`;
 
@@ -19,6 +25,14 @@ export function ShareSheet({ open, onOpenChange, userId }: ShareSheetProps) {
     await navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = () => {
+    if (isNativeApp()) {
+      Share.share({ url: inviteUrl, title: "Join me on Peek & Poke!" }).catch(() => {});
+    } else {
+      navigator.share?.({ url: inviteUrl, title: "Join me on Peek & Poke!" });
+    }
   };
 
   if (!open) return null;
@@ -52,9 +66,9 @@ export function ShareSheet({ open, onOpenChange, userId }: ShareSheetProps) {
               {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied!" : "Copy Link"}
             </button>
-            {"share" in navigator && (
+            {canShare && (
               <button
-                onClick={() => navigator.share?.({ url: inviteUrl, title: "Join me on Peek & Poke!" })}
+                onClick={handleShare}
                 className="flex-1 h-12 rounded-sm bg-ink-9 text-white shadow-e-1 flex items-center justify-center gap-2 text-[15px] font-medium active:opacity-90 transition-opacity"
               >
                 <Share2 className="h-4 w-4" />

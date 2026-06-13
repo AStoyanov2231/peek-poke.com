@@ -7,6 +7,8 @@ import { MapTopLabels } from "@/components/map/MapTopLabels";
 import { MapSearchBar } from "@/components/map/MapSearchBar";
 import { DesktopNearbyRail } from "@/components/map/DesktopNearbyRail";
 import { DevSeedButton } from "@/components/map/DevSeedButton";
+import { BotHint } from "@/components/map/BotHint";
+import { LocationGate } from "@/components/map/LocationGate";
 import { isNativeApp } from "@/lib/native";
 import { PeekPokeBridge } from "@/lib/peekpoke-bridge";
 
@@ -80,6 +82,8 @@ export default function MainPage() {
         <MapTopLabels />
         <NearbySwiper />
         <RecenterButton />
+        <BotHint />
+        <LocationGate />
         {process.env.NODE_ENV !== "production" && <DevSeedButton />}
       </div>
     </div>

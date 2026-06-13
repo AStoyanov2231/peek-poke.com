@@ -2,6 +2,7 @@
 
 import { useHasRole, useIsProfileLoaded } from "@/stores/selectors";
 import { AdminPageClient } from "@/components/admin/AdminPageClient";
+import { RestoredScroll } from "@/components/layout/RestoredScroll";
 
 export default function AdminPage() {
   const isLoaded = useIsProfileLoaded();
@@ -18,8 +19,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <RestoredScroll storageKey="admin" className="h-full overflow-y-auto bg-background">
       <AdminPageClient />
-    </div>
+    </RestoredScroll>
   );
 }

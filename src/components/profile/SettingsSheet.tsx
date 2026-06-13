@@ -170,6 +170,13 @@ function TermsView() {
           target="_blank"
           rel="noopener noreferrer"
           className="text-[13px] text-primary font-medium mt-1"
+          onClick={(e) => {
+            // WKWebView can't open a _blank tab — hand off to Safari
+            if (isNativeApp()) {
+              e.preventDefault();
+              PeekPokeBridge.openExternal({ url: "https://peekandpoke.app/terms" });
+            }
+          }}
         >
           Read full Terms of Service →
         </a>
@@ -184,6 +191,12 @@ function TermsView() {
           target="_blank"
           rel="noopener noreferrer"
           className="text-[13px] text-primary font-medium mt-1"
+          onClick={(e) => {
+            if (isNativeApp()) {
+              e.preventDefault();
+              PeekPokeBridge.openExternal({ url: "https://peekandpoke.app/privacy" });
+            }
+          }}
         >
           Read full Privacy Policy →
         </a>
