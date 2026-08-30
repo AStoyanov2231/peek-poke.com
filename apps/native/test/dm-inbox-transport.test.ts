@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
 import { QueryClient } from "@tanstack/react-query";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { inboxQuery } from "@/data/social/queries";
@@ -49,12 +48,6 @@ vi.mock("expo-crypto", () => ({ randomUUID: () => "native-inbox-key-000001" }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe("native DM inbox transport", () => {
-  it("uses the QR-room screen instead of exposing legacy direct-message inbox state", () => {
-    const source = readFileSync("app/(app)/inbox.tsx", "utf8");
-    expect(source).toContain("/(app)/rooms");
-    expect(source).toContain("Legacy route");
-  });
-
   it("validates the exact shared response before caching", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(payload))));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

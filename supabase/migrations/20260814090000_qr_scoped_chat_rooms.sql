@@ -61,12 +61,23 @@ create policy "room members can read rooms"
     select 1 from public.chat_room_members member
     where member.room_id = chat_rooms.id
       and member.user_id = (select auth.uid())
+  ) and exists (
+    select 1 from public.profiles profile
+    where profile.id = (select auth.uid())
+      and profile.deleted_at is null
   ));
 
 drop policy if exists "members can read their room membership" on public.chat_room_members;
 create policy "members can read their room membership"
   on public.chat_room_members for select to authenticated
-  using (user_id = (select auth.uid()));
+  using (
+    user_id = (select auth.uid())
+    and exists (
+      select 1 from public.profiles profile
+      where profile.id = (select auth.uid())
+        and profile.deleted_at is null
+    )
+  );
 
 drop policy if exists "room members can read messages" on public.chat_room_messages;
 create policy "room members can read messages"
@@ -75,6 +86,10 @@ create policy "room members can read messages"
     select 1 from public.chat_room_members member
     where member.room_id = chat_room_messages.room_id
       and member.user_id = (select auth.uid())
+  ) and exists (
+    select 1 from public.profiles profile
+    where profile.id = (select auth.uid())
+      and profile.deleted_at is null
   ));
 
 drop policy if exists "room members can insert their messages" on public.chat_room_messages;
@@ -87,18 +102,44 @@ create policy "room members can insert their messages"
       where member.room_id = chat_room_messages.room_id
         and member.user_id = (select auth.uid())
     )
+    and exists (
+      select 1 from public.profiles profile
+      where profile.id = (select auth.uid())
+        and profile.deleted_at is null
+    )
   );
 
 drop policy if exists "authors can update room messages" on public.chat_room_messages;
 create policy "authors can update room messages"
   on public.chat_room_messages for update to authenticated
-  using (sender_id = (select auth.uid()))
-  with check (sender_id = (select auth.uid()));
+  using (
+    sender_id = (select auth.uid())
+    and exists (
+      select 1 from public.profiles profile
+      where profile.id = (select auth.uid())
+        and profile.deleted_at is null
+    )
+  )
+  with check (
+    sender_id = (select auth.uid())
+    and exists (
+      select 1 from public.profiles profile
+      where profile.id = (select auth.uid())
+        and profile.deleted_at is null
+    )
+  );
 
 drop policy if exists "authors can delete room messages" on public.chat_room_messages;
 create policy "authors can delete room messages"
   on public.chat_room_messages for delete to authenticated
-  using (sender_id = (select auth.uid()));
+  using (
+    sender_id = (select auth.uid())
+    and exists (
+      select 1 from public.profiles profile
+      where profile.id = (select auth.uid())
+        and profile.deleted_at is null
+    )
+  );
 
 grant select on public.chat_rooms, public.chat_room_members, public.chat_room_messages to authenticated;
 -- All room writes go through the transactional security-definer RPCs below.
@@ -321,6 +362,10 @@ begin
   from public.chat_rooms room
   join public.chat_room_members member on member.room_id = room.id
   where room.id = p_room_id and member.user_id = p_user_id
+    and exists (
+      select 1 from public.profiles profile
+      where profile.id = p_user_id and profile.deleted_at is null
+    )
   for update;
   if not found then return jsonb_build_object('error', 'ROOM_NOT_FOUND'); end if;
 
@@ -366,6 +411,11 @@ create policy "authenticated scoped realtime read"
         select 1 from public.chat_room_members member
         where member.room_id = split_part((select realtime.topic()), ':', 2)::uuid
           and member.user_id = (select auth.uid())
+      )
+      and exists (
+        select 1 from public.profiles profile
+        where profile.id = (select auth.uid())
+          and profile.deleted_at is null
       )
     )
   );

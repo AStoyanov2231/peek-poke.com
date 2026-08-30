@@ -82,7 +82,7 @@ export function searchUsersPageRequest(
 }
 
 export function fetchPublicProfile(userId: string, signal?: AbortSignal) {
-  return apiFetch<PublicProfileData>(`/api/profile/${encodeURIComponent(userId)}?limit=100`, {
+  return apiFetch<PublicProfileData>(`/api/profile/${encodeURIComponent(userId)}?limit=100&surface=rooms`, {
     signal,
     responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl),
   });
