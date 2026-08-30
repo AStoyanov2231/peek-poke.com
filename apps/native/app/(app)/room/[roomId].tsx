@@ -24,6 +24,8 @@ export default function RoomChatScreen() {
   const contentHeightRef = useRef(0);
   const scrollOffsetRef = useRef(0);
   const olderPageLoadingRef = useRef(false);
+  const userScrollActiveRef = useRef(false);
+  const momentumScrollActiveRef = useRef(false);
   const [input, setInput] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendAttempts] = useState(() => createChatMessageAttemptCoordinator(() => randomUUID()));
@@ -148,7 +150,19 @@ export default function RoomChatScreen() {
         }}
         onScroll={({ nativeEvent }) => {
           scrollOffsetRef.current = nativeEvent.contentOffset.y;
-          if (initialScrollDoneRef.current && nativeEvent.contentOffset.y <= 24) loadOlderPage();
+          if (userScrollActiveRef.current && initialScrollDoneRef.current && nativeEvent.contentOffset.y <= 24) loadOlderPage();
+        }}
+        onScrollBeginDrag={() => { userScrollActiveRef.current = true; }}
+        onScrollEndDrag={() => {
+          if (!momentumScrollActiveRef.current) userScrollActiveRef.current = false;
+        }}
+        onMomentumScrollBegin={() => {
+          momentumScrollActiveRef.current = true;
+          userScrollActiveRef.current = true;
+        }}
+        onMomentumScrollEnd={() => {
+          momentumScrollActiveRef.current = false;
+          userScrollActiveRef.current = false;
         }}
         scrollEventThrottle={16}
         renderItem={({ item }) => {

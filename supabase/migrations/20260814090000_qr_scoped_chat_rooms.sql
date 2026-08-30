@@ -418,7 +418,12 @@ create policy "authenticated scoped realtime read"
       (select realtime.topic()) like 'room:%'
       and exists (
         select 1 from public.chat_room_members member
-        where member.room_id = split_part((select realtime.topic()), ':', 2)::uuid
+        where member.room_id = case
+          when split_part((select realtime.topic()), ':', 2)
+            ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+          then split_part((select realtime.topic()), ':', 2)::uuid
+          else null::uuid
+        end
           and member.user_id = (select auth.uid())
       )
       and exists (
