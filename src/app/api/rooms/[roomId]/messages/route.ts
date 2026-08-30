@@ -17,7 +17,10 @@ import { loadRoomSummary } from "@/lib/room-server";
 import { parseBody } from "@/lib/validators";
 import { isValidUUID } from "@/lib/validation";
 import { notifyRoomMessagesChanged } from "@/lib/realtime-broadcast";
-import { olderThanMessageCursor, finalizeDescendingMessagePage } from "@/lib/message-history";
+import {
+  finalizeDescendingSequenceMessagePage,
+  olderThanSequenceMessageCursor,
+} from "@/lib/message-history";
 
 const rawRoomMessageResponseSchema = z.strictObject({
   message: z.record(z.string(), z.unknown()),
@@ -54,33 +57,45 @@ function roomFailure() {
   return apiError("Room temporarily unavailable", 503, "ROOM_UNAVAILABLE");
 }
 
-export const GET = withAuth<{ roomId: string }>(async (request, { user, params }) => {
+export const GET = withAuth<{ roomId: string }>(async (request, { user, supabase, params }) => {
   const { roomId } = params;
   if (!isValidUUID(roomId)) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
   try {
-    const membership = await verifyRoomMembership(roomId, user.id);
+    const { data: membership, error: membershipError } = await supabase
+      .from("chat_room_members")
+      .select("room_id")
+      .eq("room_id", roomId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (membershipError) {
+      console.error("rooms/messages: membership read failed");
+      return roomFailure();
+    }
     if (!membership) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
 
     const pagination = parseContractPagination(request);
     if (pagination.error) return pagination.error;
     const decodedCursor = pagination.data.cursor ? decodeCursor(pagination.data.cursor) : null;
+    const sequenceCursor = decodedCursor ? olderThanSequenceMessageCursor(decodedCursor) : null;
+    if (decodedCursor && !sequenceCursor) {
+      return apiError("Invalid cursor", 400, "INVALID_CURSOR");
+    }
     const service = createServiceClient();
-    let query = service
+    let query = supabase
       .from("chat_room_messages")
       .select(ROOM_MESSAGE_COLUMNS)
       .eq("room_id", roomId)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
+      .order("sequence", { ascending: false })
       .limit(pagination.data.limit + 1);
-    if (decodedCursor) query = query.or(olderThanMessageCursor(decodedCursor));
+    if (sequenceCursor) query = query.or(sequenceCursor);
     const { data: rows, error } = await query;
     if (error) {
       console.error("rooms/messages: read failed");
       return roomFailure();
     }
 
-    const page = finalizeDescendingMessagePage(
-      (rows ?? []) as unknown as Array<{ id: string; created_at: string; [key: string]: unknown }>,
+    const page = finalizeDescendingSequenceMessagePage(
+      (rows ?? []) as unknown as Array<{ id: string; sequence: number; [key: string]: unknown }>,
       pagination.data.limit,
     );
     const messages = page.items.map(mapRoomMessage).reverse();
@@ -90,7 +105,7 @@ export const GET = withAuth<{ roomId: string }>(async (request, { user, params }
       return roomFailure();
     }
 
-    if (!decodedCursor) {
+    if (!sequenceCursor) {
       const maxLoadedSequence = parsedMessages.data.reduce(
         (maxSequence, message) => Math.max(maxSequence, message.sequence ?? 0),
         0,
@@ -112,7 +127,7 @@ export const GET = withAuth<{ roomId: string }>(async (request, { user, params }
         return roomFailure();
       }
     }
-    const loaded = await loadRoomSummary(roomId, user.id);
+    const loaded = await loadRoomSummary(roomId, user.id, supabase);
     if (loaded.error || !loaded.summary) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
     return NextResponse.json({
       room: loaded.summary,

@@ -275,6 +275,7 @@ declare
   v_sender_deleted_at timestamptz;
   v_room public.chat_rooms%rowtype;
   v_sequence bigint;
+  v_created_at timestamptz;
   v_message_id uuid;
   v_message jsonb;
   v_deduplicated boolean := false;
@@ -298,35 +299,36 @@ begin
     return jsonb_build_object('error', 'ROOM_NOT_FOUND');
   end if;
 
-  if p_reply_to_id is not null and not exists (
-    select 1 from public.chat_room_messages reply
-    where reply.id = p_reply_to_id
-      and reply.room_id = p_room_id
-      and reply.is_deleted = false
-  ) then
-    return jsonb_build_object('error', 'REPLY_TARGET_NOT_FOUND');
-  end if;
-
   select message.id into v_message_id
   from public.chat_room_messages message
   where message.room_id = p_room_id
     and message.client_id = p_client_id;
 
   if v_message_id is null then
+    if p_reply_to_id is not null and not exists (
+      select 1 from public.chat_room_messages reply
+      where reply.id = p_reply_to_id
+        and reply.room_id = p_room_id
+        and reply.is_deleted = false
+    ) then
+      return jsonb_build_object('error', 'REPLY_TARGET_NOT_FOUND');
+    end if;
+
+    v_created_at := clock_timestamp();
     update public.chat_rooms
     set next_message_sequence = next_message_sequence + 1,
-        last_message_at = now(),
+        last_message_at = v_created_at,
         last_message_preview = case when p_message_type = 'image' then 'Photo' else left(p_content, 240) end
     where id = p_room_id
     returning next_message_sequence into v_sequence;
 
     insert into public.chat_room_messages (
       room_id, sender_id, client_id, sequence, content, message_type,
-      media_url, media_thumbnail_url, reply_to_id
+      media_url, media_thumbnail_url, reply_to_id, created_at
     ) values (
       p_room_id, p_sender_id, p_client_id, v_sequence, p_content,
       p_message_type::public.message_type, p_media_url,
-      p_media_thumbnail_url, p_reply_to_id
+      p_media_thumbnail_url, p_reply_to_id, v_created_at
     ) returning id into v_message_id;
 
     update public.chat_room_members
@@ -351,6 +353,42 @@ begin
     'message', v_message,
     'deduplicated', v_deduplicated
   );
+end;
+$$;
+
+create or replace function public.get_chat_room_member_count(
+  p_room_id uuid,
+  p_user_id uuid
+)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_count integer;
+begin
+  if (select auth.uid()) is not null and (select auth.uid()) <> p_user_id then
+    return null;
+  end if;
+  if not exists (
+    select 1
+    from public.profiles profile
+    where profile.id = p_user_id
+      and profile.deleted_at is null
+  ) or not exists (
+    select 1
+    from public.chat_room_members member
+    where member.room_id = p_room_id
+      and member.user_id = p_user_id
+  ) then
+    return null;
+  end if;
+  select pg_catalog.count(*)::integer
+  into v_count
+  from public.chat_room_members member
+  where member.room_id = p_room_id;
+  return v_count;
 end;
 $$;
 
@@ -401,10 +439,12 @@ $$;
 revoke all on function public.create_chat_room(uuid) from public, anon, authenticated;
 revoke all on function public.join_chat_room_by_qr(uuid, text) from public, anon, authenticated;
 revoke all on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) from public, anon, authenticated;
+revoke all on function public.get_chat_room_member_count(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.mark_chat_room_read(uuid, uuid, bigint) from public, anon, authenticated;
 grant execute on function public.create_chat_room(uuid) to service_role;
 grant execute on function public.join_chat_room_by_qr(uuid, text) to service_role;
 grant execute on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) to service_role;
+grant execute on function public.get_chat_room_member_count(uuid, uuid) to authenticated, service_role;
 grant execute on function public.mark_chat_room_read(uuid, uuid, bigint) to service_role;
 
 -- Private Realtime topic authorization. Existing DM/call topic rules remain

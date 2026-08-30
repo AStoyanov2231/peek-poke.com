@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, email)
 values
@@ -96,6 +96,19 @@ select is(
   )::bigint,
   1::bigint,
   'the first room message receives sequence one'
+);
+select is(
+  (
+    public.send_room_message_transactional(
+      p_room_id := ((select created from qr_room_state)->>'room_id')::uuid,
+      p_sender_id := '70000000-0000-4000-8000-000000000001',
+      p_client_id := '70000000-0000-4000-8000-000000000011',
+      p_content := 'retry with deleted reply target',
+      p_reply_to_id := '70000000-0000-4000-8000-000000000099'
+    )->'message'->>'sequence'
+  )::bigint,
+  1::bigint,
+  'retries return the committed message before validating reply targets'
 );
 select is(
   (

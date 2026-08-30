@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { decodeCursor } from "@peekpoke/shared";
 import {
   finalizeDescendingMessagePage,
+  finalizeDescendingSequenceMessagePage,
   olderThanMessageCursor,
+  olderThanSequenceMessageCursor,
 } from "@/lib/message-history";
 
 describe("message history pagination", () => {
@@ -34,5 +36,28 @@ describe("message history pagination", () => {
     expect(olderThanMessageCursor(cursor)).toBe(
       "created_at.lt.2026-08-06T12:00:00.000Z,and(created_at.eq.2026-08-06T12:00:00.000Z,id.lt.00000000-0000-4000-8000-000000000123)",
     );
+  });
+
+  it("uses message sequence for room history ordering and cursors", () => {
+    const rows = [
+      { id: "message-3", sequence: 3 },
+      { id: "message-2", sequence: 2 },
+      { id: "message-1", sequence: 1 },
+    ];
+
+    const page = finalizeDescendingSequenceMessagePage(rows, 2);
+    expect(page.items).toEqual(rows.slice(0, 2));
+    expect(page.hasMore).toBe(true);
+    expect(decodeCursor(page.nextCursor)).toMatchObject({ sort_value: "2" });
+    expect(olderThanSequenceMessageCursor({
+      version: "v1",
+      sort_value: "2",
+      id: "message-2",
+    })).toBe("sequence.lt.2");
+    expect(olderThanSequenceMessageCursor({
+      version: "v1",
+      sort_value: "0",
+      id: "message-0",
+    })).toBeNull();
   });
 });
