@@ -1,0 +1,31 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@peekpoke/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@peekpoke/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@peekpoke/design": [
+        "../../packages/design/src/index.ts"
+      ],
+      "@peekpoke/design/*": [
+        "../../packages/design/src/*"
+      ]
+    }
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ]
+}

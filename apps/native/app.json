@@ -1,0 +1,108 @@
+{
+  "expo": {
+    "name": "Peek & Poke",
+    "slug": "peek-poke",
+    "scheme": "peekpoke",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.peekpoke.app",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "associatedDomains": [
+        "applinks:www.peek-poke.com"
+      ],
+      "infoPlist": {
+        "NSCameraUsageDescription": "Peek & Poke uses your camera for profile photos and calls.",
+        "NSMicrophoneUsageDescription": "Peek & Poke uses your microphone for calls.",
+        "NSLocationWhenInUseUsageDescription": "Peek & Poke uses your location to show nearby people and coins.",
+        "NSPhotoLibraryUsageDescription": "Peek & Poke lets you choose profile photos from your library."
+      }
+    },
+    "android": {
+      "package": "com.peekpoke.app",
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "www.peek-poke.com",
+              "pathPrefix": "/invite/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "./plugins/with-ios-scene-lifecycle",
+      "./plugins/with-ios-release-hardening",
+      "expo-dev-client",
+      "./plugins/with-local-api-network-security",
+      "./plugins/with-android-jvm-target",
+      "./plugins/with-ios-deployment-target",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f9f9fb",
+          "image": "../../public/images/logo.png",
+          "imageWidth": 160,
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false,
+          "faceIDPermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationWhenInUsePermission": "Peek & Poke uses your location to show nearby people and coins.",
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "isAndroidMotionActivityEnabled": false
+        }
+      ],
+      "expo-notifications",
+      "expo-web-browser",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsVersion": "11.23.1"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
