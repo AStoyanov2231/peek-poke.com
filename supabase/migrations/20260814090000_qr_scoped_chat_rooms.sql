@@ -354,9 +354,12 @@ begin
 end;
 $$;
 
+drop function if exists public.mark_chat_room_read(uuid, uuid);
+
 create or replace function public.mark_chat_room_read(
   p_room_id uuid,
-  p_user_id uuid
+  p_user_id uuid,
+  p_max_sequence bigint default null
 )
 returns jsonb
 language plpgsql
@@ -365,6 +368,7 @@ set search_path = ''
 as $$
 declare
   v_sequence bigint;
+  v_last_read_sequence bigint;
   v_count integer;
 begin
   select room.next_message_sequence into v_sequence
@@ -378,22 +382,30 @@ begin
   for update;
   if not found then return jsonb_build_object('error', 'ROOM_NOT_FOUND'); end if;
 
+  v_sequence := pg_catalog.greatest(
+    0::bigint,
+    pg_catalog.least(
+      pg_catalog.coalesce(p_max_sequence, v_sequence),
+      v_sequence
+    )
+  );
   update public.chat_room_members
   set last_read_sequence = greatest(last_read_sequence, coalesce(v_sequence, 0)), updated_at = now()
-  where room_id = p_room_id and user_id = p_user_id;
+  where room_id = p_room_id and user_id = p_user_id
+  returning last_read_sequence into v_last_read_sequence;
   get diagnostics v_count = row_count;
-  return jsonb_build_object('success', v_count = 1, 'last_read_sequence', coalesce(v_sequence, 0));
+  return jsonb_build_object('success', v_count = 1, 'last_read_sequence', coalesce(v_last_read_sequence, 0));
 end;
 $$;
 
 revoke all on function public.create_chat_room(uuid) from public, anon, authenticated;
 revoke all on function public.join_chat_room_by_qr(uuid, text) from public, anon, authenticated;
 revoke all on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) from public, anon, authenticated;
-revoke all on function public.mark_chat_room_read(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.mark_chat_room_read(uuid, uuid, bigint) from public, anon, authenticated;
 grant execute on function public.create_chat_room(uuid) to service_role;
 grant execute on function public.join_chat_room_by_qr(uuid, text) to service_role;
 grant execute on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) to service_role;
-grant execute on function public.mark_chat_room_read(uuid, uuid) to service_role;
+grant execute on function public.mark_chat_room_read(uuid, uuid, bigint) to service_role;
 
 -- Private Realtime topic authorization. Existing DM/call topic rules remain
 -- unchanged; room topics are readable only by current room members.

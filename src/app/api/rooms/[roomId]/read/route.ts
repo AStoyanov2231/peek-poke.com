@@ -19,6 +19,7 @@ export const POST = withAuth<{ roomId: string }>(async (_request, { user, params
   const { data, error } = await createServiceClient().rpc("mark_chat_room_read", {
     p_room_id: roomId,
     p_user_id: user.id,
+    p_max_sequence: null,
   });
   if (error) {
     console.error("rooms/read: update failed");

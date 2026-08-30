@@ -90,20 +90,27 @@ export const GET = withAuth<{ roomId: string }>(async (request, { user, params }
       return roomFailure();
     }
 
-    const { data: readResult, error: readError } = await service.rpc("mark_chat_room_read", {
-      p_room_id: roomId,
-      p_user_id: user.id,
-    });
-    if (readError) {
-      console.error("rooms/messages: read receipt update failed");
-      return roomFailure();
-    }
-    if (roomReadDeniedResponseSchema.safeParse(readResult).success) {
-      return apiError("Room not found", 404, "ROOM_NOT_FOUND");
-    }
-    if (!readReceiptResponseSchema.safeParse(readResult).success) {
-      console.error("rooms/messages: malformed read receipt response");
-      return roomFailure();
+    if (!decodedCursor) {
+      const maxLoadedSequence = parsedMessages.data.reduce(
+        (maxSequence, message) => Math.max(maxSequence, message.sequence ?? 0),
+        0,
+      );
+      const { data: readResult, error: readError } = await service.rpc("mark_chat_room_read", {
+        p_room_id: roomId,
+        p_user_id: user.id,
+        p_max_sequence: maxLoadedSequence,
+      });
+      if (readError) {
+        console.error("rooms/messages: read receipt update failed");
+        return roomFailure();
+      }
+      if (roomReadDeniedResponseSchema.safeParse(readResult).success) {
+        return apiError("Room not found", 404, "ROOM_NOT_FOUND");
+      }
+      if (!readReceiptResponseSchema.safeParse(readResult).success) {
+        console.error("rooms/messages: malformed read receipt response");
+        return roomFailure();
+      }
     }
     const loaded = await loadRoomSummary(roomId, user.id);
     if (loaded.error || !loaded.summary) return apiError("Room not found", 404, "ROOM_NOT_FOUND");

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(12);
 
 insert into auth.users (id, email)
 values
@@ -83,6 +83,52 @@ select is(
   ),
   0::bigint,
   'the raw QR capability is never persisted as the room identity'
+);
+
+select is(
+  (
+    public.send_room_message_transactional(
+      ((select created from qr_room_state)->>'room_id')::uuid,
+      '70000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000011',
+      'first message'
+    )->'message'->>'sequence'
+  )::bigint,
+  1::bigint,
+  'the first room message receives sequence one'
+);
+select is(
+  (
+    public.send_room_message_transactional(
+      ((select created from qr_room_state)->>'room_id')::uuid,
+      '70000000-0000-4000-8000-000000000002',
+      '70000000-0000-4000-8000-000000000012',
+      'second message'
+    )->'message'->>'sequence'
+  )::bigint,
+  2::bigint,
+  'the second room message receives sequence two'
+);
+select is(
+  (
+    public.mark_chat_room_read(
+      ((select created from qr_room_state)->>'room_id')::uuid,
+      '70000000-0000-4000-8000-000000000001',
+      1
+    )->>'last_read_sequence'
+  )::bigint,
+  1::bigint,
+  'read state is bounded to the sequence included in the response'
+);
+select is(
+  (
+    select member.last_read_sequence
+    from public.chat_room_members member
+    where member.room_id = ((select created from qr_room_state)->>'room_id')::uuid
+      and member.user_id = '70000000-0000-4000-8000-000000000001'
+  ),
+  1::bigint,
+  'bounded read state does not advance to a newer unseen message'
 );
 
 select * from finish();
