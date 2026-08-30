@@ -39,6 +39,12 @@ export default function RoomChatScreen() {
   const messages = useMemo(() => conversationQuery.data
     ? mergeNewestFirstMessagePages(conversationQuery.data.pages) as unknown as RoomMessage[]
     : [], [conversationQuery.data]);
+  const initialRoomLoaded = conversationQuery.isSuccess && conversationQuery.data?.pages[0]?.room.id === roomId;
+
+  useEffect(() => {
+    if (!initialRoomLoaded) return;
+    void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+  }, [initialRoomLoaded, queryClient]);
 
   useEffect(() => {
     if (!roomId) return;

@@ -3,6 +3,7 @@ import {
   API_VERSION,
   decodeCursor,
   messageCreateSchema,
+  readReceiptResponseSchema,
   roomMessageMutationResponseSchema,
   roomMessageSchema,
 } from "@peekpoke/shared";
@@ -25,6 +26,10 @@ const rawRoomMessageResponseSchema = z.strictObject({
 
 const roomMessageErrorSchema = z.strictObject({
   error: z.enum(["ROOM_NOT_FOUND", "ACCOUNT_DELETED", "REPLY_TARGET_NOT_FOUND"]),
+});
+
+const roomReadDeniedResponseSchema = z.strictObject({
+  error: z.literal("ROOM_NOT_FOUND"),
 });
 
 const ROOM_MESSAGE_COLUMNS = [
@@ -85,9 +90,21 @@ export const GET = withAuth<{ roomId: string }>(async (request, { user, params }
       return roomFailure();
     }
 
-    // Reading a room is an authenticated, membership-checked write and never
-    // exposes the QR capability.
-    await service.rpc("mark_chat_room_read", { p_room_id: roomId, p_user_id: user.id });
+    const { data: readResult, error: readError } = await service.rpc("mark_chat_room_read", {
+      p_room_id: roomId,
+      p_user_id: user.id,
+    });
+    if (readError) {
+      console.error("rooms/messages: read receipt update failed");
+      return roomFailure();
+    }
+    if (roomReadDeniedResponseSchema.safeParse(readResult).success) {
+      return apiError("Room not found", 404, "ROOM_NOT_FOUND");
+    }
+    if (!readReceiptResponseSchema.safeParse(readResult).success) {
+      console.error("rooms/messages: malformed read receipt response");
+      return roomFailure();
+    }
     const loaded = await loadRoomSummary(roomId, user.id);
     if (loaded.error || !loaded.summary) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
     return NextResponse.json({

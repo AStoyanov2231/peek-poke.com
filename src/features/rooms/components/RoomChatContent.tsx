@@ -29,6 +29,12 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
     return mergeNewestFirstMessagePages(query.data.pages) as unknown as DMMessage[];
   }, [query.data]);
   const room = query.data?.pages[0]?.room ?? null;
+  const initialRoomLoaded = query.isSuccess && query.data?.pages[0]?.room.id === roomId;
+
+  useEffect(() => {
+    if (!initialRoomLoaded) return;
+    void queryClient.invalidateQueries({ queryKey: webQueryKeys.rooms });
+  }, [initialRoomLoaded, queryClient]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -126,4 +132,3 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
     </div>
   );
 }
-
