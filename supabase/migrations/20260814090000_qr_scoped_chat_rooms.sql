@@ -164,14 +164,17 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_profile_deleted_at timestamptz;
   v_room public.chat_rooms%rowtype;
   v_payload text;
   v_hash text;
 begin
-  if not exists (
-    select 1 from public.profiles profile
-    where profile.id = p_user_id and profile.deleted_at is null
-  ) then
+  select profile.deleted_at
+  into v_profile_deleted_at
+  from public.profiles profile
+  where profile.id = p_user_id
+  for update;
+  if not found or v_profile_deleted_at is not null then
     return jsonb_build_object('error', 'ACCOUNT_DELETED');
   end if;
 
@@ -212,6 +215,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_profile_deleted_at timestamptz;
   v_room public.chat_rooms%rowtype;
   v_hash text;
   v_inserted integer;
@@ -222,10 +226,12 @@ begin
      or p_qr_payload !~ '^pp-room-v1\.[A-Za-z0-9_-]{43}$' then
     return jsonb_build_object('error', 'INVALID_QR_PAYLOAD');
   end if;
-  if not exists (
-    select 1 from public.profiles profile
-    where profile.id = p_user_id and profile.deleted_at is null
-  ) then
+  select profile.deleted_at
+  into v_profile_deleted_at
+  from public.profiles profile
+  where profile.id = p_user_id
+  for update;
+  if not found or v_profile_deleted_at is not null then
     return jsonb_build_object('error', 'ACCOUNT_DELETED');
   end if;
 

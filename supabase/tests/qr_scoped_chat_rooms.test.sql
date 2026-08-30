@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(8);
 
 insert into auth.users (id, email)
 values
@@ -59,6 +59,21 @@ select is(
   )->>'is_new_member')::boolean,
   false,
   'repeated scans are idempotent'
+);
+select is(
+  (
+    select room.qr_payload_hash
+    from public.chat_rooms room
+    where room.id = ((select created from qr_room_state)->>'room_id')::uuid
+  ),
+  encode(
+    extensions.digest(
+      (select created->>'qr_payload' from qr_room_state),
+      'sha256'
+    ),
+    'hex'
+  ),
+  'the room stores the SHA-256 digest of the generated QR capability'
 );
 select is(
   (

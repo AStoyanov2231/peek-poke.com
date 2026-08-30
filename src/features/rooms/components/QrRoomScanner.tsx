@@ -59,7 +59,11 @@ export function QrRoomScanner({
       const detector = new detectorConstructor({ formats: ["qr_code"] });
       let active = true;
       const scan = async () => {
-        if (!active || cancelled || !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+        if (!active || cancelled || !video) return;
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+          window.setTimeout(() => void scan(), 250);
+          return;
+        }
         try {
           const result = await detector.detect(video);
           const value = result[0]?.rawValue?.trim();
