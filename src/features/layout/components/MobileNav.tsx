@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { MapPin, Mail, User, Shield } from "lucide-react";
+import { QrCode, User, Shield } from "lucide-react";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
-import { useFriendRequestCount, useTotalUnread, useHasRole } from "@/stores/selectors";
+import { useTotalUnread, useHasRole } from "@/stores/selectors";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 
 interface MobileTab {
@@ -14,8 +14,7 @@ interface MobileTab {
 }
 
 const baseTabs: MobileTab[] = [
-  { href: "/",         label: "Map",      Icon: MapPin },
-  { href: "/inbox",    label: "Inbox",    Icon: Mail,  badge: true },
+  { href: "/",         label: "Rooms",    Icon: QrCode, badge: true },
   { href: "/profile",  label: "Me",       Icon: User },
 ];
 
@@ -26,7 +25,8 @@ export function MobileNav() {
   if (
     isKeyboardVisible ||
     pathname === "/onboarding" ||
-    pathname.startsWith("/chat/")
+    pathname.startsWith("/chat/") ||
+    pathname.startsWith("/room/")
   ) return null;
 
   return <MobileNavInner />;
@@ -36,14 +36,13 @@ function MobileNavInner() {
   const pathname = usePathname();
   const router = useTransitionRouter();
   const unreadCount = useTotalUnread();
-  const friendRequestCount = useFriendRequestCount();
   const isAdmin = useHasRole("admin");
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => { setPendingHref(null); }, [pathname]);
 
   const activeHref = pendingHref ?? pathname;
-  const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;
+  const rawBadgeCount = unreadCount;
   const tabs: MobileTab[] = [
     ...baseTabs,
     ...(isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] : []),

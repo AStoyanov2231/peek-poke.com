@@ -1,0 +1,40 @@
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { roomMessageHintSchema } from "@peekpoke/shared";
+import { fetchRooms } from "@/data/rooms";
+import { nativeQueryKeys } from "@/data/query-keys";
+import { supabase } from "@/lib/supabase";
+
+/** Room realtime carries hints only; durable state is re-read through the API. */
+export function useRealtimeRooms(userId: string | undefined) {
+  const queryClient = useQueryClient();
+  const roomsQuery = useQuery({
+    queryKey: nativeQueryKeys.rooms.list,
+    queryFn: ({ signal }) => fetchRooms(signal),
+    enabled: Boolean(userId),
+  });
+  const roomIds = useMemo(
+    () => (roomsQuery.data?.rooms ?? []).map((room) => room.id).sort(),
+    [roomsQuery.data?.rooms],
+  );
+
+  useEffect(() => {
+    if (!userId || roomIds.length === 0) return;
+    const channels = roomIds.map((roomId) => supabase
+      .channel(`room:${roomId}`, { config: { private: true } })
+      .on("broadcast", { event: "messages-changed" }, (event) => {
+        const parsed = roomMessageHintSchema.safeParse(event.payload);
+        if (!parsed.success || parsed.data.room_id !== roomId) return;
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.messages(roomId) });
+      })
+      .subscribe());
+
+    return () => {
+      channels.forEach((channel) => {
+        void channel.unsubscribe();
+        void supabase.removeChannel(channel);
+      });
+    };
+  }, [queryClient, roomIds, userId]);
+}

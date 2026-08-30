@@ -158,7 +158,7 @@ describe("web remote-state queries", () => {
         onboarding_completed: true,
         roles: ["user"],
         feature_config_version: "v1",
-        unread_summary: { threads: 0 },
+        unread_summary: { rooms: 0 },
       }));
     });
     vi.stubGlobal("fetch", fetchMock);

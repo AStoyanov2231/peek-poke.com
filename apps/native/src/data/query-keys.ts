@@ -16,6 +16,10 @@ export const nativeQueryKeys = {
   inbox: {
     threads: ["inbox", "threads"] as const,
   },
+  rooms: {
+    list: ["rooms"] as const,
+    messages: (roomId: string) => ["rooms", roomId, "messages"] as const,
+  },
   chat: {
     all: ["chat"] as const,
     messages: (threadId: string) => ["chat", threadId, "messages"] as const,

@@ -28,12 +28,8 @@ describe("cross-platform DM mutation recovery UI", () => {
     expect(webComposer).toContain('aria-label="Cancel edit"');
   });
 
-  it("offers native Alert retry/cancel and fences stale callbacks", () => {
-    expect(native).toContain('Alert.alert(\n        "Delete failed"');
-    expect(native).toContain('text: "Cancel"');
-    expect(native).toContain('text: "Retry"');
-    expect(native).toContain("messageMutations.isGenerationCurrent(retryAttempt)");
-    expect(native).toContain('accessibilityLiveRegion="polite"');
-    expect(native).toContain("Tap Save edit to retry.");
+  it("removes the native direct-message entry point from the QR-room client", () => {
+    expect(native).toContain("/(app)/rooms");
+    expect(native).toContain("Legacy direct-message deep links");
   });
 });

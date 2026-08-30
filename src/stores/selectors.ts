@@ -30,6 +30,7 @@ import {
   publicProfileQueryOptions,
   threadsQueryOptions,
 } from "@/data/web-query";
+import { roomsQueryOptions } from "@/data/rooms";
 import { locationIsFreshForViewer } from "@/features/map/location-sync";
 
 const EMPTY_PHOTOS: OwnerProfilePhoto[] = [];
@@ -49,10 +50,11 @@ export const useInterests = () => useQuery(interestsQueryOptions).data ?? EMPTY_
 export const useAllTags = () => useQuery(interestTagsQueryOptions).data ?? EMPTY_TAGS;
 export const useProfileStats = () => {
   const photos = useQuery(photosQueryOptions).data;
-  const friends = useQuery(friendsQueryOptions).data;
   return {
     photos_count: photos?.length ?? 0,
-    friends_count: friends?.friends.length ?? 0,
+    // Kept in the compatibility type; connection data is not loaded by the
+    // QR-room profile flow.
+    friends_count: 0,
   };
 };
 export const useIsProfileLoaded = () => useQuery(profileQueryOptions).isSuccess;
@@ -71,7 +73,10 @@ export const useIsFriendsLoaded = () => useQuery(friendsQueryOptions).isSuccess;
 
 // Messages selectors
 export const useThreads = () => useQuery(threadsQueryOptions).data?.threads ?? EMPTY_THREADS;
-export const useTotalUnread = () => useQuery(threadsQueryOptions).data?.totalUnread ?? 0;
+export const useTotalUnread = () => {
+  const rooms = useQuery(roomsQueryOptions).data?.rooms ?? [];
+  return rooms.reduce((total, room) => total + room.unread_count, 0);
+};
 export const useIsMessagesLoaded = () => useQuery(threadsQueryOptions).isSuccess;
 
 // Coins selectors

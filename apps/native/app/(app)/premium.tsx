@@ -24,7 +24,7 @@ import { fetchCurrentProfile } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 
 const FEATURES: { icon: IconName; label: string }[] = [
-  { icon: "users", label: "Unlimited friends" },
+  { icon: "users", label: "Unlimited rooms" },
   { icon: "image", label: "See other people's photos" },
   { icon: "eye", label: "See who viewed your profile" },
 ];

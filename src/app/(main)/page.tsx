@@ -1,5 +1,5 @@
-import MainMapPage from "@/features/map/components/MainMapPage";
+import RoomsPage from "@/features/rooms/components/RoomsPage";
 
 export default function Page() {
-  return <MainMapPage />;
+  return <RoomsPage />;
 }

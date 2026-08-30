@@ -5,7 +5,6 @@ import { StatusBar } from "expo-status-bar";
 import {
   Stack,
   router,
-  useGlobalSearchParams,
   usePathname,
   type ErrorBoundaryProps,
 } from "expo-router";
@@ -26,7 +25,7 @@ import { useAppStore } from "@/state/app-store";
 import { useCallStore } from "@/state/call-store";
 import { isUnauthorizedError } from "@/lib/api";
 import { BootstrapSplash } from "@/components/bootstrap-splash";
-import { useRealtimeUserSync } from "@/hooks/use-realtime-dm";
+import { useRealtimeRooms } from "@/hooks/use-realtime-rooms";
 import { useIncomingCall } from "@/hooks/use-incoming-call";
 import { CallProvider } from "@/components/call-provider";
 import { RouteErrorRecovery } from "@/components/error-recovery";
@@ -55,16 +54,12 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} />;
 }
 
-function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, pendingInvite?: string) {
+function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>) {
   if (!data.onboarding_completed) {
-    router.replace({ pathname: "/onboarding", params: pendingInvite ? { invite: pendingInvite } : {} });
+    router.replace("/onboarding");
     return;
   }
-  if (pendingInvite) {
-    router.replace(`/invite/${pendingInvite}` as never);
-    return;
-  }
-  router.replace("/(app)/map");
+  router.replace("/(app)/rooms");
 }
 
 function authBootstrapKey(session: Session): AuthBootstrapKey {
@@ -110,16 +105,8 @@ export default function RootLayout() {
 // react-doctor-disable-next-line no-giant-component
 function RootLayoutContent() {
   const pathname = usePathname();
-  const routeParams = useGlobalSearchParams<{ inviterId?: string | string[]; invite?: string | string[] }>();
-  const routeInviter = Array.isArray(routeParams.inviterId) ? routeParams.inviterId[0] : routeParams.inviterId;
-  const queryInviter = Array.isArray(routeParams.invite) ? routeParams.invite[0] : routeParams.invite;
-  const pendingInvite = pathname.startsWith("/invite/") ? routeInviter : queryInviter;
-  const pendingInviteRef = useRef(pendingInvite);
   const isAuthCallback = pathname === "/auth/callback";
   const isPasswordRecovery = pathname === "/auth/reset-password";
-  useEffect(() => {
-    pendingInviteRef.current = pendingInvite;
-  }, [pendingInvite]);
   const [fontsLoaded, fontError] = useFonts({
     "Geist-Regular": require("../assets/fonts/Geist-Regular.ttf"),
     "Geist-Medium": require("../assets/fonts/Geist-Medium.ttf"),
@@ -134,7 +121,7 @@ function RootLayoutContent() {
   const authGenerationRef = useRef(0);
   const bootstrapUserIdRef = useRef<string | null>(null);
   const bootstrapAttemptIdRef = useRef(0);
-  useRealtimeUserSync(authenticatedUserId ?? undefined);
+  useRealtimeRooms(authenticatedUserId ?? undefined);
   const callAccountReady = useCallAccountSessionOwner(authenticatedUserId);
   useIncomingCall(callAccountReady ? authenticatedUserId ?? undefined : undefined);
 
@@ -221,7 +208,7 @@ function RootLayoutContent() {
           }
 
           nativeQueryClient.setQueryData(nativeQueryKeys.bootstrap, result.data);
-          routeAfterBootstrap(result.data, pendingInviteRef.current);
+          routeAfterBootstrap(result.data);
           setAuthenticatedUserId(key.userId);
           void nativePushRegistration.start({
             key,
@@ -267,8 +254,7 @@ function RootLayoutContent() {
       } else {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
-        const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: invite ? { invite } : {} });
+        router.replace("/(auth)/login");
       }
     } catch (error) {
       if (
@@ -311,8 +297,7 @@ function RootLayoutContent() {
       } else if (!isAuthCallback && !isPasswordRecovery) {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
-        const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: invite ? { invite } : {} });
+        router.replace("/(auth)/login");
       }
     } catch (error) {
       if (

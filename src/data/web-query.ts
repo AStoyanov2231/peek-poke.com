@@ -3,7 +3,7 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import {
-  bootstrapSchema,
+  roomBootstrapSchema,
   adminBotListResponseSchema,
   boundedCursorPath,
   coinsResponseSchema,
@@ -26,7 +26,7 @@ import {
   profileInterestsResponseSchema,
   publicProfileResponseSchemaForTarget,
   type AdminBot,
-  type Bootstrap,
+  type RoomBootstrap,
   type CurrentProfile,
   type Friend,
   type OwnerProfilePhoto,
@@ -65,7 +65,9 @@ export const webQueryKeys = {
   interestTags: ["web", "interest-tags"] as const,
   friends: ["web", "friends"] as const,
   threads: ["web", "threads"] as const,
+  rooms: ["web", "rooms"] as const,
   messages: (threadId: string) => ["web", "threads", threadId, "messages"] as const,
+  roomMessages: (roomId: string) => ["web", "rooms", roomId, "messages"] as const,
   coins: ["web", "coins"] as const,
   publicProfile: (userId: string) => ["web", "profile", userId] as const,
   nearby: (viewerId: string, lat: number, lng: number) =>
@@ -197,8 +199,8 @@ export function updateOwnerProfile(
 
 export const bootstrapQueryOptions = queryOptions({
   queryKey: webQueryKeys.bootstrap,
-  queryFn: ({ signal }): Promise<Bootstrap> =>
-    fetchContract("/api/bootstrap", bootstrapSchema, { signal }),
+  queryFn: ({ signal }): Promise<RoomBootstrap> =>
+    fetchContract("/api/bootstrap?surface=rooms", roomBootstrapSchema, { signal }),
   staleTime: WEB_QUERY_STALE_TIME.bootstrap,
 });
 
@@ -408,7 +410,7 @@ export function publicProfileQueryOptions(userId: string) {
   return queryOptions({
     queryKey: webQueryKeys.publicProfile(userId),
     queryFn: ({ signal }): Promise<PublicProfileData> => fetchContract(
-      `/api/profile/${encodeURIComponent(userId)}?limit=100`,
+      `/api/profile/${encodeURIComponent(userId)}?limit=100&surface=rooms`,
       publicProfileResponseSchemaForTarget(
         userId,
         process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",

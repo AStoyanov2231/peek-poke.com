@@ -4,11 +4,9 @@ import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import Clock from "lucide-react-native/icons/clock";
 import Ban from "lucide-react-native/icons/ban";
 import Flag from "lucide-react-native/icons/flag";
 import Lock from "lucide-react-native/icons/lock";
-import UserPlus from "lucide-react-native/icons/user-plus";
 import X from "lucide-react-native/icons/x";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -27,23 +25,15 @@ import type { InterestTag, PublicProfilePhoto } from "@peekpoke/shared";
 import { ApiTransportError, isPremium } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import { Avatar, PremiumBadge } from "@/components/ui";
-import { NoCoinsDialog, UpgradeDialog } from "@/components/friend-action-dialogs";
-import {
-  fetchCurrentProfile,
-  type PublicProfileData,
-} from "@/data/profile/api";
+import { fetchCurrentProfile } from "@/data/profile/api";
 import { publicProfileQueryOptions } from "@/data/discovery/queries";
-import { fetchCoins } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
-import { apiFetch, isFriendLimitError, jsonBody } from "@/lib/api";
+import { apiFetch, jsonBody } from "@/lib/api";
 import {
   blockUser,
-  createOrFindThread,
   discardBlockUser,
   pendingBlockUser,
-  sendFriendRequest,
 } from "@/data/social/api";
-import { commitBlockedUser, commitFriendshipBalance } from "@/data/social/cache";
 
 const interestColors = [
   { bg: "#EDE9FF", text: "#6C63FF" },
@@ -65,15 +55,7 @@ export default function PublicProfileScreen() {
     queryKey: nativeQueryKeys.profile.current,
     queryFn: fetchCurrentProfile,
   });
-  const coinsQuery = useQuery({
-    queryKey: nativeQueryKeys.coins,
-    queryFn: fetchCoins,
-  });
   const viewer = viewerQuery.data ?? null;
-  const coins = coinsQuery.data?.balance ?? 0;
-  const [actionLoading, setActionLoading] = useState(false);
-  const [noCoinsOpen, setNoCoinsOpen] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [safetyLoading, setSafetyLoading] = useState(false);
   const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
@@ -98,12 +80,9 @@ export default function PublicProfileScreen() {
 
   const data = query.data;
   const profile = data?.profile ?? null;
-  const friendship = data?.friendship ?? null;
   const name = profile?.display_name || profile?.username || "User";
   const targetIsPremium = profile?.is_premium ?? false;
   const viewerIsPremium = isPremium(viewer);
-  const isFriend = friendship?.status === "accepted";
-  const isPending = friendship?.status === "pending";
   const hasPendingBlockRecovery = Boolean(userId && pendingBlockUser(userId));
 
   const approvedPhotos = useMemo(() => data?.photos ?? [], [data?.photos]);
@@ -116,43 +95,6 @@ export default function PublicProfileScreen() {
   );
   const privatePhotoCount = approvedPhotos.filter((photo) => photo.is_private).length;
   const tileSize = Math.max(76, (width - 80 - 8) / 3);
-
-  async function addFriend() {
-    if (!userId || isPending || isFriend || actionLoading) return;
-    if (coins < 1) {
-      setNoCoinsOpen(true);
-      return;
-    }
-
-    setActionLoading(true);
-    try {
-      await sendFriendRequest(userId, (response) => {
-        commitFriendshipBalance(queryClient, response.balance);
-        const { requester: _requester, addressee: _addressee, ...nextFriendship } = response.friendship;
-        queryClient.setQueryData<PublicProfileData>(
-          nativeQueryKeys.profile.public(userId),
-          (current) => current ? { ...current, friendship: nextFriendship } : current
-        );
-        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.social.requests });
-      });
-    } catch (error) {
-      if (isFriendLimitError(error)) setUpgradeMessage(error.message);
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function sendMessage() {
-    if (!userId || !isFriend || actionLoading) return;
-    setActionLoading(true);
-    try {
-      const thread = await createOrFindThread(userId);
-      queryClient.setQueryData(nativeQueryKeys.coins, { balance: thread.balance });
-      router.push({ pathname: "/chat/[threadId]", params: { threadId: thread.id } } as never);
-    } finally {
-      setActionLoading(false);
-    }
-  }
 
   function openPhoto(photo: PublicProfilePhoto) {
     if (photo.access !== "viewable" || photo.url === null) return;
@@ -210,11 +152,7 @@ export default function PublicProfileScreen() {
     if (!userId || !discardBlockUser(userId)) return;
     setSafetyStatus("Pending block request discarded. Current data is being refreshed.");
     void Promise.all([
-      queryClient.invalidateQueries({ queryKey: nativeQueryKeys.social.friends }),
-      queryClient.invalidateQueries({ queryKey: nativeQueryKeys.social.requests }),
-      queryClient.invalidateQueries({ queryKey: nativeQueryKeys.inbox.threads }),
       queryClient.invalidateQueries({ queryKey: nativeQueryKeys.profile.public(userId) }),
-      queryClient.invalidateQueries({ queryKey: nativeQueryKeys.coins }),
     ]);
   }
 
@@ -237,14 +175,11 @@ export default function PublicProfileScreen() {
     try {
       await blockUser(userId, (response) => {
         if (blockTargetRef.current !== userId) return;
-        if (response.balance !== null) commitFriendshipBalance(queryClient, response.balance);
-        commitBlockedUser(queryClient, userId);
-        void Promise.all([
-          queryClient.invalidateQueries({ queryKey: nativeQueryKeys.social.friends }),
-          queryClient.invalidateQueries({ queryKey: nativeQueryKeys.social.requests }),
-          queryClient.invalidateQueries({ queryKey: nativeQueryKeys.inbox.threads }),
-        ]);
-        router.replace("/(app)/map" as never);
+        if (response.balance !== null) {
+          queryClient.setQueryData(nativeQueryKeys.coins, { balance: response.balance });
+        }
+        queryClient.removeQueries({ queryKey: nativeQueryKeys.profile.public(userId) });
+        router.replace("/(app)/rooms" as never);
       });
     } catch (error) {
       if (blockTargetRef.current !== userId) return;
@@ -269,7 +204,7 @@ export default function PublicProfileScreen() {
     ]);
   }
 
-  if (viewerQuery.isPending || coinsQuery.isPending || query.isLoading) {
+  if (viewerQuery.isPending || query.isLoading) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator color={colors.primary[500]} size="large" />
@@ -277,7 +212,7 @@ export default function PublicProfileScreen() {
     );
   }
 
-  if (viewerQuery.isError || coinsQuery.isError || query.isError || !data || !profile) {
+  if (viewerQuery.isError || query.isError || !data || !profile) {
     return (
       <View style={styles.loadingScreen}>
         <Text style={styles.notFoundTitle}>Profile unavailable</Text>
@@ -285,7 +220,6 @@ export default function PublicProfileScreen() {
           accessibilityRole="button"
           onPress={() => {
             void viewerQuery.refetch();
-            void coinsQuery.refetch();
             void query.refetch();
           }}
           style={styles.darkPill}
@@ -319,17 +253,8 @@ export default function PublicProfileScreen() {
             <Avatar name={name} uri={profile.avatar_url} size={80} />
           </View>
           <View style={styles.statsPill}>
-            <Text style={styles.statStrong}>{data.stats.friends_count}</Text>
-            <Text style={styles.statLabel}>Friends</Text>
-            <Text style={styles.statDivider}>·</Text>
             <Text style={styles.statStrong}>{data.stats.photos_count}</Text>
             <Text style={styles.statLabel}>Photos</Text>
-            {profile.location_text ? (
-              <>
-                <Text style={styles.statDivider}>·</Text>
-                <Text numberOfLines={1} style={styles.statStrong}>{profile.location_text}</Text>
-              </>
-            ) : null}
           </View>
         </View>
 
@@ -340,38 +265,7 @@ export default function PublicProfileScreen() {
         <Text style={styles.handle}>@{profile.username}</Text>
         {profile.bio ? <Text style={styles.headerBio}>{profile.bio}</Text> : null}
 
-        <View style={styles.actionRow}>
-          {isFriend ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={actionLoading}
-              onPress={sendMessage}
-              style={({ pressed }) => [styles.surfaceAction, pressed && styles.pressed]}
-            >
-              {actionLoading ? <ActivityIndicator color={colors.primary[500]} size={16} /> : <Text style={styles.wave}>👋</Text>}
-              <Text style={styles.sayHiText}>Say Hi</Text>
-            </Pressable>
-          ) : isPending ? (
-            <View style={styles.surfaceAction}>
-              <Clock accessible={false} color={colors.ink[5]} size={16} strokeWidth={2} />
-              <Text style={styles.requestedText}>Requested</Text>
-            </View>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              disabled={actionLoading}
-              onPress={addFriend}
-              style={({ pressed }) => [styles.addFriendAction, pressed && styles.pressed]}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={colors.surface} size={16} />
-              ) : (
-                <UserPlus accessible={false} color={colors.surface} size={16} strokeWidth={2} />
-              )}
-              <Text style={styles.addFriendText}>Add Friend</Text>
-            </Pressable>
-          )}
-        </View>
+
       </View>
     </View>
   );
@@ -512,12 +406,6 @@ export default function PublicProfileScreen() {
       </ScrollView>
 
       <PhotoViewer photos={visiblePhotos} index={viewerIndex} onIndexChange={setViewerIndex} />
-      <NoCoinsDialog open={noCoinsOpen} onClose={() => setNoCoinsOpen(false)} />
-      <UpgradeDialog
-        message={upgradeMessage}
-        onClose={() => setUpgradeMessage(null)}
-        onUpgrade={() => router.navigate("/(app)/premium" as never)}
-      />
     </View>
   );
 }

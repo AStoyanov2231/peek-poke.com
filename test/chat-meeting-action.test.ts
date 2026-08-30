@@ -6,6 +6,7 @@ const web = readFileSync("src/features/chat/components/ChatProximityBanner.tsx",
 const native = readFileSync("apps/native/src/components/chat-meeting-action.tsx", "utf8");
 const webEligibility = readFileSync("src/features/chat/useProximityToThread.ts", "utf8");
 const nativeScreen = readFileSync("apps/native/app/chat/[threadId].tsx", "utf8");
+const nativeRooms = readFileSync("apps/native/app/(app)/rooms.tsx", "utf8");
 const webBackground = readFileSync("src/features/map/useMeetingDetection.ts", "utf8");
 const nativeBackground = readFileSync("apps/native/src/hooks/use-meeting-detection.ts", "utf8");
 const webAuth = readFileSync("src/features/auth/useAuth.ts", "utf8");
@@ -21,7 +22,8 @@ describe("chat Meet and earn parity", () => {
     expect(meetingProximityEligible(130)).toBe(true);
     expect(meetingProximityEligible(131)).toBe(false);
     expect(webEligibility).toContain("acceptedFriend && meetingProximityEligible");
-    expect(nativeScreen).toContain("&& acceptedFriend");
+    expect(nativeScreen).toContain("/(app)/rooms");
+    expect(nativeRooms).toContain("Scan a QR code");
   });
 
   it("web exposes a real accessible action with lifecycle and retry states", () => {

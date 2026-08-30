@@ -56,7 +56,7 @@ export function fetchInterestTags(): Promise<InterestTag[]> {
 }
 
 export function fetchPublicProfile(userId: string): Promise<PublicProfileData> {
-  return apiFetch(`/api/profile/${encodeURIComponent(userId)}?limit=100`, {
+  return apiFetch(`/api/profile/${encodeURIComponent(userId)}?limit=100&surface=rooms`, {
     responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl),
   });
 }

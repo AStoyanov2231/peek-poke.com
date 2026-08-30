@@ -87,6 +87,23 @@ export async function verifyThreadParticipant(
   return thread;
 }
 
+export async function verifyRoomMembership(
+  roomId: string,
+  userId: string,
+) {
+  const { data: membership, error } = await createServiceClient()
+    .from("chat_room_members")
+    .select("room_id, user_id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("auth: failed to verify room membership:", error);
+    throw error;
+  }
+  return membership;
+}
+
 export async function verifyThreadMembership(
   threadId: string,
   userId: string

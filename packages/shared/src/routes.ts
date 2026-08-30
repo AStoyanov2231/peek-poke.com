@@ -7,6 +7,9 @@ export const appRoutes = {
   profile: "/profile",
   admin: "/admin",
   premium: "/premium",
+  rooms: "/rooms",
+  scan: "/scan",
+  room: (roomId: string) => `/room/${roomId}`,
   chat: (threadId: string) => `/chat/${threadId}`,
   publicProfile: (userId: string) => `/profile/${userId}`,
 } as const;
@@ -19,6 +22,9 @@ export const nativeDeepLinkPrefixes = [
   "/chat",
   "/onboarding",
   "/premium",
+  "/rooms",
+  "/scan",
+  "/room",
 ] as const;
 
 export function isSafeInternalPath(path: string): boolean {

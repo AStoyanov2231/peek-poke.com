@@ -24,7 +24,6 @@ export function ProfileIdentity({
 
   const metaText = [
     `@${profile.username}`,
-    profile.location_text,
     `Joined ${joinedYear}`,
   ].filter(Boolean).join(" · ");
 
@@ -51,12 +50,6 @@ export function ProfileIdentity({
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="t-caption muted">@{profile.username}</span>
-          {profile.location_text && (
-            <>
-              <span className="t-caption muted">·</span>
-              <span className="t-caption muted">{profile.location_text}</span>
-            </>
-          )}
           <span className="t-caption muted">·</span>
           <span className="t-caption muted">Joined {joinedYear}</span>
         </div>
@@ -81,10 +74,6 @@ export function ProfileIdentity({
           <p className="t-callout muted mt-1">{metaText}</p>
           {stats && (
             <div className="flex items-center gap-5 mt-2">
-              <span className="t-callout text-ink-9">
-                <strong className="font-semibold">{stats.friends_count}</strong>
-                <span className="muted ml-1">Friends</span>
-              </span>
               <span className="t-callout text-ink-9">
                 <strong className="font-semibold">{stats.meetings_count ?? 0}</strong>
                 <span className="muted ml-1">Meetings</span>

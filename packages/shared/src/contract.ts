@@ -1102,6 +1102,13 @@ export const messageHintSchema = z.object({
   sequence: z.number().int().positive().optional(),
 });
 
+export const roomMessageHintSchema = z.strictObject({
+  room_id: z.uuid(),
+  action: z.enum(["sent", "edited", "deleted", "read"]),
+  actor_id: z.uuid().nullable().optional(),
+  sequence: z.number().int().positive().optional(),
+});
+
 /** Sanitized private-channel hint. Durable profile data is always re-read via the API. */
 export const profileUpdatedHintSchema = z.strictObject({
   profile_id: z.uuid(),
@@ -1328,6 +1335,11 @@ export const bootstrapSchema = z.object({
   unread_summary: z.object({ threads: z.number().int().nonnegative() }),
 });
 
+/** Bootstrap contract for the QR-room client; it does not read legacy DM counts. */
+export const roomBootstrapSchema = bootstrapSchema.omit({ unread_summary: true }).extend({
+  unread_summary: z.object({ rooms: z.number().int().nonnegative() }),
+});
+
 export const authProfileEnsureRequestSchema = z.strictObject({});
 
 export const authProfileEnsureResponseSchema = z.strictObject({
@@ -1343,6 +1355,79 @@ export const pageInfoSchema = z.strictObject({
   next_cursor: cursorSchema.nullable(),
   has_more: z.boolean(),
   limit: z.number().int().min(1).max(MAX_PAGE_SIZE),
+});
+
+/**
+ * QR room payloads are deliberately opaque capabilities. The payload is only
+ * accepted at the join boundary and is never used as a room identifier.
+ */
+export const roomQrPayloadSchema = z.string().regex(
+  /^pp-room-v1\.[A-Za-z0-9_-]{43}$/,
+  "Invalid room QR payload",
+);
+
+export const roomJoinRequestSchema = z.strictObject({
+  qr_payload: roomQrPayloadSchema,
+});
+
+export const roomCreateRequestSchema = z.strictObject({});
+
+export const roomSummarySchema = z.strictObject({
+  id: z.uuid(),
+  name: z.string().min(1).max(80),
+  created_at: utcTimestampSchema,
+  last_message_at: utcTimestampSchema.nullable(),
+  last_message_preview: z.string().nullable(),
+  member_count: z.number().int().positive(),
+  unread_count: z.number().int().nonnegative(),
+});
+
+export const roomsResponseSchema = z.strictObject({
+  rooms: z.array(roomSummarySchema).max(MAX_PAGE_SIZE),
+  pagination: pageInfoSchema,
+});
+
+export const roomCreateResponseSchema = z.strictObject({
+  room: roomSummarySchema,
+  /** Returned only to the creator so it can be rendered into a QR code. */
+  qr_payload: roomQrPayloadSchema,
+});
+
+export const roomJoinResponseSchema = z.strictObject({
+  room: roomSummarySchema,
+  is_new_member: z.boolean(),
+});
+
+export const roomMessageSchema = messageSchema.extend({
+  room_id: z.uuid(),
+}).superRefine((message, context) => {
+  if (message.thread_id !== message.room_id) {
+    context.addIssue({
+      code: "custom",
+      path: ["thread_id"],
+      message: "Room message thread ID must match room ID",
+    });
+  }
+});
+
+export const roomMessageMutationResponseSchema = z.strictObject({
+  message: roomMessageSchema,
+});
+
+export const roomMessagesResponseSchema = z.strictObject({
+  room: roomSummarySchema,
+  messages: z.array(roomMessageSchema),
+  pagination: pageInfoSchema,
+}).superRefine((response, context) => {
+  response.messages.forEach((message, index) => {
+    if (message.room_id !== response.room.id) {
+      context.addIssue({
+        code: "custom",
+        path: ["messages", index, "room_id"],
+        message: "Room message does not belong to the requested room",
+      });
+    }
+  });
 });
 
 export const moderationReportsResponseSchema = z.strictObject({
@@ -1708,8 +1793,18 @@ export type ModerationReportMutationResponse = z.infer<typeof moderationReportMu
 export type ModerationReportsResponse = z.infer<typeof moderationReportsResponseSchema>;
 export type ModerationPhoto = z.infer<typeof moderationPhotoSchema>;
 export type Bootstrap = z.infer<typeof bootstrapSchema>;
+export type RoomBootstrap = z.infer<typeof roomBootstrapSchema>;
 export type AuthProfileEnsureResponse = z.infer<typeof authProfileEnsureResponseSchema>;
 export type PageInfo = z.infer<typeof pageInfoSchema>;
+export type RoomQrPayload = z.infer<typeof roomQrPayloadSchema>;
+export type RoomJoinRequest = z.infer<typeof roomJoinRequestSchema>;
+export type RoomSummary = z.infer<typeof roomSummarySchema>;
+export type RoomsResponse = z.infer<typeof roomsResponseSchema>;
+export type RoomCreateResponse = z.infer<typeof roomCreateResponseSchema>;
+export type RoomJoinResponse = z.infer<typeof roomJoinResponseSchema>;
+export type RoomMessage = z.infer<typeof roomMessageSchema>;
+export type RoomMessageMutationResponse = z.infer<typeof roomMessageMutationResponseSchema>;
+export type RoomMessagesResponse = z.infer<typeof roomMessagesResponseSchema>;
 export type MessagesResponse = z.infer<typeof messagesResponseSchema>;
 export type ReadReceiptResponse = z.infer<typeof readReceiptResponseSchema>;
 export type MessageMutationResponse = z.infer<typeof messageMutationResponseSchema>;

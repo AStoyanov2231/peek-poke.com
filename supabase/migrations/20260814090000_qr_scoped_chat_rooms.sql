@@ -1,0 +1,371 @@
+-- QR-scoped group rooms. This migration is additive: legacy direct-message and
+-- location tables/RPCs remain available to already-deployed clients, but the
+-- new application flow never reads or writes them.
+
+create table if not exists public.chat_rooms (
+  id uuid primary key default gen_random_uuid(),
+  -- Store only a one-way digest. The capability itself is returned once to the
+  -- creator and is never part of a URL, room name, or durable client state.
+  qr_payload_hash text not null unique check (qr_payload_hash ~ '^[0-9a-f]{64}$'),
+  name text not null default 'Group room' check (char_length(name) between 1 and 80),
+  created_by uuid not null references public.profiles(id) on delete restrict,
+  last_message_at timestamptz,
+  last_message_preview text,
+  next_message_sequence bigint not null default 0 check (next_message_sequence >= 0),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.chat_room_members (
+  room_id uuid not null references public.chat_rooms(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  last_read_sequence bigint not null default 0 check (last_read_sequence >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (room_id, user_id)
+);
+
+create table if not exists public.chat_room_messages (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.chat_rooms(id) on delete cascade,
+  sender_id uuid not null references public.profiles(id) on delete restrict,
+  client_id uuid,
+  sequence bigint not null check (sequence > 0),
+  content text,
+  message_type public.message_type not null default 'text',
+  media_url text,
+  media_thumbnail_url text,
+  is_read boolean not null default false,
+  is_edited boolean not null default false,
+  is_deleted boolean not null default false,
+  reply_to_id uuid references public.chat_room_messages(id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (room_id, sequence),
+  unique (room_id, client_id)
+);
+
+create index if not exists chat_room_members_user_idx
+  on public.chat_room_members (user_id, updated_at desc, room_id);
+create index if not exists chat_room_messages_room_created_idx
+  on public.chat_room_messages (room_id, created_at desc, id desc);
+
+alter table public.chat_rooms enable row level security;
+alter table public.chat_room_members enable row level security;
+alter table public.chat_room_messages enable row level security;
+
+-- Direct table access is intentionally read-only for members. Mutations go
+-- through security-definer RPCs and the authenticated API route checks.
+drop policy if exists "room members can read rooms" on public.chat_rooms;
+create policy "room members can read rooms"
+  on public.chat_rooms for select to authenticated
+  using (exists (
+    select 1 from public.chat_room_members member
+    where member.room_id = chat_rooms.id
+      and member.user_id = (select auth.uid())
+  ));
+
+drop policy if exists "members can read their room membership" on public.chat_room_members;
+create policy "members can read their room membership"
+  on public.chat_room_members for select to authenticated
+  using (user_id = (select auth.uid()));
+
+drop policy if exists "room members can read messages" on public.chat_room_messages;
+create policy "room members can read messages"
+  on public.chat_room_messages for select to authenticated
+  using (exists (
+    select 1 from public.chat_room_members member
+    where member.room_id = chat_room_messages.room_id
+      and member.user_id = (select auth.uid())
+  ));
+
+drop policy if exists "room members can insert their messages" on public.chat_room_messages;
+create policy "room members can insert their messages"
+  on public.chat_room_messages for insert to authenticated
+  with check (
+    sender_id = (select auth.uid())
+    and exists (
+      select 1 from public.chat_room_members member
+      where member.room_id = chat_room_messages.room_id
+        and member.user_id = (select auth.uid())
+    )
+  );
+
+drop policy if exists "authors can update room messages" on public.chat_room_messages;
+create policy "authors can update room messages"
+  on public.chat_room_messages for update to authenticated
+  using (sender_id = (select auth.uid()))
+  with check (sender_id = (select auth.uid()));
+
+drop policy if exists "authors can delete room messages" on public.chat_room_messages;
+create policy "authors can delete room messages"
+  on public.chat_room_messages for delete to authenticated
+  using (sender_id = (select auth.uid()));
+
+grant select on public.chat_rooms, public.chat_room_members, public.chat_room_messages to authenticated;
+-- All room writes go through the transactional security-definer RPCs below.
+revoke insert, update, delete on public.chat_room_messages from authenticated;
+revoke all on public.chat_rooms, public.chat_room_members, public.chat_room_messages from anon;
+grant all on public.chat_rooms, public.chat_room_members, public.chat_room_messages to service_role;
+
+-- Postgres Changes is used for message delivery; keep the table in the
+-- existing realtime publication without failing if it was preconfigured.
+do $$
+begin
+  alter publication supabase_realtime add table public.chat_room_messages;
+exception when duplicate_object then
+  null;
+end;
+$$;
+
+create or replace function public.create_chat_room(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_room public.chat_rooms%rowtype;
+  v_payload text;
+  v_hash text;
+begin
+  if not exists (
+    select 1 from public.profiles profile
+    where profile.id = p_user_id and profile.deleted_at is null
+  ) then
+    return jsonb_build_object('error', 'ACCOUNT_DELETED');
+  end if;
+
+  loop
+    v_payload := 'pp-room-v1.' || pg_catalog.rtrim(
+      pg_catalog.translate(encode(extensions.gen_random_bytes(32), 'base64'), '+/', '-_'),
+      '='
+    );
+    v_hash := encode(extensions.digest(v_payload, 'sha256'), 'hex');
+    begin
+      insert into public.chat_rooms (qr_payload_hash, created_by)
+      values (v_hash, p_user_id)
+      returning * into v_room;
+      exit;
+    exception when unique_violation then
+      -- A random collision is harmless; generate a fresh capability.
+      null;
+    end;
+  end loop;
+
+  insert into public.chat_room_members (room_id, user_id)
+  values (v_room.id, p_user_id);
+
+  return jsonb_build_object(
+    'room_id', v_room.id,
+    'qr_payload', v_payload
+  );
+end;
+$$;
+
+create or replace function public.join_chat_room_by_qr(
+  p_user_id uuid,
+  p_qr_payload text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_room public.chat_rooms%rowtype;
+  v_hash text;
+  v_inserted integer;
+begin
+  -- Validate both shape and entropy at the database boundary. No raw payload
+  -- is written to a table, emitted in an error, or included in the result.
+  if p_qr_payload is null
+     or p_qr_payload !~ '^pp-room-v1\.[A-Za-z0-9_-]{43}$' then
+    return jsonb_build_object('error', 'INVALID_QR_PAYLOAD');
+  end if;
+  if not exists (
+    select 1 from public.profiles profile
+    where profile.id = p_user_id and profile.deleted_at is null
+  ) then
+    return jsonb_build_object('error', 'ACCOUNT_DELETED');
+  end if;
+
+  v_hash := encode(extensions.digest(p_qr_payload, 'sha256'), 'hex');
+  select * into v_room
+  from public.chat_rooms room
+  where room.qr_payload_hash = v_hash
+  for update;
+  if not found then
+    return jsonb_build_object('error', 'ROOM_NOT_FOUND');
+  end if;
+
+  insert into public.chat_room_members (room_id, user_id)
+  values (v_room.id, p_user_id)
+  on conflict (room_id, user_id) do nothing;
+  get diagnostics v_inserted = row_count;
+
+  return jsonb_build_object(
+    'room_id', v_room.id,
+    'is_new_member', v_inserted = 1
+  );
+end;
+$$;
+
+create or replace function public.send_room_message_transactional(
+  p_room_id uuid,
+  p_sender_id uuid,
+  p_client_id uuid,
+  p_content text,
+  p_message_type text default 'text',
+  p_media_url text default null,
+  p_media_thumbnail_url text default null,
+  p_reply_to_id uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_room public.chat_rooms%rowtype;
+  v_sequence bigint;
+  v_message_id uuid;
+  v_message jsonb;
+  v_deduplicated boolean := false;
+begin
+  select room.* into v_room
+  from public.chat_rooms room
+  join public.chat_room_members member on member.room_id = room.id
+  where room.id = p_room_id
+    and member.user_id = p_sender_id
+  for update;
+  if not found then
+    return jsonb_build_object('error', 'ROOM_NOT_FOUND');
+  end if;
+
+  if exists (
+    select 1 from public.profiles profile
+    where profile.id = p_sender_id and profile.deleted_at is not null
+  ) then
+    return jsonb_build_object('error', 'ACCOUNT_DELETED');
+  end if;
+
+  if p_reply_to_id is not null and not exists (
+    select 1 from public.chat_room_messages reply
+    where reply.id = p_reply_to_id
+      and reply.room_id = p_room_id
+      and reply.is_deleted = false
+  ) then
+    return jsonb_build_object('error', 'REPLY_TARGET_NOT_FOUND');
+  end if;
+
+  select message.id into v_message_id
+  from public.chat_room_messages message
+  where message.room_id = p_room_id
+    and message.client_id = p_client_id;
+
+  if v_message_id is null then
+    update public.chat_rooms
+    set next_message_sequence = next_message_sequence + 1,
+        last_message_at = now(),
+        last_message_preview = case when p_message_type = 'image' then 'Photo' else left(p_content, 240) end
+    where id = p_room_id
+    returning next_message_sequence into v_sequence;
+
+    insert into public.chat_room_messages (
+      room_id, sender_id, client_id, sequence, content, message_type,
+      media_url, media_thumbnail_url, reply_to_id
+    ) values (
+      p_room_id, p_sender_id, p_client_id, v_sequence, p_content,
+      p_message_type::public.message_type, p_media_url,
+      p_media_thumbnail_url, p_reply_to_id
+    ) returning id into v_message_id;
+
+    update public.chat_room_members
+    set last_read_sequence = greatest(last_read_sequence, v_sequence), updated_at = now()
+    where room_id = p_room_id and user_id = p_sender_id;
+  else
+    v_deduplicated := true;
+  end if;
+
+  select to_jsonb(message.*) || jsonb_build_object(
+    'sender', to_jsonb(sender.*),
+    'reply_to', case when message.reply_to_id is not null then (
+      select jsonb_build_object('id', reply.id, 'sender_id', reply.sender_id, 'content', reply.content)
+      from public.chat_room_messages reply where reply.id = message.reply_to_id
+    ) else null end
+  ) into v_message
+  from public.chat_room_messages message
+  join public.profiles sender on sender.id = message.sender_id
+  where message.id = v_message_id;
+
+  return jsonb_build_object(
+    'message', v_message,
+    'deduplicated', v_deduplicated
+  );
+end;
+$$;
+
+create or replace function public.mark_chat_room_read(
+  p_room_id uuid,
+  p_user_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_sequence bigint;
+  v_count integer;
+begin
+  select room.next_message_sequence into v_sequence
+  from public.chat_rooms room
+  join public.chat_room_members member on member.room_id = room.id
+  where room.id = p_room_id and member.user_id = p_user_id
+  for update;
+  if not found then return jsonb_build_object('error', 'ROOM_NOT_FOUND'); end if;
+
+  update public.chat_room_members
+  set last_read_sequence = greatest(last_read_sequence, coalesce(v_sequence, 0)), updated_at = now()
+  where room_id = p_room_id and user_id = p_user_id;
+  get diagnostics v_count = row_count;
+  return jsonb_build_object('success', v_count = 1, 'last_read_sequence', coalesce(v_sequence, 0));
+end;
+$$;
+
+revoke all on function public.create_chat_room(uuid) from public, anon, authenticated;
+revoke all on function public.join_chat_room_by_qr(uuid, text) from public, anon, authenticated;
+revoke all on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) from public, anon, authenticated;
+revoke all on function public.mark_chat_room_read(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.create_chat_room(uuid) to service_role;
+grant execute on function public.join_chat_room_by_qr(uuid, text) to service_role;
+grant execute on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) to service_role;
+grant execute on function public.mark_chat_room_read(uuid, uuid) to service_role;
+
+-- Private Realtime topic authorization. Existing DM/call topic rules remain
+-- unchanged; room topics are readable only by current room members.
+drop policy if exists "authenticated scoped realtime read" on realtime.messages;
+create policy "authenticated scoped realtime read"
+  on realtime.messages
+  for select
+  to authenticated
+  using (
+    (select realtime.topic()) = 'sync:user:' || (select auth.uid())::text
+    or (select realtime.topic()) = 'calls:user:' || (select auth.uid())::text
+    or (
+      (
+        (select realtime.topic()) like 'call:%'
+        or (select realtime.topic()) like 'thread:%'
+      )
+      and app_private.can_access_dm_thread(
+        split_part((select realtime.topic()), ':', 2)
+      )
+    )
+    or (
+      (select realtime.topic()) like 'room:%'
+      and exists (
+        select 1 from public.chat_room_members member
+        where member.room_id = split_part((select realtime.topic()), ':', 2)::uuid
+          and member.user_id = (select auth.uid())
+      )
+    )
+  );

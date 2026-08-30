@@ -43,7 +43,6 @@ import {
   fetchInterestTags,
   fetchProfileInterests,
   fetchProfilePhotos,
-  fetchPublicProfile,
   updateProfile,
   updateProfilePhoto,
   uploadProfileCover,
@@ -92,7 +91,7 @@ const categoryEmoji: Record<string, string> = {
 };
 
 const premiumFeatures = [
-  { icon: "users", label: "Unlimited friends" },
+  { icon: "users", label: "Unlimited rooms" },
   { icon: "image", label: "See other people's photos" },
   { icon: "eye", label: "See who viewed your profile" },
 ] as const;
@@ -122,15 +121,7 @@ export default function ProfileScreen() {
   const photos = useMemo(() => photosQuery.data ?? [], [photosQuery.data]);
   const interests = useMemo(() => interestsQuery.data ?? [], [interestsQuery.data]);
   const allTags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data]);
-  const summaryQuery = useQuery({
-    queryKey: nativeQueryKeys.profile.public(profile?.id ?? ""),
-    queryFn: () => fetchPublicProfile(profile!.id),
-    enabled: Boolean(profile?.id),
-  });
-  const stats = {
-    friends_count: summaryQuery.data?.stats.friends_count ?? 0,
-    photos_count: photos.length,
-  };
+  const stats = { photos_count: photos.length };
   const [bio, setBio] = useState("");
   const [displayNameText, setDisplayNameText] = useState("");
   const [editingName, setEditingName] = useState(false);
@@ -447,8 +438,7 @@ export default function ProfileScreen() {
     profileQuery.isPending ||
     photosQuery.isPending ||
     interestsQuery.isPending ||
-    tagsQuery.isPending ||
-    (Boolean(profile) && summaryQuery.isPending)
+    tagsQuery.isPending
   ) {
     return (
       <Screen>
@@ -466,7 +456,6 @@ export default function ProfileScreen() {
     photosQuery.isError ||
     interestsQuery.isError ||
     tagsQuery.isError ||
-    summaryQuery.isError ||
     !profile
   ) {
     return (
@@ -480,7 +469,6 @@ export default function ProfileScreen() {
               void photosQuery.refetch();
               void interestsQuery.refetch();
               void tagsQuery.refetch();
-              void summaryQuery.refetch();
             }}
           >
             Try again
@@ -546,12 +534,6 @@ export default function ProfileScreen() {
 
         <View style={styles.metaRow}>
           <Caption>@{profile.username}</Caption>
-          {profile.location_text ? (
-            <>
-              <Caption>·</Caption>
-              <Caption>{profile.location_text}</Caption>
-            </>
-          ) : null}
           {joined ? (
             <>
               <Caption>·</Caption>
@@ -576,7 +558,6 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.statRow}>
-        <StatCard value={stats.friends_count} label="Friends" />
         <StatCard value={stats.photos_count} label="Photos" />
       </View>
 

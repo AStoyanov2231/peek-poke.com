@@ -19,6 +19,7 @@ interface ChatComposerProps {
   editError: string | null;
   onCancelEdit: () => void;
   onSelectImage: (file: File) => void;
+  allowImages?: boolean;
 }
 
 export function ChatComposer({
@@ -32,6 +33,7 @@ export function ChatComposer({
   editError,
   onCancelEdit,
   onSelectImage,
+  allowImages = true,
 }: ChatComposerProps) {
   const hasText = value.trim().length > 0;
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -96,7 +98,7 @@ export function ChatComposer({
               event.target.value = "";
             }}
           />
-          {!isEditing ? (
+          {!isEditing && allowImages ? (
             <button
               type="button"
               disabled={isPending}

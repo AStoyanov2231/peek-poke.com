@@ -1,6 +1,6 @@
 import {
   authProfileEnsureResponseSchema,
-  bootstrapSchema,
+  roomBootstrapSchema,
   boundedCursorPath,
   coinsResponseSchema,
   currentProfileResponseSchema,
@@ -12,7 +12,7 @@ import {
   createMeetingCompletionRegistry,
   StaleMeetingAttemptError,
   type AuthProfileEnsureResponse,
-  type Bootstrap,
+  type RoomBootstrap,
   type DmInboxResponse,
   type Friend,
   type FriendsReadResponse,
@@ -55,8 +55,8 @@ function currentMeetingOwnerEpoch(accountId: string) {
   return meetingCompletions.current(accountId);
 }
 
-export function fetchBootstrap(signal?: AbortSignal): Promise<Bootstrap> {
-  return apiFetch("/api/bootstrap", { signal, responseSchema: bootstrapSchema });
+export function fetchBootstrap(signal?: AbortSignal): Promise<RoomBootstrap> {
+  return apiFetch("/api/bootstrap?surface=rooms", { signal, responseSchema: roomBootstrapSchema });
 }
 
 export function ensureAuthenticatedProfile(signal?: AbortSignal): Promise<AuthProfileEnsureResponse> {

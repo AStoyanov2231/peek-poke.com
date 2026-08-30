@@ -68,6 +68,24 @@ export async function notifyMessagesChanged(
   );
 }
 
+export async function notifyRoomMessagesChanged(
+  roomId: string,
+  action: "sent" | "edited" | "deleted" | "read",
+  actorId: string,
+  sequence?: number,
+) {
+  await broadcastPrivateRealtimeEvent(
+    `room:${roomId}`,
+    "messages-changed",
+    {
+      room_id: roomId,
+      actor_id: actorId,
+      action,
+      ...(sequence === undefined ? {} : { sequence }),
+    },
+  );
+}
+
 export async function notifyProfileChanged(userId: string) {
   await broadcastPrivateRealtimeEvent(
     `sync:user:${userId}`,

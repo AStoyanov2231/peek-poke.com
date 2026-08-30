@@ -49,11 +49,10 @@ vi.mock("expo-crypto", () => ({ randomUUID: () => "native-inbox-key-000001" }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe("native DM inbox transport", () => {
-  it("never substitutes bootstrap thread counts for validated unread cursors", () => {
+  it("uses the QR-room screen instead of exposing legacy direct-message inbox state", () => {
     const source = readFileSync("app/(app)/inbox.tsx", "utf8");
-    expect(source).toContain("const unread = threadsQuery.data?.total_unread ?? 0");
-    expect(source).not.toContain("unread_summary.threads");
-    expect(source).toContain("threadsQuery.error && threadsQuery.data");
+    expect(source).toContain("/(app)/rooms");
+    expect(source).toContain("Legacy route");
   });
 
   it("validates the exact shared response before caching", async () => {

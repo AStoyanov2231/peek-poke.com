@@ -46,6 +46,7 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
     return apiError("Profile not found", 404, "USER_NOT_FOUND");
   }
 
+  const roomSurface = request.nextUrl.searchParams.get("surface") === "rooms";
   const { data: rawPhotoRows, error: photoError } = await serviceClient
     .from("profile_photos")
     .select(PROFILE_PHOTO_COLUMNS as any)
@@ -110,6 +111,7 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
     };
   }) : [];
   const safeProfile = mapPublicProfile(rawProfile);
+  if (roomSurface) safeProfile.location_text = null;
   safeProfile.avatar_url = approvedAvatar?.url ?? null;
   safeProfile.cover_image_url = approvedCover?.url ?? null;
   const payload = publicProfileResponseSchemaFor(
@@ -123,9 +125,11 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
     interests,
     stats: {
       photos_count: photos.length,
-      friends_count: rawStats.friends_count,
+      friends_count: roomSurface ? 0 : rawStats.friends_count,
     },
-    friendship: data?.friendship ? mapPublicProfileRelationship(data.friendship) : null,
+    friendship: roomSurface
+      ? null
+      : data?.friendship ? mapPublicProfileRelationship(data.friendship) : null,
     pagination: photoPage.data.page,
   });
   if (!payload.success) {

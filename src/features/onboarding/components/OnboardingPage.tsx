@@ -551,7 +551,7 @@ export default function OnboardingPage() {
                 transition={{ delay: 0.7, duration: 0.4 }}
                 className="text-ink-5"
               >
-                Taking you to the map...
+                Taking you to your rooms...
               </motion.p>
               <motion.div
                 initial={{ opacity: 0 }}
