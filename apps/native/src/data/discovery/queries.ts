@@ -1,13 +1,10 @@
 import { queryOptions } from "@tanstack/react-query";
 import { nativeQueryKeys } from "@/data/query-keys";
 import {
-  fetchBots,
-  fetchNearby,
   fetchPublicProfile,
   fetchTagSuggestions,
   resolveTags,
   searchUsers,
-  type Coordinates,
 } from "./api";
 
 export const discoveryQueryKeys = {
@@ -16,21 +13,6 @@ export const discoveryQueryKeys = {
   users: (nameQuery: string, tagIds: string[], nearbyIds: string[]) =>
     [...nativeQueryKeys.discovery.userSearch, nameQuery, ...tagIds, "|", ...nearbyIds] as const,
 } as const;
-
-export function nearbyQueryOptions(coords: Coordinates, viewerId: string) {
-  return queryOptions({
-    queryKey: nativeQueryKeys.discovery.nearby(viewerId, coords.lat, coords.lng),
-    queryFn: ({ signal }) => fetchNearby(coords, viewerId, signal),
-  });
-}
-
-export function botsQueryOptions(coords: Coordinates, viewerId: string) {
-  return queryOptions({
-    queryKey: nativeQueryKeys.discovery.bots(viewerId, coords.lat, coords.lng),
-    queryFn: ({ signal }) => fetchBots(coords, signal),
-    retry: false,
-  });
-}
 
 export function tagSuggestionsQueryOptions(prefix: string) {
   return queryOptions({

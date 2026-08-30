@@ -1201,10 +1201,6 @@ export function nearbyResponseSchemaForViewer(
   });
 }
 
-export const locationUpdateResponseSchema = z.strictObject({
-  ok: z.literal(true),
-});
-
 export const moderationReportStatusSchema = z.enum([
   "pending",
   "reviewing",
@@ -1782,7 +1778,6 @@ export type DmThreadCreateResponse = z.infer<typeof dmThreadCreateResponseSchema
 export type Message = z.infer<typeof messageSchema>;
 export type NearbyUserDto = z.infer<typeof nearbyUserSchema>;
 export type NearbyResponseDto = z.infer<typeof nearbyResponseSchema>;
-export type LocationUpdateResponse = z.infer<typeof locationUpdateResponseSchema>;
 export type SearchUserDto = SearchUserResult;
 export type ModerationReportStatus = z.infer<typeof moderationReportStatusSchema>;
 export type ModerationReportAction = z.infer<typeof moderationReportActionSchema>;

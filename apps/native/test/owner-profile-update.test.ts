@@ -94,7 +94,6 @@ describe("native owner profile cache commit", () => {
     const dependentKeys = [
       nativeQueryKeys.social.friends,
       nativeQueryKeys.inbox.threads,
-      ["discovery", "nearby", USER_ID] as const,
       [...nativeQueryKeys.discovery.userSearch, "ada", "|", USER_ID] as const,
     ];
     client.setQueryData(nativeQueryKeys.social.friends, [{
@@ -108,8 +107,7 @@ describe("native owner profile cache commit", () => {
     client.setQueryData(nativeQueryKeys.inbox.threads, {
       threads: [{ participant_1_id: USER_ID, participant_2_id: OTHER_ID }],
     });
-    client.setQueryData(dependentKeys[2], [{ userId: USER_ID }]);
-    client.setQueryData(dependentKeys[3], [{ id: USER_ID }]);
+    client.setQueryData(dependentKeys[2], [{ id: USER_ID }]);
 
     expect(commitNativeOwnerProfileUpdate(client, USER_ID, profile)).toBe(true);
     expect(client.getQueryData(nativeQueryKeys.profile.current)).toEqual(profile);
@@ -163,7 +161,6 @@ describe("native owner profile cache commit", () => {
     const targetPublic = nativeQueryKeys.profile.public(OTHER_ID);
     const unrelatedId = "33333333-3333-4333-8333-333333333333";
     const unrelatedPublic = nativeQueryKeys.profile.public(unrelatedId);
-    const nearby = nativeQueryKeys.discovery.nearby(USER_ID, 42.1, 23.2);
     const search = [...nativeQueryKeys.discovery.userSearch, "peer"] as const;
     client.setQueryData(targetPublic, { profile: { id: OTHER_ID } });
     client.setQueryData(unrelatedPublic, { profile: { id: unrelatedId } });
@@ -174,7 +171,6 @@ describe("native owner profile cache commit", () => {
     client.setQueryData(nativeQueryKeys.inbox.threads, {
       threads: [{ participant_1_id: USER_ID, participant_2_id: OTHER_ID }],
     });
-    client.setQueryData(nearby, [{ userId: OTHER_ID }]);
     client.setQueryData(search, [{ id: OTHER_ID }]);
 
     await expect(refreshNativeProfileReferences(
@@ -184,7 +180,7 @@ describe("native owner profile cache commit", () => {
       { refetch: false },
     )).resolves.toBe(true);
 
-    [targetPublic, nativeQueryKeys.social.friends, nativeQueryKeys.inbox.threads, nearby, search]
+    [targetPublic, nativeQueryKeys.social.friends, nativeQueryKeys.inbox.threads, search]
       .forEach((key) => expect(client.getQueryState(key)?.isInvalidated).toBe(true));
     expect(client.getQueryState(unrelatedPublic)?.isInvalidated).toBe(false);
     expect(client.getQueryState(nativeQueryKeys.profile.current)?.isInvalidated).toBe(false);

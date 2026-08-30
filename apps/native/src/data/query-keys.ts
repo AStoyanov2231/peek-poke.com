@@ -26,10 +26,6 @@ export const nativeQueryKeys = {
   },
   discovery: {
     userSearch: ["discovery", "search", "users"] as const,
-    nearby: (viewerId: string, lat: number, lng: number) =>
-      ["discovery", "nearby", viewerId, lat.toFixed(4), lng.toFixed(4)] as const,
-    bots: (viewerId: string, lat: number, lng: number) =>
-      ["discovery", "bots", viewerId, lat.toFixed(4), lng.toFixed(4)] as const,
   },
   coins: ["coins"] as const,
   entitlements: ["billing", "entitlements"] as const,

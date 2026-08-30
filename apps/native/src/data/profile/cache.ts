@@ -100,9 +100,6 @@ export function nativeQueryContainsProfileReference(
         );
     });
   }
-  if (key[0] === "discovery" && key[1] === "nearby") {
-    return Array.isArray(data) && data.some((user) => recordId(user, "userId") === profileId);
-  }
   if (key[0] === "discovery" && key[1] === "search" && key[2] === "users") {
     return Array.isArray(data) && data.some((user) => recordId(user) === profileId);
   }
@@ -115,7 +112,6 @@ export function isNativeProfileRecoveryQuery(query: Pick<Query, "queryKey">) {
     (key[0] === "profile" && (key[1] === "current" || key[1] === "public"))
     || (key[0] === "social" && (key[1] === "friends" || key[1] === "requests"))
     || (key[0] === "inbox" && key[1] === "threads")
-    || (key[0] === "discovery" && key[1] === "nearby")
     || (key[0] === "discovery" && key[1] === "search" && key[2] === "users")
   );
 }

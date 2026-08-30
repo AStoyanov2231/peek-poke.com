@@ -102,7 +102,6 @@ export function useAuth() {
             || profileOwnerIdRef.current !== authUser.id
           ) {
             if (currentUserIdRef.current !== null) resetFriendMutationAttempts();
-            useAppStore.getState().markLocationStale();
             currentUserIdRef.current = authUser.id;
             const fetchedProfile = await fetchProfile();
             if (isCurrentAuth(eventAuthGeneration)) {

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(34);
 
 insert into auth.users (id, email)
 values
@@ -26,6 +26,64 @@ values
     '71000000-0000-4000-8000-000000000002',
     '70000000-0000-4000-8000-000000000002',
     '70000000-0000-4000-8000-000000000003'
+  );
+
+insert into public.chat_rooms (
+  id, qr_payload_hash, name, created_by, last_message_at, last_message_preview, next_message_sequence
+)
+values
+  (
+    '75000000-0000-4000-8000-000000000001',
+    repeat('a', 64),
+    'Erasure room',
+    '70000000-0000-4000-8000-000000000001',
+    now(),
+    'Erase this preview',
+    2
+  ),
+  (
+    '75000000-0000-4000-8000-000000000002',
+    repeat('b', 64),
+    'Empty after erasure',
+    '70000000-0000-4000-8000-000000000001',
+    now(),
+    'Only erased message',
+    1
+  );
+
+insert into public.chat_room_members (room_id, user_id)
+values
+  ('75000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001'),
+  ('75000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000002'),
+  ('75000000-0000-4000-8000-000000000002', '70000000-0000-4000-8000-000000000001');
+
+insert into public.chat_room_messages (
+  id, room_id, sender_id, sequence, content, message_type
+)
+values
+  (
+    '76000000-0000-4000-8000-000000000001',
+    '75000000-0000-4000-8000-000000000001',
+    '70000000-0000-4000-8000-000000000001',
+    1,
+    'Erase this message',
+    'text'
+  ),
+  (
+    '76000000-0000-4000-8000-000000000002',
+    '75000000-0000-4000-8000-000000000001',
+    '70000000-0000-4000-8000-000000000002',
+    2,
+    'Keep this message',
+    'text'
+  ),
+  (
+    '76000000-0000-4000-8000-000000000003',
+    '75000000-0000-4000-8000-000000000002',
+    '70000000-0000-4000-8000-000000000001',
+    1,
+    'Only erased message',
+    'text'
   );
 
 insert into storage.buckets (id, name, public)
@@ -196,6 +254,68 @@ select is(
   (select result ->> 'success' from account_erasure_result),
   'true',
   'mixed account erasure queues successfully'
+);
+select is(
+  (
+    select count(*)
+    from public.chat_room_messages message
+    where message.sender_id = '70000000-0000-4000-8000-000000000001'
+      and message.is_deleted
+      and message.message_type = 'system'
+      and message.content is null
+  ),
+  2::bigint,
+  'account erasure tombstones authored room messages'
+);
+select is(
+  (
+    select message.content
+    from public.chat_room_messages message
+    where message.id = '76000000-0000-4000-8000-000000000002'
+  ),
+  'Keep this message',
+  'account erasure preserves another member room message'
+);
+select is(
+  (
+    select room.last_message_preview
+    from public.chat_rooms room
+    where room.id = '75000000-0000-4000-8000-000000000001'
+  ),
+  'Keep this message',
+  'account erasure recomputes a room preview from surviving content'
+);
+select ok(
+  (
+    select room.last_message_at is not null
+      and room.last_message_preview = 'Keep this message'
+    from public.chat_rooms room
+    where room.id = '75000000-0000-4000-8000-000000000001'
+  ),
+  'account erasure preserves a surviving room summary timestamp'
+);
+select ok(
+  (
+    select room.last_message_at is null
+      and room.last_message_preview is null
+    from public.chat_rooms room
+    where room.id = '75000000-0000-4000-8000-000000000002'
+  ),
+  'account erasure clears a room summary with no surviving messages'
+);
+select ok(
+  exists (
+    select 1
+    from public.chat_room_members member
+    where member.room_id = '75000000-0000-4000-8000-000000000001'
+      and member.user_id = '70000000-0000-4000-8000-000000000001'
+  )
+  and (
+    select profile.display_name
+    from public.profiles profile
+    where profile.id = '70000000-0000-4000-8000-000000000001'
+  ) = 'Deleted member',
+  'account erasure retains room membership with an anonymous profile'
 );
 select is(
   (

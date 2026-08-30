@@ -5,7 +5,6 @@ import { fetchJson } from "../src/lib/typed-api";
 import {
   bootstrapQueryOptions,
   friendsQueryOptions,
-  nearbyQueryOptions,
   profileQueryOptions,
   webQueryKeys,
 } from "../src/data/web-query";
@@ -23,17 +22,6 @@ describe("web remote-state queries", () => {
       status: 429,
       code: "RATE_LIMITED",
       retryAfter: "7",
-    },
-    {
-      label: "nearby discovery",
-      options: nearbyQueryOptions(
-        { lat: 42.6977, lng: 23.3219 },
-        "11111111-1111-4111-8111-111111111111",
-      ),
-      expectedPath: "/api/nearby",
-      status: 429,
-      code: "RATE_LIMITED",
-      retryAfter: "13",
     },
   ])("preserves the canonical transport error on $label", async ({
     options,

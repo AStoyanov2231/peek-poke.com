@@ -4,20 +4,17 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   roomBootstrapSchema,
-  adminBotListResponseSchema,
   boundedCursorPath,
   coinsResponseSchema,
   currentProfileResponseSchema,
   dmInboxResponseSchema,
   friendsReadResponseSchema,
   interestCatalogResponseSchema,
-  locationUpdateResponseSchema,
   messagesResponseSchema,
   meetingResponseSchema,
   createMeetingAttemptCoordinator,
   createMeetingCompletionRegistry,
   StaleMeetingAttemptError,
-  nearbyResponseSchemaForViewer,
   ownerProfilePhotoDeleteResponseSchema,
   ownerProfilePhotoMutationResponseSchemaForStorageOrigin,
   ownerProfilePhotosResponseSchemaForStorageOrigin,
@@ -25,17 +22,14 @@ import {
   ownerProfileUpdateResponseSchema,
   profileInterestsResponseSchema,
   publicProfileResponseSchemaForTarget,
-  type AdminBot,
   type RoomBootstrap,
   type CurrentProfile,
-  type Friend,
   type OwnerProfilePhoto,
   type OwnerProfilePatchRequest,
   type ProfileCard,
   type ProfileInterestDto,
   type PublicProfileResponse,
   type MessagesResponse,
-  type LocationUpdateResponse,
   type MeetingResponse,
 } from "@peekpoke/shared";
 import type {
@@ -53,7 +47,6 @@ export const WEB_QUERY_STALE_TIME = {
   profile: 60_000,
   social: 15_000,
   inbox: 10_000,
-  nearby: 30_000,
   catalog: 60 * 60_000,
 } as const;
 
@@ -70,10 +63,6 @@ export const webQueryKeys = {
   roomMessages: (roomId: string) => ["web", "rooms", roomId, "messages"] as const,
   coins: ["web", "coins"] as const,
   publicProfile: (userId: string) => ["web", "profile", userId] as const,
-  nearby: (viewerId: string, lat: number, lng: number) =>
-    ["web", "nearby", viewerId, lat.toFixed(3), lng.toFixed(3)] as const,
-  bots: (viewerId: string, lat: number, lng: number) =>
-    ["web", "bots", viewerId, lat.toFixed(3), lng.toFixed(3)] as const,
   tagSuggestions: (prefix: string) => ["web", "search", "tags", prefix] as const,
   userSearch: (nameQuery: string, tagIds: string[], nearbyIds: string[]) =>
     [
@@ -419,64 +408,5 @@ export function publicProfileQueryOptions(userId: string) {
     ),
     enabled: Boolean(userId),
     staleTime: WEB_QUERY_STALE_TIME.profile,
-  });
-}
-
-export const WEB_LOCATION_UPDATE_TIMEOUT_MS = 8_000;
-
-export function updateWebLocation(
-  location: { lat: number; lng: number },
-  signal?: AbortSignal,
-): Promise<LocationUpdateResponse> {
-  return fetchContract("/api/location", locationUpdateResponseSchema, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(location),
-    signal,
-    timeoutMs: WEB_LOCATION_UPDATE_TIMEOUT_MS,
-  });
-}
-
-export function nearbyQueryOptions(
-  location: { lat: number; lng: number } | null,
-  viewerId: string | undefined,
-) {
-  const lat = location?.lat ?? 0;
-  const lng = location?.lng ?? 0;
-  return queryOptions({
-    queryKey: webQueryKeys.nearby(viewerId ?? "", lat, lng),
-    queryFn: async ({ signal }) => {
-      const data = await fetchContract("/api/nearby", nearbyResponseSchemaForViewer(
-        viewerId ?? "",
-        process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-      ), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ lat, lng }),
-        signal,
-      });
-      return data.users;
-    },
-    enabled: Boolean(location && viewerId),
-    staleTime: WEB_QUERY_STALE_TIME.nearby,
-  });
-}
-
-export function botsQueryOptions(
-  location: { lat: number; lng: number } | null,
-  viewerId: string | undefined,
-) {
-  const lat = location?.lat ?? 0;
-  const lng = location?.lng ?? 0;
-  return queryOptions({
-    queryKey: webQueryKeys.bots(viewerId ?? "", lat, lng),
-    queryFn: ({ signal }): Promise<AdminBot[]> =>
-      fetchContract(
-        `/api/bots?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
-        adminBotListResponseSchema,
-        { signal },
-      ),
-    enabled: Boolean(location && viewerId),
-    staleTime: WEB_QUERY_STALE_TIME.nearby,
   });
 }
