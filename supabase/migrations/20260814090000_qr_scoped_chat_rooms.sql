@@ -462,14 +462,14 @@ begin
    and unread.is_deleted = false
    and unread.sequence > member.last_read_sequence
   where p_cursor_at is null
-     or pg_catalog.coalesce(room.last_message_at, room.created_at) > p_cursor_at
+     or pg_catalog.coalesce(room.last_message_at, room.created_at) < p_cursor_at
      or (
        pg_catalog.coalesce(room.last_message_at, room.created_at) = p_cursor_at
-       and room.id > p_cursor_id
+       and room.id < p_cursor_id
      )
   group by room.id, room.name, room.created_at, room.last_message_at,
     room.last_message_preview, member.last_read_sequence
-  order by pg_catalog.coalesce(room.last_message_at, room.created_at), room.id
+  order by pg_catalog.coalesce(room.last_message_at, room.created_at) desc, room.id desc
   limit pg_catalog.least(pg_catalog.greatest(pg_catalog.coalesce(p_limit, 101), 1), 101);
 end;
 $$;

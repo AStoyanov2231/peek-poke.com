@@ -14,8 +14,28 @@ import {
 } from "@peekpoke/shared";
 import { apiFetch, jsonBody } from "@/lib/api";
 
-export function fetchRooms(signal?: AbortSignal): Promise<RoomsResponse> {
-  return apiFetch("/api/rooms?limit=100", { signal, responseSchema: roomsResponseSchema });
+export async function fetchRooms(signal?: AbortSignal): Promise<RoomsResponse> {
+  const rooms: RoomsResponse["rooms"] = [];
+  let cursor: string | null = null;
+  let pagination: RoomsResponse["pagination"] | null = null;
+
+  while (true) {
+    const page = await apiFetch(
+      boundedCursorPath("/api/rooms", cursor),
+      { signal, responseSchema: roomsResponseSchema },
+    );
+    rooms.push(...page.rooms);
+    pagination = page.pagination;
+    if (!page.pagination.has_more) break;
+    const nextCursor = page.pagination.next_cursor;
+    if (!nextCursor || nextCursor === cursor) throw new Error("Invalid room pagination cursor");
+    cursor = nextCursor;
+  }
+
+  return {
+    rooms,
+    pagination: { ...pagination!, next_cursor: null, has_more: false },
+  };
 }
 
 export function createRoom(): Promise<RoomCreateResponse> {

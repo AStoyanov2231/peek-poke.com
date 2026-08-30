@@ -17,8 +17,29 @@ import {
 import { fetchContract } from "@/lib/typed-api";
 import { webQueryKeys } from "@/data/web-query";
 
-export function fetchRooms(signal?: AbortSignal): Promise<RoomsResponse> {
-  return fetchContract("/api/rooms?limit=100", roomsResponseSchema, { signal });
+export async function fetchRooms(signal?: AbortSignal): Promise<RoomsResponse> {
+  const rooms: RoomsResponse["rooms"] = [];
+  let cursor: string | null = null;
+  let pagination: RoomsResponse["pagination"] | null = null;
+
+  while (true) {
+    const page = await fetchContract(
+      boundedCursorPath("/api/rooms", cursor),
+      roomsResponseSchema,
+      { signal },
+    );
+    rooms.push(...page.rooms);
+    pagination = page.pagination;
+    if (!page.pagination.has_more) break;
+    const nextCursor = page.pagination.next_cursor;
+    if (!nextCursor || nextCursor === cursor) throw new Error("Invalid room pagination cursor");
+    cursor = nextCursor;
+  }
+
+  return {
+    rooms,
+    pagination: { ...pagination!, next_cursor: null, has_more: false },
+  };
 }
 
 export const roomsQueryOptions = queryOptions({
