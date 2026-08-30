@@ -21,7 +21,7 @@ const roomJoinErrorSchema = z.strictObject({
   error: z.enum(["INVALID_QR_PAYLOAD", "ROOM_NOT_FOUND", "ACCOUNT_DELETED"]),
 });
 
-export const POST = withAuth(async (request, { user }) => {
+export const POST = withAuth(async (request, { user, supabase }) => {
   const limited = await enforceRateLimit("roomJoin", user.id);
   if (limited) return limited;
 
@@ -50,7 +50,7 @@ export const POST = withAuth(async (request, { user }) => {
     return apiError("Room could not be joined", 503, "ROOM_JOIN_FAILED");
   }
 
-  const loaded = await loadRoomSummary(result.data.room_id, user.id);
+  const loaded = await loadRoomSummary(result.data.room_id, supabase);
   if (loaded.error) {
     console.error("rooms/join: room requery failed");
     return apiError("Room could not be joined", 503, "ROOM_JOIN_FAILED");

@@ -356,38 +356,157 @@ begin
 end;
 $$;
 
-create or replace function public.get_chat_room_member_count(
-  p_room_id uuid,
-  p_user_id uuid
+create or replace function public.get_chat_room_summary(p_room_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_profile_deleted_at timestamptz;
+  v_summary jsonb;
+begin
+  if v_user_id is null then
+    return null;
+  end if;
+  select profile.deleted_at
+  into v_profile_deleted_at
+  from public.profiles profile
+  where profile.id = v_user_id
+  for share;
+  if not found or v_profile_deleted_at is not null then
+    return null;
+  end if;
+
+  select pg_catalog.jsonb_build_object(
+    'id', room.id,
+    'name', room.name,
+    'created_at', room.created_at,
+    'last_message_at', room.last_message_at,
+    'last_message_preview', room.last_message_preview,
+    'member_count', (
+      select pg_catalog.count(*)::integer
+      from public.chat_room_members member_count
+      where member_count.room_id = room.id
+    ),
+    'unread_count', (
+      select pg_catalog.count(*)::integer
+      from public.chat_room_messages unread
+      where unread.room_id = room.id
+        and unread.is_deleted = false
+        and unread.sequence > member.last_read_sequence
+    )
+  )
+  into v_summary
+  from public.chat_rooms room
+  join public.chat_room_members member
+    on member.room_id = room.id
+   and member.user_id = v_user_id
+  where room.id = p_room_id;
+  return v_summary;
+end;
+$$;
+
+create or replace function public.list_chat_room_summaries(
+  p_limit integer default 101,
+  p_cursor_at timestamptz default null,
+  p_cursor_id uuid default null
 )
+returns table (
+  id uuid,
+  name text,
+  created_at timestamptz,
+  last_message_at timestamptz,
+  last_message_preview text,
+  member_count integer,
+  unread_count integer
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_profile_deleted_at timestamptz;
+begin
+  if v_user_id is null then
+    return;
+  end if;
+  select profile.deleted_at
+  into v_profile_deleted_at
+  from public.profiles profile
+  where profile.id = v_user_id
+  for share;
+  if not found or v_profile_deleted_at is not null then
+    raise exception 'ACCOUNT_DELETED';
+  end if;
+
+  return query
+  select
+    room.id,
+    room.name,
+    room.created_at,
+    room.last_message_at,
+    room.last_message_preview,
+    pg_catalog.count(distinct all_member.user_id)::integer,
+    pg_catalog.count(distinct unread.id)::integer
+  from public.chat_rooms room
+  join public.chat_room_members member
+    on member.room_id = room.id
+   and member.user_id = v_user_id
+  left join public.chat_room_members all_member
+    on all_member.room_id = room.id
+  left join public.chat_room_messages unread
+    on unread.room_id = room.id
+   and unread.is_deleted = false
+   and unread.sequence > member.last_read_sequence
+  where p_cursor_at is null
+     or pg_catalog.coalesce(room.last_message_at, room.created_at) > p_cursor_at
+     or (
+       pg_catalog.coalesce(room.last_message_at, room.created_at) = p_cursor_at
+       and room.id > p_cursor_id
+     )
+  group by room.id, room.name, room.created_at, room.last_message_at,
+    room.last_message_preview, member.last_read_sequence
+  order by pg_catalog.coalesce(room.last_message_at, room.created_at), room.id
+  limit pg_catalog.least(pg_catalog.greatest(pg_catalog.coalesce(p_limit, 101), 1), 101);
+end;
+$$;
+
+create or replace function public.get_chat_room_unread_count()
 returns integer
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
+  v_user_id uuid := (select auth.uid());
+  v_profile_deleted_at timestamptz;
   v_count integer;
 begin
-  if (select auth.uid()) is not null and (select auth.uid()) <> p_user_id then
+  if v_user_id is null then
     return null;
   end if;
-  if not exists (
-    select 1
-    from public.profiles profile
-    where profile.id = p_user_id
-      and profile.deleted_at is null
-  ) or not exists (
-    select 1
-    from public.chat_room_members member
-    where member.room_id = p_room_id
-      and member.user_id = p_user_id
-  ) then
-    return null;
+  select profile.deleted_at
+  into v_profile_deleted_at
+  from public.profiles profile
+  where profile.id = v_user_id
+  for share;
+  if not found or v_profile_deleted_at is not null then
+    raise exception 'ACCOUNT_DELETED';
   end if;
   select pg_catalog.count(*)::integer
   into v_count
   from public.chat_room_members member
-  where member.room_id = p_room_id;
+  where member.user_id = v_user_id
+    and exists (
+      select 1
+      from public.chat_room_messages unread
+      where unread.room_id = member.room_id
+        and unread.is_deleted = false
+        and unread.sequence > member.last_read_sequence
+    );
   return v_count;
 end;
 $$;
@@ -405,10 +524,20 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_profile_deleted_at timestamptz;
   v_sequence bigint;
   v_last_read_sequence bigint;
   v_count integer;
 begin
+  select profile.deleted_at
+  into v_profile_deleted_at
+  from public.profiles profile
+  where profile.id = p_user_id
+  for update;
+  if not found or v_profile_deleted_at is not null then
+    return jsonb_build_object('error', 'ROOM_NOT_FOUND');
+  end if;
+
   select room.next_message_sequence into v_sequence
   from public.chat_rooms room
   join public.chat_room_members member on member.room_id = room.id
@@ -439,12 +568,16 @@ $$;
 revoke all on function public.create_chat_room(uuid) from public, anon, authenticated;
 revoke all on function public.join_chat_room_by_qr(uuid, text) from public, anon, authenticated;
 revoke all on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) from public, anon, authenticated;
-revoke all on function public.get_chat_room_member_count(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.get_chat_room_summary(uuid) from public, anon, service_role;
+revoke all on function public.list_chat_room_summaries(integer, timestamptz, uuid) from public, anon, service_role;
+revoke all on function public.get_chat_room_unread_count() from public, anon, service_role;
 revoke all on function public.mark_chat_room_read(uuid, uuid, bigint) from public, anon, authenticated;
 grant execute on function public.create_chat_room(uuid) to service_role;
 grant execute on function public.join_chat_room_by_qr(uuid, text) to service_role;
 grant execute on function public.send_room_message_transactional(uuid, uuid, uuid, text, text, text, text, uuid) to service_role;
-grant execute on function public.get_chat_room_member_count(uuid, uuid) to authenticated, service_role;
+grant execute on function public.get_chat_room_summary(uuid) to authenticated;
+grant execute on function public.list_chat_room_summaries(integer, timestamptz, uuid) to authenticated;
+grant execute on function public.get_chat_room_unread_count() to authenticated;
 grant execute on function public.mark_chat_room_read(uuid, uuid, bigint) to service_role;
 
 -- Private Realtime topic authorization. Existing DM/call topic rules remain
