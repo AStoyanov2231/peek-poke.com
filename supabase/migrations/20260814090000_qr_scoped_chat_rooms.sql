@@ -164,6 +164,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_sender_deleted_at timestamptz;
   v_room public.chat_rooms%rowtype;
   v_payload text;
   v_hash text;
@@ -272,6 +273,15 @@ declare
   v_message jsonb;
   v_deduplicated boolean := false;
 begin
+  select profile.deleted_at
+  into v_sender_deleted_at
+  from public.profiles profile
+  where profile.id = p_sender_id
+  for update;
+  if not found or v_sender_deleted_at is not null then
+    return jsonb_build_object('error', 'ACCOUNT_DELETED');
+  end if;
+
   select room.* into v_room
   from public.chat_rooms room
   join public.chat_room_members member on member.room_id = room.id
@@ -280,13 +290,6 @@ begin
   for update;
   if not found then
     return jsonb_build_object('error', 'ROOM_NOT_FOUND');
-  end if;
-
-  if exists (
-    select 1 from public.profiles profile
-    where profile.id = p_sender_id and profile.deleted_at is not null
-  ) then
-    return jsonb_build_object('error', 'ACCOUNT_DELETED');
   end if;
 
   if p_reply_to_id is not null and not exists (
