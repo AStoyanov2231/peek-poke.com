@@ -6,7 +6,7 @@ import Send from "lucide-react-native/icons/send";
 import Users from "lucide-react-native/icons/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { mergeNewestFirstMessagePages, roomMessageHintSchema, type RoomMessage, type RoomMessagesResponse } from "@peekpoke/shared";
+import { createChatMessageAttemptCoordinator, mergeNewestFirstMessagePages, roomMessageHintSchema, type RoomMessage, type RoomMessagesResponse } from "@peekpoke/shared";
 import { colors, spacing } from "@peekpoke/design";
 import { Avatar, Caption, Muted } from "@/components/ui";
 import { fetchRoomMessages, sendRoomMessage } from "@/data/rooms";
@@ -18,8 +18,15 @@ export default function RoomChatScreen() {
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
   const queryClient = useQueryClient();
   const listRef = useRef<FlatList<RoomMessage>>(null);
+  const initialScrollDoneRef = useRef(false);
+  const scrollToEndOnContentChangeRef = useRef(false);
+  const preserveScrollOnPrependRef = useRef(false);
+  const contentHeightRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
+  const olderPageLoadingRef = useRef(false);
   const [input, setInput] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [sendAttempts] = useState(() => createChatMessageAttemptCoordinator(() => randomUUID()));
   const profileQuery = useQuery({
     queryKey: nativeQueryKeys.profile.current,
     queryFn: fetchCurrentProfile,
@@ -40,6 +47,21 @@ export default function RoomChatScreen() {
     ? mergeNewestFirstMessagePages(conversationQuery.data.pages) as unknown as RoomMessage[]
     : [], [conversationQuery.data]);
   const initialRoomLoaded = conversationQuery.isSuccess && conversationQuery.data?.pages[0]?.room.id === roomId;
+
+  const loadOlderPage = useCallback(() => {
+    if (!conversationQuery.hasNextPage || conversationQuery.isFetchingNextPage || olderPageLoadingRef.current) return;
+    olderPageLoadingRef.current = true;
+    preserveScrollOnPrependRef.current = true;
+    void conversationQuery.fetchNextPage().then(
+      () => { olderPageLoadingRef.current = false; },
+      () => {
+        olderPageLoadingRef.current = false;
+        preserveScrollOnPrependRef.current = false;
+      },
+    );
+  }, [conversationQuery]);
+
+  useEffect(() => () => sendAttempts.reset(), [roomId, sendAttempts]);
 
   useEffect(() => {
     if (!initialRoomLoaded) return;
@@ -64,10 +86,14 @@ export default function RoomChatScreen() {
   }, [queryClient, roomId]);
 
   const sendMutation = useMutation({
-    mutationFn: (content: string) => sendRoomMessage(roomId ?? "", content, randomUUID()),
+    mutationFn: (content: string) => sendAttempts.run(
+      { content },
+      (attempt) => sendRoomMessage(roomId ?? "", attempt.draft.content, attempt.clientId),
+    ),
     onSuccess: ({ message }) => {
       setInput("");
       setSendError(null);
+      scrollToEndOnContentChangeRef.current = true;
       queryClient.setQueryData<InfiniteData<RoomMessagesResponse>>(
         nativeQueryKeys.rooms.messages(roomId ?? ""),
         (current) => current
@@ -103,9 +129,28 @@ export default function RoomChatScreen() {
         data={messages}
         keyExtractor={(message) => message.id}
         contentContainerStyle={styles.messages}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-        onEndReached={() => { if (conversationQuery.hasNextPage && !conversationQuery.isFetchingNextPage) void conversationQuery.fetchNextPage(); }}
-        onEndReachedThreshold={0.1}
+        onContentSizeChange={(_, height) => {
+          const previousHeight = contentHeightRef.current;
+          contentHeightRef.current = height;
+          if (preserveScrollOnPrependRef.current) {
+            preserveScrollOnPrependRef.current = false;
+            const heightDelta = height - previousHeight;
+            if (heightDelta > 0) {
+              listRef.current?.scrollToOffset({ offset: Math.max(0, scrollOffsetRef.current + heightDelta), animated: false });
+            }
+            return;
+          }
+          if (initialRoomLoaded && (!initialScrollDoneRef.current || scrollToEndOnContentChangeRef.current)) {
+            initialScrollDoneRef.current = true;
+            scrollToEndOnContentChangeRef.current = false;
+            listRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
+        onScroll={({ nativeEvent }) => {
+          scrollOffsetRef.current = nativeEvent.contentOffset.y;
+          if (initialScrollDoneRef.current && nativeEvent.contentOffset.y <= 24) loadOlderPage();
+        }}
+        scrollEventThrottle={16}
         renderItem={({ item }) => {
           const own = item.sender_id === profile?.id;
           const senderName = item.sender?.display_name || item.sender?.username || "Member";

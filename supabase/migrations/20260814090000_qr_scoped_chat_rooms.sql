@@ -164,7 +164,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_sender_deleted_at timestamptz;
   v_room public.chat_rooms%rowtype;
   v_payload text;
   v_hash text;
@@ -267,6 +266,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_sender_deleted_at timestamptz;
   v_room public.chat_rooms%rowtype;
   v_sequence bigint;
   v_message_id uuid;

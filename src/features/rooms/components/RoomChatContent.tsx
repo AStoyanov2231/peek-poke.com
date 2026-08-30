@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { mergeNewestFirstMessagePages, roomMessageHintSchema, type RoomMessagesResponse } from "@peekpoke/shared";
+import { createChatMessageAttemptCoordinator, mergeNewestFirstMessagePages, roomMessageHintSchema, type RoomMessagesResponse } from "@peekpoke/shared";
 import { createClient } from "@/lib/supabase/client";
 import { roomMessagesQueryOptions, sendRoomMessage } from "@/data/rooms";
 import { webQueryKeys } from "@/data/web-query";
@@ -24,12 +24,15 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
   const query = useInfiniteQuery(roomMessagesQueryOptions(roomId));
   const [input, setInput] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [sendAttempts] = useState(() => createChatMessageAttemptCoordinator(() => crypto.randomUUID()));
   const messages = useMemo(() => {
     if (!query.data) return EMPTY_MESSAGES;
     return mergeNewestFirstMessagePages(query.data.pages) as unknown as DMMessage[];
   }, [query.data]);
   const room = query.data?.pages[0]?.room ?? null;
   const initialRoomLoaded = query.isSuccess && query.data?.pages[0]?.room.id === roomId;
+
+  useEffect(() => () => sendAttempts.reset(), [roomId, sendAttempts]);
 
   useEffect(() => {
     if (!initialRoomLoaded) return;
@@ -54,7 +57,10 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
   }, [queryClient, roomId]);
 
   const sendMutation = useMutation({
-    mutationFn: (content: string) => sendRoomMessage(roomId, content, crypto.randomUUID()),
+    mutationFn: (content: string) => sendAttempts.run(
+      { content },
+      (attempt) => sendRoomMessage(roomId, attempt.draft.content, attempt.clientId),
+    ),
     onSuccess: ({ message }) => {
       setInput("");
       setSendError(null);
