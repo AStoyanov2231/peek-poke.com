@@ -25,8 +25,10 @@ import {
 import {
   createOwnerProfileUpdateCoordinator,
   displayNameLength,
+  isPremium,
   MAX_DISPLAY_NAME_LENGTH,
   profileInterestCreateResponseSchema,
+  type CurrentProfile,
   type OwnerProfilePhoto,
 } from "@peekpoke/shared";
 import { fetchContract } from "@/lib/typed-api";
@@ -35,15 +37,13 @@ import {
   refreshWebOwnerProfileReferences,
 } from "@/data/owner-profile-cache";
 import {
-  isPremium,
-  type Profile,
   type ProfileInterest,
   type InterestTag,
   type ProfileStats as ProfileStatsType,
 } from "@/types/database";
 
 interface ProfilePageClientProps {
-  profile: Profile;
+  profile: CurrentProfile;
   photos: OwnerProfilePhoto[];
   interests: ProfileInterest[];
   allTags: InterestTag[];
@@ -80,7 +80,7 @@ export function ProfilePageClient({
   const allTags = initialAllTags;
   const stats = initialStats;
 
-  const setStoreProfile = (nextProfile: Profile) => {
+  const setStoreProfile = (nextProfile: CurrentProfile) => {
     queryClient.setQueryData(webQueryKeys.profile, nextProfile);
   };
   const setStorePhotos = (nextPhotos: OwnerProfilePhoto[]) => {
@@ -240,7 +240,7 @@ export function ProfilePageClient({
     setProfileSaveError(null);
     try {
       const updatedProfile = await updateOwnerProfile(updates, attempt.signal);
-      const currentOwnerId = queryClient.getQueryData<Profile>(webQueryKeys.profile)?.id ?? "";
+      const currentOwnerId = queryClient.getQueryData<CurrentProfile>(webQueryKeys.profile)?.id ?? "";
       if (!profileUpdateCoordinator.isCurrent(attempt, currentOwnerId)) return false;
       if (!commitWebOwnerProfileUpdate(queryClient, ownerId, updatedProfile)) {
         profileUpdateCoordinator.finish(attempt, currentOwnerId);
@@ -257,7 +257,7 @@ export function ProfilePageClient({
       }
       return true;
     } catch (error) {
-      const currentOwnerId = queryClient.getQueryData<Profile>(webQueryKeys.profile)?.id ?? "";
+      const currentOwnerId = queryClient.getQueryData<CurrentProfile>(webQueryKeys.profile)?.id ?? "";
       if (!profileUpdateCoordinator.isCurrent(attempt, currentOwnerId)) return false;
       profileUpdateCoordinator.finish(attempt, currentOwnerId);
       setIsSavingProfile(false);

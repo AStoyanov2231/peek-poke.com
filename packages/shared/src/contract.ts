@@ -205,7 +205,6 @@ export const currentProfileSchema = z.strictObject({
   bio: z.string().nullable(),
   avatar_url: z.string().nullable(),
   cover_image_url: z.string().nullable(),
-  location_text: z.string().nullable(),
   is_online: z.boolean(),
   last_seen_at: utcTimestampSchema,
   created_at: utcTimestampSchema,
@@ -237,7 +236,6 @@ export const ownerProfilePatchRequestSchema = z
   .strictObject({
     display_name: displayNameInputSchema.optional(),
     bio: z.string().max(MAX_BIO_LENGTH, `Bio must be ${MAX_BIO_LENGTH} characters or less`).optional(),
-    location_text: z.string().max(100, "Location must be 100 characters or less").optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Provide at least one profile change");
 
@@ -554,7 +552,7 @@ export const publicProfileSchema = z.strictObject({
   bio: z.string().nullable(),
   avatar_url: httpImageUrlSchema.nullable(),
   cover_image_url: httpImageUrlSchema.nullable(),
-  location_text: z.string().nullable(),
+  location_text: z.string().nullable().optional(),
   is_online: z.boolean(),
   last_seen_at: utcTimestampSchema.nullable(),
   created_at: utcTimestampSchema,

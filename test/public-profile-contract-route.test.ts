@@ -193,6 +193,14 @@ describe("public profile route contract", () => {
     expect(database.is).toHaveBeenCalledWith("moderation_action", null);
   });
 
+  it("omits location from room-surface profile responses", async () => {
+    const response = await requestProfile("rooms");
+    const body = publicProfileResponseSchemaFor(VIEWER_ID, TARGET_ID).parse(await response.json());
+
+    expect(response.status).toBe(200);
+    expect(Object.hasOwn(body.profile, "location_text")).toBe(false);
+  });
+
   it("returns only a time-limited signed URL for entitled private media", async () => {
     state.subscriber = true;
 
@@ -273,9 +281,9 @@ describe("public profile route contract", () => {
   });
 });
 
-function requestProfile() {
+function requestProfile(surface?: string) {
   return GET(
-    new Request(`https://example.test/api/profile/${TARGET_ID}?limit=100`),
+    new Request(`https://example.test/api/profile/${TARGET_ID}?limit=100${surface ? `&surface=${surface}` : ""}`),
     { params: Promise.resolve({ userId: TARGET_ID }) } as never,
   );
 }

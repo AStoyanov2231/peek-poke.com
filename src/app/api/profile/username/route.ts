@@ -6,7 +6,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { apiError } from "@/lib/api-error";
 import { currentProfileResponseSchema } from "@peekpoke/shared";
 
-const PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover_image_url, location_text, is_online, last_seen_at, created_at, onboarding_completed";
+const PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover_image_url, is_online, last_seen_at, created_at, onboarding_completed";
 
 export const PATCH = withAuth(async (request, { user }) => {
   const limited = await enforceRateLimit("profileMutation", user.id);

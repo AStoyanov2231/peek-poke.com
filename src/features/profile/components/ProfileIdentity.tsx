@@ -2,10 +2,11 @@
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
-import { isPremium, type Profile, type ProfileStats } from "@/types/database";
+import { isPremium, type CurrentProfile } from "@peekpoke/shared";
+import type { ProfileStats } from "@/types/database";
 
 interface ProfileIdentityProps {
-  profile: Profile;
+  profile: CurrentProfile;
   avatarSizeMobile?: number;
   avatarSizeDesktop?: number;
   actions?: React.ReactNode;

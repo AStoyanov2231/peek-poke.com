@@ -18,7 +18,6 @@ const profile = {
   bio: "Hello",
   avatar_url: null,
   cover_image_url: null,
-  location_text: null,
   is_online: true,
   last_seen_at: timestamp,
   created_at: timestamp,

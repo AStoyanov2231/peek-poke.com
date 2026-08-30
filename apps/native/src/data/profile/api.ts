@@ -12,8 +12,8 @@ import {
   profileInterestsResponseSchema,
   publicProfileResponseSchemaForTarget,
   type InterestTag,
+  type CurrentProfile,
   type OnboardingCompleteResponse,
-  type Profile,
   type ProfileInterest,
   type OwnerProfilePhoto,
   type OwnerProfilePhotoMutationResponse,
@@ -26,8 +26,8 @@ import { env } from "@/lib/env";
 
 export type PublicProfileData = PublicProfileResponse;
 
-export function fetchCurrentProfile(): Promise<Profile> {
-  return apiFetch<{ profile: Profile | null }>("/api/profile", {
+export function fetchCurrentProfile(): Promise<CurrentProfile> {
+  return apiFetch<{ profile: CurrentProfile | null }>("/api/profile", {
     responseSchema: currentProfileResponseSchema,
   }).then(({ profile }) => {
     if (!profile) throw new Error("Profile not found");
@@ -61,8 +61,8 @@ export function fetchPublicProfile(userId: string): Promise<PublicProfileData> {
   });
 }
 
-export function updateUsername(username: string): Promise<Profile> {
-  return apiFetch<{ profile: Profile }>("/api/profile/username", {
+export function updateUsername(username: string): Promise<CurrentProfile> {
+  return apiFetch<{ profile: CurrentProfile }>("/api/profile/username", {
     method: "PATCH",
     body: jsonBody({ username }),
     responseSchema: currentProfileResponseSchema,
@@ -72,9 +72,9 @@ export function updateUsername(username: string): Promise<Profile> {
 export function updateProfile(
   updates: OwnerProfilePatchRequest,
   signal?: AbortSignal,
-): Promise<Profile> {
+): Promise<CurrentProfile> {
   const canonicalUpdates = ownerProfilePatchRequestSchema.parse(updates);
-  return apiFetch<{ profile: Profile }>("/api/profile", {
+  return apiFetch<{ profile: CurrentProfile }>("/api/profile", {
     method: "PATCH",
     body: jsonBody(canonicalUpdates),
     responseSchema: ownerProfileUpdateResponseSchema,

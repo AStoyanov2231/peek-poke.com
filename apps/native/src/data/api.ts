@@ -18,7 +18,7 @@ import {
   type FriendsReadResponse,
   type MessagesResponse,
   type MeetingResponse,
-  type ProfileView,
+  type CurrentProfile,
 } from "@peekpoke/shared";
 import { randomUUID } from "expo-crypto";
 import { apiFetch, jsonBody } from "@/lib/api";
@@ -68,8 +68,8 @@ export function ensureAuthenticatedProfile(signal?: AbortSignal): Promise<AuthPr
   });
 }
 
-export async function fetchCurrentProfile(): Promise<ProfileView> {
-  const response = await apiFetch<{ profile: ProfileView | null }>("/api/profile", {
+export async function fetchCurrentProfile(): Promise<CurrentProfile> {
+  const response = await apiFetch<{ profile: CurrentProfile | null }>("/api/profile", {
     responseSchema: currentProfileResponseSchema,
   });
   if (!response.profile) throw new Error("Profile not found");
