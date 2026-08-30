@@ -37,6 +37,7 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
   useEffect(() => {
     if (!initialRoomLoaded) return;
     void queryClient.invalidateQueries({ queryKey: webQueryKeys.rooms });
+    void queryClient.invalidateQueries({ queryKey: webQueryKeys.bootstrap });
   }, [initialRoomLoaded, queryClient]);
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
         if (!parsed.success || parsed.data.room_id !== roomId) return;
         void queryClient.invalidateQueries({ queryKey: webQueryKeys.roomMessages(roomId) });
         void queryClient.invalidateQueries({ queryKey: webQueryKeys.rooms });
+        void queryClient.invalidateQueries({ queryKey: webQueryKeys.bootstrap });
       })
       .subscribe();
     return () => {
@@ -77,6 +79,7 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
       );
       void queryClient.invalidateQueries({ queryKey: webQueryKeys.roomMessages(roomId) });
       void queryClient.invalidateQueries({ queryKey: webQueryKeys.rooms });
+      void queryClient.invalidateQueries({ queryKey: webQueryKeys.bootstrap });
     },
     onError: (error) => setSendError(error instanceof Error ? error.message : "Message could not be sent."),
   });

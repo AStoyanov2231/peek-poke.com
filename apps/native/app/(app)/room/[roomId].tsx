@@ -68,6 +68,7 @@ export default function RoomChatScreen() {
   useEffect(() => {
     if (!initialRoomLoaded) return;
     void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+    void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
   }, [initialRoomLoaded, queryClient]);
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function RoomChatScreen() {
         if (!parsed.success || parsed.data.room_id !== roomId) return;
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.messages(roomId) });
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
       })
       .subscribe();
     return () => {
@@ -104,6 +106,7 @@ export default function RoomChatScreen() {
       );
       void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.messages(roomId ?? "") });
       void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+      void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
     },
     onError: (error) => setSendError(error instanceof Error ? error.message : "Message could not be sent."),
   });

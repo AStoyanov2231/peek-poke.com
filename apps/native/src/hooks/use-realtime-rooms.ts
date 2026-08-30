@@ -25,6 +25,7 @@ export function useRealtimeRooms(userId: string | undefined) {
         const parsed = roomMessageHintSchema.safeParse(event.payload);
         if (!parsed.success || parsed.data.room_id !== roomId) return;
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.messages(roomId) });
       })
       .subscribe());
