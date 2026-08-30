@@ -1,5 +1,5 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type { OwnerProfilePhoto } from "@peekpoke/shared";
 import type {
   InterestTag,
@@ -63,7 +63,7 @@ export const useIsFriendsLoaded = () => useQuery(friendsQueryOptions).isSuccess;
 // Messages selectors
 export const useThreads = () => useQuery(threadsQueryOptions).data?.threads ?? EMPTY_THREADS;
 export const useTotalUnread = () => {
-  const rooms = useQuery(roomsQueryOptions).data?.rooms ?? [];
+  const rooms = useInfiniteQuery(roomsQueryOptions).data?.pages.flatMap((page) => page.rooms) ?? [];
   return rooms.reduce((total, room) => total + room.unread_count, 0);
 };
 export const useIsMessagesLoaded = () => useQuery(threadsQueryOptions).isSuccess;

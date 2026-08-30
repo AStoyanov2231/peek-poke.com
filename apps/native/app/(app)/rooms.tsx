@@ -1,5 +1,5 @@
 import * as Clipboard from "expo-clipboard";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import QrCode from "lucide-react-native/icons/qr-code";
 import Users from "lucide-react-native/icons/users";
@@ -9,15 +9,13 @@ import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radii, shadows, spacing } from "@peekpoke/design";
 import { Button, Card, Caption, Muted, Screen, Title } from "@/components/ui";
-import { createRoom, fetchRooms } from "@/data/rooms";
+import { createRoom, roomsQueryOptions } from "@/data/rooms";
 import { nativeQueryKeys } from "@/data/query-keys";
 
 export default function RoomsScreen() {
   const queryClient = useQueryClient();
-  const roomsQuery = useQuery({
-    queryKey: nativeQueryKeys.rooms.list,
-    queryFn: ({ signal }) => fetchRooms(signal),
-  });
+  const roomsQuery = useInfiniteQuery(roomsQueryOptions);
+  const rooms = roomsQuery.data?.pages.flatMap((page) => page.rooms) ?? [];
   const [createdRoom, setCreatedRoom] = useState<{ id: string; qrPayload: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const createMutation = useMutation({
@@ -55,7 +53,7 @@ export default function RoomsScreen() {
         <Card><Text style={styles.body}>Rooms could not be loaded.</Text><Button size="sm" variant="secondary" style={styles.retry} onPress={() => void roomsQuery.refetch()}>Try again</Button></Card>
       ) : roomsQuery.isPending ? (
         <Card><Muted>Loading rooms…</Muted></Card>
-      ) : roomsQuery.data.rooms.length === 0 ? (
+      ) : rooms.length === 0 ? (
         <Card style={styles.empty}>
           <Users color={colors.primary[500]} size={28} />
           <Text style={styles.emptyTitle}>No rooms yet</Text>
@@ -63,7 +61,7 @@ export default function RoomsScreen() {
         </Card>
       ) : (
         <View style={styles.list}>
-          {roomsQuery.data.rooms.map((room) => (
+          {rooms.map((room) => (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Open ${room.name}`}
@@ -79,6 +77,16 @@ export default function RoomsScreen() {
               {room.unread_count > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{room.unread_count > 9 ? "9+" : room.unread_count}</Text></View> : null}
             </Pressable>
           ))}
+          {roomsQuery.hasNextPage ? (
+            <Button
+              fullWidth
+              variant="secondary"
+              loading={roomsQuery.isFetchingNextPage}
+              onPress={() => void roomsQuery.fetchNextPage()}
+            >
+              {roomsQuery.isFetchingNextPage ? "Loading more rooms…" : "Load more rooms"}
+            </Button>
+          ) : null}
         </View>
       )}
 

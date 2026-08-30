@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { roomMessageHintSchema } from "@peekpoke/shared";
 import { useIsPreloading } from "@/stores/selectors";
 import { useRealtimeProfiles } from "@/hooks/useRealtimeProfiles";
@@ -22,10 +22,10 @@ const supabase = createClient();
 export function useRealtimeSync() {
   const isPreloading = useIsPreloading();
   const queryClient = useQueryClient();
-  const roomsQuery = useQuery(roomsQueryOptions);
+  const roomsQuery = useInfiniteQuery(roomsQueryOptions);
   const roomIds = useMemo(
-    () => (roomsQuery.data?.rooms ?? []).map((room) => room.id).sort(),
-    [roomsQuery.data?.rooms],
+    () => (roomsQuery.data?.pages.flatMap((page) => page.rooms) ?? []).map((room) => room.id).sort(),
+    [roomsQuery.data?.pages],
   );
 
   useRealtimeProfiles({ isPreloading });

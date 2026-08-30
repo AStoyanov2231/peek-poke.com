@@ -168,7 +168,7 @@ export default function RoomChatScreen() {
         renderItem={({ item }) => {
           const own = item.sender_id === profile?.id;
           const senderName = item.sender?.display_name || item.sender?.username || "Member";
-          return <View style={[styles.messageRow, own && styles.messageRowOwn]}><Avatar name={senderName} uri={item.sender?.avatar_url} size={28} /><View style={[styles.bubble, own ? styles.bubbleOwn : styles.bubbleOther]}><Text style={[styles.sender, own && styles.senderOwn]}>{own ? "You" : senderName}</Text><Text style={[styles.messageText, own && styles.messageTextOwn]}>{item.content}</Text></View></View>;
+          return <View style={[styles.messageRow, own && styles.messageRowOwn]}><Avatar name={senderName} uri={item.sender?.avatar_url} size={28} /><View style={[styles.bubble, own ? styles.bubbleOwn : styles.bubbleOther]}><Text style={[styles.sender, own && styles.senderOwn]}>{own ? "You" : senderName}</Text><Text style={[styles.messageText, own && styles.messageTextOwn]}>{item.is_deleted ? "Message deleted" : item.content}</Text></View></View>;
         }}
         ListEmptyComponent={<View style={styles.empty}><Muted>Be the first to say hello.</Muted></View>}
       />

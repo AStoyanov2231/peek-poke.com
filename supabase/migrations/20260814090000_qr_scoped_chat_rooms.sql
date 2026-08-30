@@ -443,34 +443,59 @@ begin
   end if;
 
   return query
+  with page_rooms as materialized (
+    select
+      room.id as room_id,
+      room.name,
+      room.created_at,
+      room.last_message_at,
+      room.last_message_preview,
+      member.last_read_sequence,
+      pg_catalog.coalesce(room.last_message_at, room.created_at) as activity_at
+    from public.chat_rooms room
+    join public.chat_room_members member
+      on member.room_id = room.id
+     and member.user_id = v_user_id
+    where p_cursor_at is null
+       or pg_catalog.coalesce(room.last_message_at, room.created_at) < p_cursor_at
+       or (
+         pg_catalog.coalesce(room.last_message_at, room.created_at) = p_cursor_at
+         and room.id < p_cursor_id
+       )
+    order by pg_catalog.coalesce(room.last_message_at, room.created_at) desc, room.id desc
+    limit pg_catalog.least(pg_catalog.greatest(pg_catalog.coalesce(p_limit, 101), 1), 101)
+  ),
+  member_counts as (
+    select
+      members.room_id,
+      pg_catalog.count(*)::integer as member_count
+    from public.chat_room_members members
+    where members.room_id in (select page.room_id from page_rooms page)
+    group by members.room_id
+  ),
+  unread_counts as (
+    select
+      page.room_id,
+      pg_catalog.count(unread.id)::integer as unread_count
+    from page_rooms page
+    left join public.chat_room_messages unread
+      on unread.room_id = page.room_id
+     and unread.is_deleted = false
+     and unread.sequence > page.last_read_sequence
+    group by page.room_id
+  )
   select
-    room.id,
-    room.name,
-    room.created_at,
-    room.last_message_at,
-    room.last_message_preview,
-    pg_catalog.count(distinct all_member.user_id)::integer,
-    pg_catalog.count(distinct unread.id)::integer
-  from public.chat_rooms room
-  join public.chat_room_members member
-    on member.room_id = room.id
-   and member.user_id = v_user_id
-  left join public.chat_room_members all_member
-    on all_member.room_id = room.id
-  left join public.chat_room_messages unread
-    on unread.room_id = room.id
-   and unread.is_deleted = false
-   and unread.sequence > member.last_read_sequence
-  where p_cursor_at is null
-     or pg_catalog.coalesce(room.last_message_at, room.created_at) < p_cursor_at
-     or (
-       pg_catalog.coalesce(room.last_message_at, room.created_at) = p_cursor_at
-       and room.id < p_cursor_id
-     )
-  group by room.id, room.name, room.created_at, room.last_message_at,
-    room.last_message_preview, member.last_read_sequence
-  order by pg_catalog.coalesce(room.last_message_at, room.created_at) desc, room.id desc
-  limit pg_catalog.least(pg_catalog.greatest(pg_catalog.coalesce(p_limit, 101), 1), 101);
+    page.room_id,
+    page.name,
+    page.created_at,
+    page.last_message_at,
+    page.last_message_preview,
+    member_counts.member_count,
+    pg_catalog.coalesce(unread_counts.unread_count, 0)
+  from page_rooms page
+  join member_counts on member_counts.room_id = page.room_id
+  left join unread_counts on unread_counts.room_id = page.room_id
+  order by page.activity_at desc, page.room_id desc;
 end;
 $$;
 

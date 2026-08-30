@@ -12,31 +12,23 @@ import {
   type RoomMessageMutationResponse,
   type RoomsResponse,
 } from "@peekpoke/shared";
+import { infiniteQueryOptions } from "@tanstack/react-query";
 import { apiFetch, jsonBody } from "@/lib/api";
+import { nativeQueryKeys } from "@/data/query-keys";
 
-export async function fetchRooms(signal?: AbortSignal): Promise<RoomsResponse> {
-  const rooms: RoomsResponse["rooms"] = [];
-  let cursor: string | null = null;
-  let pagination: RoomsResponse["pagination"] | null = null;
-
-  while (true) {
-    const page = await apiFetch(
-      boundedCursorPath("/api/rooms", cursor),
-      { signal, responseSchema: roomsResponseSchema },
-    );
-    rooms.push(...page.rooms);
-    pagination = page.pagination;
-    if (!page.pagination.has_more) break;
-    const nextCursor = page.pagination.next_cursor;
-    if (!nextCursor || nextCursor === cursor) throw new Error("Invalid room pagination cursor");
-    cursor = nextCursor;
-  }
-
-  return {
-    rooms,
-    pagination: { ...pagination!, next_cursor: null, has_more: false },
-  };
+export function fetchRooms(cursor: string | null = null, signal?: AbortSignal): Promise<RoomsResponse> {
+  return apiFetch(boundedCursorPath("/api/rooms", cursor), { signal, responseSchema: roomsResponseSchema });
 }
+
+export const roomsQueryOptions = infiniteQueryOptions({
+  queryKey: nativeQueryKeys.rooms.list,
+  queryFn: ({ pageParam, signal }) => fetchRooms(pageParam, signal),
+  initialPageParam: null as string | null,
+  getNextPageParam: (lastPage) => lastPage.pagination.has_more
+    ? lastPage.pagination.next_cursor ?? undefined
+    : undefined,
+  staleTime: 10_000,
+});
 
 export function createRoom(): Promise<RoomCreateResponse> {
   return apiFetch("/api/rooms", {

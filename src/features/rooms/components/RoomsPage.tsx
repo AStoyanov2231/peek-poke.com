@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus, ScanLine, Users, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useRouter } from "next/navigation";
@@ -13,7 +13,8 @@ import { QrRoomScanner } from "@/features/rooms/components/QrRoomScanner";
 export default function RoomsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const roomsQuery = useQuery(roomsQueryOptions);
+  const roomsQuery = useInfiniteQuery(roomsQueryOptions);
+  const rooms = roomsQuery.data?.pages.flatMap((page) => page.rooms) ?? [];
   const [scannerOpen, setScannerOpen] = useState(false);
   const [createdPayload, setCreatedPayload] = useState<string | null>(null);
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
@@ -101,7 +102,7 @@ export default function RoomsPage() {
             </div>
           ) : roomsQuery.isPending ? (
             <div className="rounded-xl border border-hairline bg-surface p-5 t-body muted">Loading rooms…</div>
-          ) : roomsQuery.data.rooms.length === 0 ? (
+          ) : rooms.length === 0 ? (
             <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center">
               <Users size={28} className="mx-auto text-primary" strokeWidth={1.6} />
               <p className="mt-3 t-body-b text-ink-8">No rooms yet</p>
@@ -109,7 +110,7 @@ export default function RoomsPage() {
             </div>
           ) : (
             <div className="grid gap-3">
-              {roomsQuery.data.rooms.map((room) => (
+              {rooms.map((room) => (
                 <button
                   type="button"
                   key={room.id}
@@ -126,6 +127,16 @@ export default function RoomsPage() {
                   {room.unread_count > 0 ? <span className="badge">{room.unread_count > 9 ? "9+" : room.unread_count}</span> : null}
                 </button>
               ))}
+              {roomsQuery.hasNextPage ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary mt-1 w-full"
+                  disabled={roomsQuery.isFetchingNextPage}
+                  onClick={() => void roomsQuery.fetchNextPage()}
+                >
+                  {roomsQuery.isFetchingNextPage ? "Loading more…" : "Load more rooms"}
+                </button>
+              ) : null}
             </div>
           )}
         </section>

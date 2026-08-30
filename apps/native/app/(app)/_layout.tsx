@@ -1,5 +1,5 @@
 import { Tabs, router, usePathname, type ErrorBoundaryProps } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, fontFamilies, radii, shadows, spacing } from "@peekpoke/design";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,7 +7,7 @@ import { Badge, IconGlyph, type IconName } from "@/components/ui";
 import { RouteErrorRecovery } from "@/components/error-recovery";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { fetchCurrentProfile } from "@/data/api";
-import { fetchRooms } from "@/data/rooms";
+import { roomsQueryOptions } from "@/data/rooms";
 import { nativeQueryKeys } from "@/data/query-keys";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
@@ -26,14 +26,13 @@ export default function AppLayout() {
     queryKey: nativeQueryKeys.profile.current,
     queryFn: fetchCurrentProfile,
   });
-  const roomsQuery = useQuery({
-    queryKey: nativeQueryKeys.rooms.list,
-    queryFn: ({ signal }) => fetchRooms(signal),
+  const roomsQuery = useInfiniteQuery({
+    ...roomsQueryOptions,
     enabled: Boolean(profileQuery.data?.id),
   });
   const profileId = profileQuery.data?.id;
   const roles = profileQuery.data?.roles ?? [];
-  const unread = roomsQuery.data?.rooms.reduce((total, room) => total + room.unread_count, 0) ?? 0;
+  const unread = roomsQuery.data?.pages.flatMap((page) => page.rooms).reduce((total, room) => total + room.unread_count, 0) ?? 0;
   const isAdmin = roles.includes("admin");
   const badgeCount = unread;
   useForegroundRefresh(Boolean(profileId));

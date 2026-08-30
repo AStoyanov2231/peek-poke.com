@@ -1,6 +1,6 @@
 "use client";
 
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions } from "@tanstack/react-query";
 import {
   boundedCursorPath,
   roomCreateResponseSchema,
@@ -17,34 +17,17 @@ import {
 import { fetchContract } from "@/lib/typed-api";
 import { webQueryKeys } from "@/data/web-query";
 
-export async function fetchRooms(signal?: AbortSignal): Promise<RoomsResponse> {
-  const rooms: RoomsResponse["rooms"] = [];
-  let cursor: string | null = null;
-  let pagination: RoomsResponse["pagination"] | null = null;
-
-  while (true) {
-    const page = await fetchContract(
-      boundedCursorPath("/api/rooms", cursor),
-      roomsResponseSchema,
-      { signal },
-    );
-    rooms.push(...page.rooms);
-    pagination = page.pagination;
-    if (!page.pagination.has_more) break;
-    const nextCursor = page.pagination.next_cursor;
-    if (!nextCursor || nextCursor === cursor) throw new Error("Invalid room pagination cursor");
-    cursor = nextCursor;
-  }
-
-  return {
-    rooms,
-    pagination: { ...pagination!, next_cursor: null, has_more: false },
-  };
+export function fetchRooms(cursor: string | null = null, signal?: AbortSignal): Promise<RoomsResponse> {
+  return fetchContract(boundedCursorPath("/api/rooms", cursor), roomsResponseSchema, { signal });
 }
 
-export const roomsQueryOptions = queryOptions({
+export const roomsQueryOptions = infiniteQueryOptions({
   queryKey: webQueryKeys.rooms,
-  queryFn: ({ signal }) => fetchRooms(signal),
+  queryFn: ({ pageParam, signal }) => fetchRooms(pageParam, signal),
+  initialPageParam: null as string | null,
+  getNextPageParam: (lastPage) => lastPage.pagination.has_more
+    ? lastPage.pagination.next_cursor ?? undefined
+    : undefined,
   staleTime: 10_000,
 });
 
