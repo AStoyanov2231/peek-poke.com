@@ -10,6 +10,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { loadRoomSummary } from "@/lib/room-server";
 import { parseBody } from "@/lib/validators";
 import { isValidUUID } from "@/lib/validation";
+import { notifyRoomMembershipChanged } from "@/lib/realtime-broadcast";
 import { z } from "zod";
 
 const roomJoinRpcSchema = z.strictObject({
@@ -65,5 +66,6 @@ export const POST = withAuth(async (request, { user, supabase }) => {
     console.error("rooms/join: malformed public response");
     return apiError("Room could not be joined", 503, "ROOM_JOIN_FAILED");
   }
+  await notifyRoomMembershipChanged(result.data.room_id);
   return NextResponse.json(response.data);
 });

@@ -9,7 +9,11 @@ const eraseStorageObjects = vi.hoisted(() => vi.fn(async () => 0));
 const deleteStripeCustomer = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("@/lib/supabase/server", () => ({ createServiceClient: () => database }));
-vi.mock("@/lib/realtime-broadcast", () => ({ broadcastPrivateRealtimeEvent: vi.fn() }));
+vi.mock("@/lib/realtime-broadcast", () => ({
+  broadcastPrivateRealtimeEvent: vi.fn(),
+  notifyRoomMessagesChanged: vi.fn(async () => true),
+  notifyRoomUnreadChanged: vi.fn(async () => true),
+}));
 vi.mock("@/lib/push/send", () => ({ sendPushToUser: vi.fn() }));
 vi.mock("@/lib/account-deletion", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/account-deletion")>();
@@ -75,6 +79,13 @@ function configure(storageObjects: unknown) {
       chain.update.mockReturnValue(chain);
       chain.eq.mockReturnValue(chain);
       return chain;
+    }
+    if (table === "chat_room_messages") {
+      return {
+        select: () => ({
+          eq: async () => ({ data: [], error: null }),
+        }),
+      };
     }
     throw new Error(`Unexpected table: ${table}`);
   });

@@ -17,6 +17,7 @@ import { parseContractPagination } from "@/lib/api-contract";
 import { loadRoomSummary } from "@/lib/room-server";
 import { parseBody } from "@/lib/validators";
 import { isValidUUID } from "@/lib/validation";
+import { notifyRoomMembershipChanged } from "@/lib/realtime-broadcast";
 
 const roomCreateRpcSchema = roomCreateResponseSchema.pick({ qr_payload: true }).extend({
   room_id: roomCreateResponseSchema.shape.room.shape.id,
@@ -105,5 +106,6 @@ export const POST = withAuth(async (request, { user, supabase }) => {
     qr_payload: parsed.data.qr_payload,
   });
   if (!response.success) return roomFailure("ROOM_CREATE_FAILED");
+  await notifyRoomMembershipChanged(parsed.data.room_id);
   return NextResponse.json(response.data);
 });

@@ -8,7 +8,11 @@ import {
   type StorageObject,
 } from "@/lib/account-deletion";
 import { sendPushToUser } from "@/lib/push/send";
-import { broadcastPrivateRealtimeEvent } from "@/lib/realtime-broadcast";
+import {
+  broadcastPrivateRealtimeEvent,
+  notifyRoomMessagesChanged,
+  notifyRoomUnreadChanged,
+} from "@/lib/realtime-broadcast";
 import { createServiceClient } from "@/lib/supabase/server";
 import { PRIVATE_DM_MEDIA_BUCKET } from "@/lib/storage-urls";
 import {
@@ -354,6 +358,26 @@ async function handleAccountCleanup(
     .update({ status: "processing", attempts: event.attempts, last_error: null })
     .eq("id", jobId);
   if (processingError) throw processingError;
+
+  const { data: erasedRoomMessages, error: roomMessageError } = await supabase
+    .from("chat_room_messages")
+    .select("room_id")
+    .eq("sender_id", userId);
+  if (roomMessageError) throw roomMessageError;
+  const roomIds = [...new Set((erasedRoomMessages ?? []).map((message) => message.room_id))];
+  const roomInvalidations = await Promise.all(
+    roomIds.map(async (roomId) => {
+      const [messagesDelivered, unreadDelivered] = await Promise.all([
+        notifyRoomMessagesChanged(roomId, "deleted", userId),
+        notifyRoomUnreadChanged(roomId, "deleted", userId),
+      ]);
+      return messagesDelivered && unreadDelivered;
+    }),
+  );
+  if (roomInvalidations.some((delivered) => !delivered)) {
+    throw new Error("Realtime room erasure delivery failed");
+  }
+
   await deleteStripeCustomer(job.stripe_customer_id);
   await eraseStorageObjects(supabase, parseAccountStorageObjects(job.storage_objects));
 

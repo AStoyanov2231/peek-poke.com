@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { roomMessageHintSchema, roomUnreadHintSchema } from "@peekpoke/shared";
+import { roomMembershipHintSchema, roomMessageHintSchema, roomUnreadHintSchema } from "@peekpoke/shared";
 import { roomsQueryOptions } from "@/data/rooms";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +23,12 @@ export function useRealtimeRooms(userId: string | undefined) {
       .channel(`sync:user:${userId}`, { config: { private: true } })
       .on("broadcast", { event: "rooms-unread-changed" }, (event) => {
         const parsed = roomUnreadHintSchema.safeParse(event.payload);
+        if (!parsed.success) return;
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+      })
+      .on("broadcast", { event: "rooms-membership-changed" }, (event) => {
+        const parsed = roomMembershipHintSchema.safeParse(event.payload);
         if (!parsed.success) return;
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });

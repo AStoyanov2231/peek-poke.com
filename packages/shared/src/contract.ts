@@ -1118,9 +1118,13 @@ export const roomMessageHintSchema = z.strictObject({
 
 export const roomUnreadHintSchema = z.strictObject({
   room_id: z.uuid(),
-  action: z.enum(["sent", "read"]),
+  action: z.enum(["sent", "read", "deleted"]),
   actor_id: z.uuid().nullable().optional(),
   sequence: z.number().int().positive().optional(),
+});
+
+export const roomMembershipHintSchema = z.strictObject({
+  room_id: z.uuid(),
 });
 
 /** Sanitized private-channel hint. Durable profile data is always re-read via the API. */

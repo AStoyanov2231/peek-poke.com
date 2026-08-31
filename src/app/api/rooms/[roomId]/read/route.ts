@@ -9,7 +9,13 @@ import { notifyRoomMessagesChanged, notifyRoomUnreadChanged } from "@/lib/realti
 export const POST = withAuth<{ roomId: string }>(async (_request, { user, params }) => {
   const { roomId } = params;
   if (!isValidUUID(roomId)) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
-  const membership = await verifyRoomMembership(roomId, user.id);
+  let membership;
+  try {
+    membership = await verifyRoomMembership(roomId, user.id);
+  } catch (error) {
+    console.error("rooms/read: membership verification failed", error instanceof Error ? error.name : "unknown");
+    return apiError("Room temporarily unavailable", 503, "ROOM_UNAVAILABLE");
+  }
   if (!membership) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
   const { data, error } = await createServiceClient().rpc("mark_chat_room_read", {
     p_room_id: roomId,

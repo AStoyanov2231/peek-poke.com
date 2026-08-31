@@ -166,7 +166,13 @@ export const POST = withAuth<{ roomId: string }>(async (request, { user, params 
   }
   const limited = await enforceRateLimit("roomMessage", user.id);
   if (limited) return limited;
-  const membership = await verifyRoomMembership(roomId, user.id);
+  let membership;
+  try {
+    membership = await verifyRoomMembership(roomId, user.id);
+  } catch (error) {
+    console.error("rooms/messages: membership verification failed", error instanceof Error ? error.name : "unknown");
+    return roomFailure();
+  }
   if (!membership) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
 
   // Room media will use the same private-media claim path once room uploads

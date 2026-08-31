@@ -75,8 +75,8 @@ export async function notifyRoomMessagesChanged(
   action: "sent" | "edited" | "deleted" | "read",
   actorId: string,
   sequence?: number,
-) {
-  await broadcastPrivateRealtimeEvent(
+): Promise<boolean> {
+  return broadcastPrivateRealtimeEvent(
     `room:${roomId}`,
     "messages-changed",
     {
@@ -88,24 +88,47 @@ export async function notifyRoomMessagesChanged(
   );
 }
 
-export async function notifyRoomUnreadChanged(
-  roomId: string,
-  action: "sent" | "read",
-  actorId: string,
-  sequence?: number,
-) {
-  const { data: members, error } = await createServiceClient()
+async function activeRoomMemberIds(roomId: string) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return [];
+  }
+  const service = createServiceClient();
+  const { data: members, error: memberError } = await service
     .from("chat_room_members")
     .select("user_id")
     .eq("room_id", roomId);
-  if (error) {
-    console.error("Realtime room unread notification lookup failed:", error);
-    return;
+  if (memberError) {
+    console.error("Realtime room member lookup failed:", memberError);
+    return null;
   }
-  await Promise.all(
-    (members ?? []).map((member) =>
+
+  const userIds = [...new Set((members ?? []).map((member) => member.user_id))];
+  if (userIds.length === 0) return [];
+
+  const { data: profiles, error: profileError } = await service
+    .from("profiles")
+    .select("id")
+    .in("id", userIds)
+    .is("deleted_at", null);
+  if (profileError) {
+    console.error("Realtime active room member lookup failed:", profileError);
+    return null;
+  }
+  return (profiles ?? []).map((profile) => profile.id);
+}
+
+export async function notifyRoomUnreadChanged(
+  roomId: string,
+  action: "sent" | "read" | "deleted",
+  actorId: string,
+  sequence?: number,
+): Promise<boolean> {
+  const memberIds = await activeRoomMemberIds(roomId);
+  if (memberIds === null) return false;
+  const delivered = await Promise.all(
+    memberIds.map((userId) =>
       broadcastPrivateRealtimeEvent(
-        `sync:user:${member.user_id}`,
+        `sync:user:${userId}`,
         "rooms-unread-changed",
         {
           room_id: roomId,
@@ -116,6 +139,22 @@ export async function notifyRoomUnreadChanged(
       )
     ),
   );
+  return delivered.every(Boolean);
+}
+
+export async function notifyRoomMembershipChanged(roomId: string): Promise<boolean> {
+  const memberIds = await activeRoomMemberIds(roomId);
+  if (memberIds === null) return false;
+  const delivered = await Promise.all(
+    memberIds.map((userId) =>
+      broadcastPrivateRealtimeEvent(
+        `sync:user:${userId}`,
+        "rooms-membership-changed",
+        { room_id: roomId },
+      )
+    ),
+  );
+  return delivered.every(Boolean);
 }
 
 export async function notifyProfileChanged(userId: string) {

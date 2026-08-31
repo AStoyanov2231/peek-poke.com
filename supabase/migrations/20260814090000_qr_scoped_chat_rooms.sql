@@ -623,7 +623,14 @@ create policy "authenticated scoped realtime read"
   for select
   to authenticated
   using (
-    (select realtime.topic()) = 'sync:user:' || (select auth.uid())::text
+    (
+      (select realtime.topic()) = 'sync:user:' || (select auth.uid())::text
+      and exists (
+        select 1 from public.profiles profile
+        where profile.id = (select auth.uid())
+          and profile.deleted_at is null
+      )
+    )
     or (select realtime.topic()) = 'calls:user:' || (select auth.uid())::text
     or (
       (
