@@ -3,6 +3,7 @@ import {
   appRoutes,
   roomCreateResponseSchema,
   roomJoinRequestSchema,
+  roomTableCodeSchema,
   roomMessageSchema,
   roomMessagesResponseSchema,
   roomsResponseSchema,
@@ -12,6 +13,7 @@ import { mapRoomMessage } from "@/lib/api-contract";
 const ROOM_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
 const qrPayload = "pp-room-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
+const tableCode = "pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
 const timestamp = "2026-08-14T09:00:00.000Z";
 
 const room = {
@@ -50,10 +52,12 @@ const message = {
 };
 
 describe("QR room contracts", () => {
-  it("accepts opaque capabilities but rejects malformed and whitespace variants", () => {
+  it("accepts table identifiers and secondary share capabilities", () => {
+    expect(roomTableCodeSchema.parse(tableCode)).toBe(tableCode);
+    expect(roomJoinRequestSchema.parse({ qr_payload: tableCode }).qr_payload).toBe(tableCode);
     expect(roomJoinRequestSchema.parse({ qr_payload: qrPayload }).qr_payload).toBe(qrPayload);
     expect(roomJoinRequestSchema.safeParse({ qr_payload: "ROOM_ID" }).success).toBe(false);
-    expect(roomJoinRequestSchema.safeParse({ qr_payload: `${qrPayload} ` }).success).toBe(false);
+    expect(roomJoinRequestSchema.safeParse({ qr_payload: `${tableCode} ` }).success).toBe(false);
   });
 
   it("keeps QR capabilities out of room summaries and URL identities", () => {
@@ -64,6 +68,7 @@ describe("QR room contracts", () => {
     expect(appRoutes.room(ROOM_ID)).toBe(`/room/${ROOM_ID}`);
     expect(appRoutes.room(ROOM_ID)).not.toContain(qrPayload);
     expect(roomCreateResponseSchema.safeParse({ room, qr_payload: qrPayload }).success).toBe(true);
+    expect(roomCreateResponseSchema.safeParse({ room, qr_payload: tableCode }).success).toBe(true);
   });
 
   it("binds every room message to its room", () => {

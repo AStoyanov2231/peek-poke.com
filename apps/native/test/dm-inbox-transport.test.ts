@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { QueryClient } from "@tanstack/react-query";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { inboxQuery } from "@/data/social/queries";
@@ -48,6 +49,13 @@ vi.mock("expo-crypto", () => ({ randomUUID: () => "native-inbox-key-000001" }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe("native DM inbox transport", () => {
+  it("never substitutes bootstrap thread counts for validated unread cursors", () => {
+    const source = readFileSync("app/(app)/inbox.tsx", "utf8");
+    expect(source).toContain("const unread = threadsQuery.data?.total_unread ?? 0");
+    expect(source).not.toContain("unread_summary.threads");
+    expect(source).toContain("threadsQuery.error && threadsQuery.data");
+  });
+
   it("validates the exact shared response before caching", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(payload))));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

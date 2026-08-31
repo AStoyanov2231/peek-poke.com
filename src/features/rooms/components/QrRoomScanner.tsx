@@ -53,7 +53,7 @@ export function QrRoomScanner({
       video.srcObject = stream;
       void video.play();
       if (!detectorConstructor) {
-        setCameraError("Automatic QR detection is not supported here. Paste the room code below.");
+        setCameraError("Automatic QR detection is not supported here. Paste the table code below.");
         return;
       }
       const detector = new detectorConstructor({ formats: ["qr_code"] });
@@ -79,7 +79,7 @@ export function QrRoomScanner({
       };
       void scan();
     }).catch(() => {
-      if (!cancelled) setCameraError("Camera access was denied. Paste the room code below.");
+      if (!cancelled) setCameraError("Camera access was denied. Paste the table code below.");
     });
 
     return () => {
@@ -96,7 +96,7 @@ export function QrRoomScanner({
         <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
           <div className="flex items-center gap-2">
             <ScanLine size={18} className="text-primary" />
-            <h2 className="t-body-b text-ink-9">Scan a room QR code</h2>
+            <h2 className="t-body-b text-ink-9">Scan a table QR code</h2>
           </div>
           <button type="button" className="iconbtn" aria-label="Close scanner" onClick={onClose}>
             <X size={18} />
@@ -112,8 +112,8 @@ export function QrRoomScanner({
             <input
               value={manualPayload}
               onChange={(event) => setManualPayload(event.target.value)}
-              placeholder="Paste a room code"
-              aria-label="Room QR payload"
+              placeholder="Paste a table code"
+              aria-label="Table QR code"
               className="h-10 min-w-0 flex-1 rounded-lg border border-hairline bg-background px-3 text-sm"
               autoComplete="off"
             />

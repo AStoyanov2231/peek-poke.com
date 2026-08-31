@@ -1,17 +1,16 @@
-import type { AuthProfileEnsureResponse } from "@peekpoke/shared";
+import type { AuthProfileEnsureResponse, Bootstrap } from "@peekpoke/shared";
 
-type BootstrapIdentity = { identity: { id: string } };
-type ProfileBootstrapDependencies<T extends BootstrapIdentity> = {
+type ProfileBootstrapDependencies = {
   currentSessionUserId: () => Promise<string | null>;
   ensureProfile: (signal?: AbortSignal) => Promise<AuthProfileEnsureResponse>;
-  fetchBootstrap: (signal?: AbortSignal) => Promise<T>;
+  fetchBootstrap: (signal?: AbortSignal) => Promise<Bootstrap>;
 };
 
-export async function loadBootstrapForCurrentSession<T extends BootstrapIdentity>(
+export async function loadBootstrapForCurrentSession(
   expectedUserId: string,
-  dependencies: ProfileBootstrapDependencies<T>,
+  dependencies: ProfileBootstrapDependencies,
   signal?: AbortSignal,
-): Promise<T | null> {
+): Promise<Bootstrap | null> {
   if (signal?.aborted) throw signal.reason;
   if (await dependencies.currentSessionUserId() !== expectedUserId) return null;
 

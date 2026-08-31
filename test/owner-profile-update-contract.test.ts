@@ -18,6 +18,7 @@ const profile = {
   bio: "Hello",
   avatar_url: null,
   cover_image_url: null,
+  location_text: null,
   is_online: true,
   last_seen_at: timestamp,
   created_at: timestamp,
@@ -55,7 +56,6 @@ describe("owner display-name contract", () => {
   it("rejects empty and extra-field patches", () => {
     expect(ownerProfilePatchRequestSchema.safeParse({}).success).toBe(false);
     expect(ownerProfilePatchRequestSchema.safeParse({ display_name: "Ada", id: USER_ID }).success).toBe(false);
-    expect(ownerProfilePatchRequestSchema.safeParse({ location_text: "Sofia" }).success).toBe(false);
   });
 
   it("requires successful responses to be non-null, exact, and already canonical", () => {

@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import ChatPage from "@/features/chat/components/ChatPage";
 
-/** Legacy direct-message URLs are not an entry point in the QR-room client. */
-export default function LegacyChatPage() {
-  redirect("/");
+export default function Page({ params }: { params: Promise<{ threadId: string }> }) {
+  return <ChatPage params={params} />;
 }

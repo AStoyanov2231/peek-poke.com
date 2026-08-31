@@ -26,6 +26,7 @@ interface ProfileStatsRowProps {
 export function ProfileStatsRow({ stats, showMeetings = false, showRadius = false, className }: ProfileStatsRowProps) {
   return (
     <div className={`flex gap-3 ${className ?? ""}`}>
+      <StatCard value={stats.friends_count} label="Friends" />
       {showMeetings && <StatCard value={stats.meetings_count ?? 0} label="Meetings" />}
       <StatCard value={stats.photos_count} label="Photos" />
       {showRadius && <StatCard value={stats.radius_km != null ? `${stats.radius_km} km` : "–"} label="Radius" />}

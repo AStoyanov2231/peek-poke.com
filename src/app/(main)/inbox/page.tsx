@@ -1,5 +1,5 @@
-import RoomsPage from "@/features/rooms/components/RoomsPage";
+import InboxPage from "@/features/inbox/components/InboxPage";
 
 export default function Page() {
-  return <RoomsPage />;
+  return <InboxPage />;
 }

@@ -23,6 +23,7 @@ describe("account-erasure-safe DM media migration", () => {
     expect(migrationSql.stmts.length).toBeGreaterThan(15);
     expect(migrationPlPgSql.plpgsql_funcs).toHaveLength(7);
     expect(Math.floor(pgTapSql.version / 10_000)).toBe(17);
+    expect(pgTap).toContain("select plan(34)");
   });
 
   it("uses immutable server evidence instead of a caller-controlled bypass", () => {

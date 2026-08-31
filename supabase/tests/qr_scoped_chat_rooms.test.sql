@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(22);
 
 insert into auth.users (id, email)
 values
@@ -83,6 +83,63 @@ select is(
   ),
   0::bigint,
   'the raw QR capability is never persisted as the room identity'
+);
+
+create temporary table physical_table_room_state as
+select public.join_chat_room_by_qr(
+  '70000000-0000-4000-8000-000000000001',
+  'pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ'
+) as joined;
+
+select is(
+  ((select joined from physical_table_room_state)->>'room_id')::uuid is not null,
+  true,
+  'the first scan of a physical table creates a room'
+);
+select is(
+  ((select joined from physical_table_room_state)->>'is_new_member')::boolean,
+  true,
+  'the first physical table scan adds the scanner as a member'
+);
+select is(
+  (public.join_chat_room_by_qr(
+    '70000000-0000-4000-8000-000000000001',
+    'pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ'
+  )->>'is_new_member')::boolean,
+  false,
+  'repeated scans of a physical table are idempotent'
+);
+select is(
+  public.join_chat_room_by_qr(
+    '70000000-0000-4000-8000-000000000002',
+    'pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ'
+  )->>'room_id',
+  (select joined->>'room_id' from physical_table_room_state),
+  'every scanner resolves the same physical table room'
+);
+select is(
+  (
+    select room.qr_payload_hash
+    from public.chat_rooms room
+    where room.id = ((select joined from physical_table_room_state)->>'room_id')::uuid
+  ),
+  encode(
+    extensions.digest(
+      'pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ',
+      'sha256'
+    ),
+    'hex'
+  ),
+  'physical table rooms store only the payload digest'
+);
+select is(
+  (
+    select count(*)
+    from public.chat_rooms room
+    where room.qr_payload_hash = 'pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ'
+  ),
+  0::bigint,
+  'physical table room identities never store the raw table code'
 );
 
 select is(

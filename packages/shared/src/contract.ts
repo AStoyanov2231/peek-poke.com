@@ -205,6 +205,7 @@ export const currentProfileSchema = z.strictObject({
   bio: z.string().nullable(),
   avatar_url: z.string().nullable(),
   cover_image_url: z.string().nullable(),
+  location_text: z.string().nullable(),
   is_online: z.boolean(),
   last_seen_at: utcTimestampSchema,
   created_at: utcTimestampSchema,
@@ -233,6 +234,7 @@ export const currentProfileResponseSchema = z.strictObject({
 });
 
 export const roomCurrentProfileSchema = currentProfileSchema.omit({
+  location_text: true,
   is_online: true,
   last_seen_at: true,
 });
@@ -245,6 +247,7 @@ export const ownerProfilePatchRequestSchema = z
   .strictObject({
     display_name: displayNameInputSchema.optional(),
     bio: z.string().max(MAX_BIO_LENGTH, `Bio must be ${MAX_BIO_LENGTH} characters or less`).optional(),
+    location_text: z.string().max(100, "Location must be 100 characters or less").optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Provide at least one profile change");
 
@@ -1228,6 +1231,10 @@ export function nearbyResponseSchemaForViewer(
   });
 }
 
+export const locationUpdateResponseSchema = z.strictObject({
+  ok: z.literal(true),
+});
+
 export const moderationReportStatusSchema = z.enum([
   "pending",
   "reviewing",
@@ -1379,13 +1386,21 @@ export const pageInfoSchema = z.strictObject({
 });
 
 /**
- * QR room payloads are deliberately opaque capabilities. The payload is only
- * accepted at the join boundary and is never used as a room identifier.
+ * QR payloads are deliberately opaque capabilities. Table payloads are stable
+ * identifiers printed on physical tables; share payloads remain supported as
+ * a secondary, additive way to invite people to a room.
  */
-export const roomQrPayloadSchema = z.string().regex(
+export const roomTableCodeSchema = z.string().regex(
+  /^pp-table-v1\.[A-Za-z0-9_-]{43}$/,
+  "Invalid table QR code",
+);
+
+export const roomSharePayloadSchema = z.string().regex(
   /^pp-room-v1\.[A-Za-z0-9_-]{43}$/,
   "Invalid room QR payload",
 );
+
+export const roomQrPayloadSchema = z.union([roomTableCodeSchema, roomSharePayloadSchema]);
 
 export const roomJoinRequestSchema = z.strictObject({
   qr_payload: roomQrPayloadSchema,
@@ -1597,9 +1612,24 @@ export const roomPublicProfileResponseSchema = z.strictObject({
 
 export function publicProfileResponseSchemaForTarget(
   targetId: string,
+  configuredStorageOrigin: string | undefined,
+  roomSurface: true,
+): z.ZodType<RoomPublicProfileResponse>;
+export function publicProfileResponseSchemaForTarget(
+  targetId: string,
   configuredStorageOrigin?: string,
-  roomSurface = false,
-) {
+  roomSurface?: false,
+): z.ZodType<PublicProfileResponse>;
+export function publicProfileResponseSchemaForTarget(
+  targetId: string,
+  configuredStorageOrigin: string | undefined,
+  roomSurface: boolean,
+): z.ZodType<PublicProfileResponse | RoomPublicProfileResponse>;
+export function publicProfileResponseSchemaForTarget(
+  targetId: string,
+  configuredStorageOrigin?: string,
+  roomSurface?: boolean,
+): z.ZodType<PublicProfileResponse | RoomPublicProfileResponse> {
   const schema = roomSurface ? roomPublicProfileResponseSchema : publicProfileResponseSchema;
   return schema.superRefine((response, context) => {
     if (response.profile.id !== targetId) {
@@ -1649,10 +1679,28 @@ export function publicProfileResponseSchemaForTarget(
 export function publicProfileResponseSchemaFor(
   viewerId: string,
   targetId: string,
+  configuredStorageOrigin: string | undefined,
+  roomSurface: true,
+): z.ZodType<RoomPublicProfileResponse>;
+export function publicProfileResponseSchemaFor(
+  viewerId: string,
+  targetId: string,
   configuredStorageOrigin?: string,
-  roomSurface = false,
-) {
-  return publicProfileResponseSchemaForTarget(targetId, configuredStorageOrigin, roomSurface).superRefine((response, context) => {
+  roomSurface?: false,
+): z.ZodType<PublicProfileResponse>;
+export function publicProfileResponseSchemaFor(
+  viewerId: string,
+  targetId: string,
+  configuredStorageOrigin: string | undefined,
+  roomSurface: boolean,
+): z.ZodType<PublicProfileResponse | RoomPublicProfileResponse>;
+export function publicProfileResponseSchemaFor(
+  viewerId: string,
+  targetId: string,
+  configuredStorageOrigin?: string,
+  roomSurface?: boolean,
+): z.ZodType<PublicProfileResponse | RoomPublicProfileResponse> {
+  return publicProfileResponseSchemaForTarget(targetId, configuredStorageOrigin, roomSurface ?? false).superRefine((response, context) => {
     const friendship = response.friendship;
     if (!friendship) return;
     const participants = new Set([friendship.requester_id, friendship.addressee_id]);
@@ -1849,6 +1897,7 @@ export type DmThreadCreateResponse = z.infer<typeof dmThreadCreateResponseSchema
 export type Message = z.infer<typeof messageSchema>;
 export type NearbyUserDto = z.infer<typeof nearbyUserSchema>;
 export type NearbyResponseDto = z.infer<typeof nearbyResponseSchema>;
+export type LocationUpdateResponse = z.infer<typeof locationUpdateResponseSchema>;
 export type SearchUserDto = SearchUserResult;
 export type ModerationReportStatus = z.infer<typeof moderationReportStatusSchema>;
 export type ModerationReportAction = z.infer<typeof moderationReportActionSchema>;
@@ -1861,6 +1910,8 @@ export type RoomBootstrap = z.infer<typeof roomBootstrapSchema>;
 export type AuthProfileEnsureResponse = z.infer<typeof authProfileEnsureResponseSchema>;
 export type PageInfo = z.infer<typeof pageInfoSchema>;
 export type RoomQrPayload = z.infer<typeof roomQrPayloadSchema>;
+export type RoomTableCode = z.infer<typeof roomTableCodeSchema>;
+export type RoomSharePayload = z.infer<typeof roomSharePayloadSchema>;
 export type RoomJoinRequest = z.infer<typeof roomJoinRequestSchema>;
 export type RoomSummary = z.infer<typeof roomSummarySchema>;
 export type RoomsResponse = z.infer<typeof roomsResponseSchema>;

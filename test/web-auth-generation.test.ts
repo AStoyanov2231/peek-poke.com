@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   clearStore: vi.fn(),
   fetchContract: vi.fn(),
   getSession: vi.fn(),
+  markLocationStale: vi.fn(),
   observeMeetingAuthOwner: vi.fn(),
   onAuthStateChange: vi.fn(),
   resetFriendMutationAttempts: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock("@/stores/appStore", () => ({
   useAppStore: {
     getState: () => ({
       clearStore: mocks.clearStore,
+      markLocationStale: mocks.markLocationStale,
     }),
   },
 }));

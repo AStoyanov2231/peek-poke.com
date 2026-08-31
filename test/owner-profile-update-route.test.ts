@@ -36,6 +36,7 @@ const storedProfile = {
   bio: "Preserved bio",
   avatar_url: null,
   cover_image_url: null,
+  location_text: null,
   is_online: true,
   last_seen_at: timestamp,
   created_at: timestamp,
@@ -91,7 +92,6 @@ describe("PATCH /api/profile owner display name", () => {
     ["malformed JSON", "{"],
     ["blank display name", JSON.stringify({ display_name: "  " })],
     ["extra owner selector", JSON.stringify({ display_name: "Ada", id: USER_ID })],
-    ["location update", JSON.stringify({ location_text: "Sofia" })],
     ["empty patch", JSON.stringify({})],
   ])("rejects %s without updating", async (_label, body) => {
     const response = await request(body);

@@ -14,12 +14,12 @@ Peek & Poke is a Next.js web/server app with a separate Expo React Native app th
 
 ## Current user flow
 
-The authenticated home screen is the Rooms screen on web, iOS, and Android.
-Create a room QR code to share with a group, or scan or paste a room QR payload
-to join a shared text conversation.
+The authenticated home screen remains the map and nearby discovery surface on web, iOS, and Android.
+The Inbox keeps direct-message threads, friends, and friend requests available through the primary navigation.
+Rooms is an additional group-chat feature available at `/rooms` and in the Rooms navigation tab.
+Physical table QR codes use stable opaque identifiers: the first scan creates the associated room, and later scans join it.
+Generated room-sharing QR codes remain a secondary invitation option.
 
-The former map, inbox, friends, messages, and direct-chat entry points remain
-only as compatibility aliases where supported and redirect to Rooms.
 
 ## Setup
 

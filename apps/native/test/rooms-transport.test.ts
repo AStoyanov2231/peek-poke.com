@@ -3,6 +3,7 @@ import { joinRoom } from "@/data/rooms";
 
 const ROOM_ID = "11111111-1111-4111-8111-111111111111";
 const QR_PAYLOAD = "pp-room-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
+const TABLE_CODE = "pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
 const response = {
   room: {
     id: ROOM_ID,
@@ -34,6 +35,15 @@ describe("native QR room transport", () => {
     );
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       body: JSON.stringify({ qr_payload: QR_PAYLOAD }),
+    }));
+  });
+
+  it("accepts a stable physical table code through the same join endpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(response)));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(joinRoom(TABLE_CODE)).resolves.toEqual(response);
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      body: JSON.stringify({ qr_payload: TABLE_CODE }),
     }));
   });
 

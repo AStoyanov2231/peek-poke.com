@@ -13,7 +13,11 @@ module.exports = {
     preset: `jest-expo/${target}`,
     rootDir: __dirname,
     testMatch: [
+      "<rootDir>/test/map-marker-pressability.test.tsx",
+      "<rootDir>/test/map-filter-menu-pressability.test.tsx",
+      "<rootDir>/test/location-sync-recovery-pressability.test.tsx",
       "<rootDir>/test/error-recovery-pressability.test.tsx",
+      "<rootDir>/test/chat-meeting-action-pressability.test.tsx",
       "<rootDir>/test/owner-display-name-editor-pressability.test.tsx",
       "<rootDir>/test/admin-report-actions-pressability.test.tsx",
       "<rootDir>/test/profile-convergence-platform.marker.ts",

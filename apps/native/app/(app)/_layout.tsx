@@ -5,8 +5,10 @@ import { colors, fontFamilies, radii, shadows, spacing } from "@peekpoke/design"
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge, IconGlyph, type IconName } from "@/components/ui";
 import { RouteErrorRecovery } from "@/components/error-recovery";
+import { useMeetingDetection } from "@/hooks/use-meeting-detection";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
-import { fetchBootstrap, fetchRoomCurrentProfile } from "@/data/api";
+import { useLocationFreshnessLifecycle } from "@/hooks/use-location-freshness-lifecycle";
+import { fetchCurrentProfile, fetchFriends, fetchThreads } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
@@ -14,27 +16,37 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
 }
 
 const tabs = [
-  { href: "/(app)/rooms", path: "/rooms", label: "Rooms", icon: "inbox", badge: true },
+  { href: "/(app)/map", path: "/map", label: "Map", icon: "map" },
+  { href: "/(app)/inbox", path: "/inbox", label: "Inbox", icon: "inbox", badge: true },
+  { href: "/(app)/rooms", path: "/rooms", label: "Rooms", icon: "users" },
   { href: "/(app)/profile", path: "/profile", label: "Me", icon: "profile" },
 ] as const;
 
 export default function AppLayout() {
+  useMeetingDetection();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const profileQuery = useQuery({
-    queryKey: nativeQueryKeys.profile.roomCurrent,
-    queryFn: fetchRoomCurrentProfile,
+    queryKey: nativeQueryKeys.profile.current,
+    queryFn: fetchCurrentProfile,
   });
-  const bootstrapQuery = useQuery({
-    queryKey: nativeQueryKeys.bootstrap,
-    queryFn: ({ signal }) => fetchBootstrap(signal),
+  const friendsQuery = useQuery({
+    queryKey: nativeQueryKeys.social.friends,
+    queryFn: fetchFriends,
+    enabled: Boolean(profileQuery.data?.id),
+  });
+  const threadsQuery = useQuery({
+    queryKey: nativeQueryKeys.inbox.threads,
+    queryFn: fetchThreads,
     enabled: Boolean(profileQuery.data?.id),
   });
   const profileId = profileQuery.data?.id;
+  useLocationFreshnessLifecycle(profileId);
   const roles = profileQuery.data?.roles ?? [];
-  const unread = bootstrapQuery.data?.unread_summary.rooms ?? 0;
+  const unread = threadsQuery.data?.total_unread ?? 0;
+  const requests = friendsQuery.data?.requests.length ?? 0;
   const isAdmin = roles.includes("admin");
-  const badgeCount = unread;
+  const badgeCount = requests > 0 ? requests : unread;
   useForegroundRefresh(Boolean(profileId));
   const allTabs: {
     href: string;
@@ -59,7 +71,7 @@ export default function AppLayout() {
       </View>
       <View style={[styles.nav, { bottom: insets.bottom + 22 }]}>
         {allTabs.map(({ href, path, label, icon, badge }) => {
-          const active = pathname === path || pathname.startsWith(`${path}/`);
+          const active = path === "/map" ? pathname === path : pathname.startsWith(path);
           return (
               <Pressable
                 accessibilityLabel={label}

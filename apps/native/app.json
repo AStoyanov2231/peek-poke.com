@@ -16,8 +16,9 @@
         "applinks:www.peek-poke.com"
       ],
       "infoPlist": {
-        "NSCameraUsageDescription": "Peek & Poke uses your camera to scan room QR codes and for profile photos and calls.",
+        "NSCameraUsageDescription": "Peek & Poke uses your camera to scan table QR codes and for profile photos and calls.",
         "NSMicrophoneUsageDescription": "Peek & Poke uses your microphone for calls.",
+        "NSLocationWhenInUseUsageDescription": "Peek & Poke uses your location to show nearby people and coins.",
         "NSPhotoLibraryUsageDescription": "Peek & Poke lets you choose profile photos from your library."
       }
     },
@@ -47,6 +48,8 @@
         }
       ],
       "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
         "CAMERA",
         "RECORD_AUDIO",
         "READ_MEDIA_IMAGES"
@@ -74,6 +77,19 @@
         {
           "configureAndroidBackup": false,
           "faceIDPermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationWhenInUsePermission": "Peek & Poke uses your location to show nearby people and coins.",
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "isAndroidMotionActivityEnabled": false
         }
       ],
       "expo-camera",

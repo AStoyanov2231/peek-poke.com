@@ -11,7 +11,7 @@ import {
 } from "@peekpoke/shared";
 import { notifyProfileChanged } from "@/lib/realtime-broadcast";
 
-const PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover_image_url, is_online, last_seen_at, created_at, onboarding_completed";
+const PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover_image_url, location_text, is_online, last_seen_at, created_at, onboarding_completed";
 const ROOM_PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover_image_url, created_at, onboarding_completed";
 
 export const GET = withAuth(async (request, { user, supabase }) => {

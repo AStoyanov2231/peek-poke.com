@@ -5,6 +5,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { roomMembershipHintSchema, roomMessageHintSchema, roomUnreadHintSchema } from "@peekpoke/shared";
 import { useIsPreloading } from "@/stores/selectors";
 import { useRealtimeProfiles } from "@/hooks/useRealtimeProfiles";
+import { useRealtimeUserSync } from "@/features/chat/useRealtimeDM";
 import { roomsQueryOptions } from "@/data/rooms";
 import { bootstrapQueryOptions, webQueryKeys } from "@/data/web-query";
 import { createClient } from "@/lib/supabase/client";
@@ -12,12 +13,9 @@ import { createClient } from "@/lib/supabase/client";
 const supabase = createClient();
 
 /**
- * Orchestrator for the QR-room client realtime surface.
- *
- * Legacy friendship/DM synchronization remains available to old deployed
- * clients, but is intentionally not mounted by the new application flow.
- * Room events are hints only; durable state is always re-read through the
- * authenticated room APIs.
+ * Orchestrator for the legacy social/DM and additive QR-room realtime
+ * surfaces. Both channels carry hints only; durable state is always re-read
+ * through the authenticated APIs.
  */
 export function useRealtimeSync() {
   const isPreloading = useIsPreloading();
@@ -31,6 +29,7 @@ export function useRealtimeSync() {
   );
 
   useRealtimeProfiles({ isPreloading });
+  useRealtimeUserSync({ userId, isPreloading });
 
   useEffect(() => {
     if (isPreloading || !userId) return;

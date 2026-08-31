@@ -4,6 +4,7 @@ import { roomJoinResponseSchema } from "@peekpoke/shared";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const ROOM_ID = "22222222-2222-4222-8222-222222222222";
 const QR_PAYLOAD = "pp-room-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
+const TABLE_CODE = "pp-table-v1.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
 
 const database = vi.hoisted(() => ({ rpc: vi.fn() }));
 const summary = {
@@ -54,6 +55,18 @@ describe("POST /api/rooms/join", () => {
     expect(roomJoinResponseSchema.parse(payload)).toEqual(payload);
     expect(payload).toEqual({ room: summary, is_new_member: true });
     expect(JSON.stringify(payload)).not.toContain(QR_PAYLOAD);
+  });
+
+  it("resolves a first-use physical table code through the same opaque join boundary", async () => {
+    const response = await request({ qr_payload: TABLE_CODE });
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({ room: summary, is_new_member: true });
+    expect(database.rpc).toHaveBeenCalledWith("join_chat_room_by_qr", {
+      p_user_id: USER_ID,
+      p_qr_payload: TABLE_CODE,
+    });
+    expect(JSON.stringify(payload)).not.toContain(TABLE_CODE);
   });
 
   it("rejects malformed capabilities before touching the database", async () => {

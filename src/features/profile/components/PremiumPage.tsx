@@ -10,7 +10,7 @@ import { webQueryKeys } from "@/data/web-query";
 import type { RoleName } from "@/types/database";
 
 const FEATURES = [
-  { icon: Users, label: "Unlimited rooms" },
+  { icon: Users, label: "Unlimited friends" },
   { icon: ImageIcon, label: "See other people's photos" },
   { icon: Eye, label: "See who viewed your profile" },
 ];

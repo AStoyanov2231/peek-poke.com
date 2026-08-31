@@ -70,6 +70,9 @@ export function webQueryContainsProfileReference(
         );
     });
   }
+  if (key[0] === "web" && key[1] === "nearby") {
+    return Array.isArray(data) && data.some((user) => recordId(user, "userId") === profileId);
+  }
   if (key[0] === "web" && key[1] === "search" && key[2] === "users") {
     return Array.isArray(data) && data.some((user) => recordId(user) === profileId);
   }
@@ -87,6 +90,7 @@ export function isWebProfileRecoveryQuery(query: Pick<Query, "queryKey">) {
     || isPublicProfile
     || (key[0] === "web" && key[1] === "friends")
     || (key[0] === "web" && key[1] === "threads" && key.length === 2)
+    || (key[0] === "web" && key[1] === "nearby")
     || (key[0] === "web" && key[1] === "search" && key[2] === "users")
   );
 }

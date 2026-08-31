@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    maxWorkers: 4,
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
     coverage: {
       provider: "v8",

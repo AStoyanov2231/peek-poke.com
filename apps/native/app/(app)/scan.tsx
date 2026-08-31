@@ -36,7 +36,7 @@ export default function ScanRoomScreen() {
     if (joinMutation.isPending) return;
     const normalized = payload.trim();
     if (!roomQrPayloadSchema.safeParse(normalized).success) {
-      setError("That is not a Peek & Poke room QR code.");
+      setError("That is not a Peek & Poke table QR code.");
       setScanned(false);
       return;
     }
@@ -55,8 +55,8 @@ export default function ScanRoomScreen() {
     return (
       <View style={styles.center}>
         <ScanLine color={colors.primary[500]} size={36} />
-        <Text style={styles.title}>Scan a room QR code</Text>
-        <Muted style={styles.copy}>Camera access is needed to join a shared room.</Muted>
+        <Text style={styles.title}>Scan a table QR code</Text>
+        <Muted style={styles.copy}>Camera access is needed to join the room assigned to this table.</Muted>
         <Button style={styles.permissionButton} onPress={() => void requestPermission()}>Allow camera</Button>
         <Button variant="ghost" size="sm" onPress={() => router.back()}>Cancel</Button>
       </View>
@@ -79,19 +79,19 @@ export default function ScanRoomScreen() {
         />
         <View pointerEvents="none" style={styles.scanWindow} />
       </View>
-      <Text style={styles.title}>Scan a room QR code</Text>
-      <Caption style={styles.instruction}>Point your camera at the code shared by your crew.</Caption>
+      <Text style={styles.title}>Scan a table QR code</Text>
+      <Caption style={styles.instruction}>Point your camera at the QR code on your table.</Caption>
       {joinMutation.isPending ? <ActivityIndicator style={styles.spinner} color={colors.primary[500]} /> : null}
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       <View style={styles.manual}>
         <TextInput
           value={manualPayload}
           onChangeText={setManualPayload}
-          placeholder="Paste a room code"
+          placeholder="Paste a table code"
           placeholderTextColor={colors.ink[5]}
           autoCapitalize="none"
           autoCorrect={false}
-          accessibilityLabel="Room QR payload"
+          accessibilityLabel="Table QR code"
           style={styles.input}
         />
         <Button size="sm" disabled={!manualPayload.trim() || joinMutation.isPending} onPress={() => submitPayload(manualPayload)}>Join</Button>

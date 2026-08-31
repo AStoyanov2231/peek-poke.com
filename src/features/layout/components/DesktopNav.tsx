@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { QrCode, Coins, Shield } from "lucide-react";
-import { useRoomProfile, useCoins, useTotalUnread, useHasRole } from "@/stores/selectors";
+import { MapPin, Mail, QrCode, Coins, Shield } from "lucide-react";
+import { useProfile, useCoins, useFriendRequestCount, useTotalUnread, useHasRole } from "@/stores/selectors";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,9 @@ interface DesktopNavItem {
 }
 
 const desktopNavItems: DesktopNavItem[] = [
-  { href: "/",         label: "Rooms",    Icon: QrCode, badge: true },
+  { href: "/",         label: "Map",      Icon: MapPin },
+  { href: "/inbox",    label: "Inbox",    Icon: Mail, badge: true },
+  { href: "/rooms",    label: "Rooms",    Icon: QrCode },
 ];
 
 export function DesktopNav() {
@@ -29,16 +31,17 @@ export function DesktopNav() {
 function DesktopNavInner() {
   const pathname = usePathname();
   const router = useTransitionRouter();
-  const profile = useRoomProfile();
+  const profile = useProfile();
   const coins = useCoins();
   const unreadCount = useTotalUnread();
+  const friendRequestCount = useFriendRequestCount();
   const isAdmin = useHasRole("admin");
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => { setPendingHref(null); }, [pathname]);
 
   const activeHref = pendingHref ?? pathname;
-  const rawBadgeCount = unreadCount;
+  const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;
 
   const navItems: DesktopNavItem[] = [
     ...desktopNavItems,
@@ -119,7 +122,7 @@ function DesktopNavInner() {
             />
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-5)", marginTop: 6 }}>
-            Scan a room QR code to meet your crew
+            Meet a friend nearby to earn more
           </div>
         </div>
 

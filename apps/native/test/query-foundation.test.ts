@@ -26,6 +26,8 @@ describe("native query foundation", () => {
     expect(isNativeUserSyncQueryKey(nativeQueryKeys.social.friends)).toBe(true);
     expect(isNativeUserSyncQueryKey(nativeQueryKeys.inbox.threads)).toBe(true);
     expect(isNativeUserSyncQueryKey(nativeQueryKeys.profile.current)).toBe(false);
+    expect(nativeQueryKeys.discovery.nearby("viewer-1", 42.123456, 23.987654))
+      .toEqual(["discovery", "nearby", "viewer-1", "42.1235", "23.9877"]);
   });
 
   it("deduplicates identical in-flight reads", async () => {

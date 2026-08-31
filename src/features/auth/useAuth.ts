@@ -2,7 +2,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
-import type { CurrentProfile } from "@peekpoke/shared";
+import type { Profile } from "@/types/database";
 import { useAppStore } from "@/stores/appStore";
 import { currentProfileResponseSchema } from "@peekpoke/shared";
 import { fetchContract } from "@/lib/typed-api";
@@ -15,14 +15,14 @@ const supabase = createClient();
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<CurrentProfile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Track current user ID to avoid unnecessary refetches
   const currentUserIdRef = useRef<string | null>(null);
   const profileOwnerIdRef = useRef<string | null>(null);
 
-  const fetchProfile = useCallback(async (): Promise<CurrentProfile | null> => {
+  const fetchProfile = useCallback(async (): Promise<Profile | null> => {
     try {
       const data = await fetchContract("/api/profile", currentProfileResponseSchema);
       return data.profile;
@@ -102,6 +102,7 @@ export function useAuth() {
             || profileOwnerIdRef.current !== authUser.id
           ) {
             if (currentUserIdRef.current !== null) resetFriendMutationAttempts();
+            useAppStore.getState().markLocationStale();
             currentUserIdRef.current = authUser.id;
             const fetchedProfile = await fetchProfile();
             if (isCurrentAuth(eventAuthGeneration)) {

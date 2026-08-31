@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import InvitePage from "@/features/invites/components/InvitePage";
 
-/** Legacy social invites no longer mutate connection state in the QR-room client. */
 export default function Page() {
-  redirect("/");
+  return <InvitePage />;
 }

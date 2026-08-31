@@ -9,11 +9,12 @@ interface ChatHeaderProps {
   other: ProfileCard;
   isOnline: boolean;
   isTyping?: boolean;
+  distanceMeters: number | null;
   onBack: () => void;
   onStartCall?: () => void;
 }
 
-export function ChatHeader({ other, isOnline, isTyping = false, onBack, onStartCall }: ChatHeaderProps) {
+export function ChatHeader({ other, isOnline, isTyping = false, distanceMeters, onBack, onStartCall }: ChatHeaderProps) {
   const name = other.display_name || other.username;
 
   const subtitle = other.account_deleted
@@ -21,7 +22,9 @@ export function ChatHeader({ other, isOnline, isTyping = false, onBack, onStartC
     : isTyping
     ? "Typing…"
     : isOnline
-    ? "Online now"
+    ? distanceMeters !== null
+      ? `Online · ${distanceMeters}m away`
+      : "Online now"
     : `@${other.username}`;
 
   return (

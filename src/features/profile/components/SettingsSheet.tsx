@@ -142,12 +142,12 @@ function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
 
 const FAQS = [
     {
-      q: "How do I join a conversation?",
-      a: "Scan a room QR code from the Rooms screen. Everyone who scans the same code joins the same group chat."
+      q: "How do I find people nearby?",
+      a: "Open the map on the home screen. Pins show users who are currently sharing their location near you.",
     },
     {
-      q: "How do I invite my crew?",
-      a: "Create a room QR code and let your crew scan it. Room membership is preserved when you return."
+      q: "How do I send a friend request?",
+      a: "Tap on a pin or visit a user's profile, then tap Add Friend. They'll receive a request in their inbox.",
     },
     {
       q: "What is Premium?",
@@ -195,7 +195,7 @@ function DeleteAccountView({
       <Card className="rounded-sm p-4 flex flex-col gap-2 border-red-200 bg-red-50">
         <p className="text-[14px] font-semibold text-red-800">This action cannot be undone.</p>
         <p className="text-[13px] text-red-700 leading-relaxed">
-          Your personal profile, photos, authored messages, billing identifiers, and sign-in account will be erased. Shared conversations retain only an anonymous deleted-member placeholder and minimal safety records.
+          Your personal profile, photos, location, authored messages, billing identifiers, and sign-in account will be erased. Shared conversations retain only an anonymous deleted-member placeholder and minimal safety records.
         </p>
         <p className="text-[13px] text-red-700 leading-relaxed">
           App Store and Google Play subscriptions are not canceled by deleting your account. Cancel them in the store first. A web subscription billed by Stripe is canceled immediately.
@@ -253,7 +253,7 @@ function TermsView() {
       <Card className="rounded-sm p-4 flex flex-col gap-2">
         <p className="text-[14px] font-semibold text-foreground">Privacy Policy</p>
         <p className="text-[13px] text-muted-foreground leading-relaxed">
-          We collect only the data needed to provide the Peek &amp; Poke service. Room QR codes are stored as one-way capabilities. We never sell your data.
+          We collect only the data needed to provide the Peek &amp; Poke service. Your location is only shared when you choose to enable it. We never sell your data.
         </p>
       </Card>
     </div>

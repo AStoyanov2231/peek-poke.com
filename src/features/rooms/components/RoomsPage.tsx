@@ -59,7 +59,7 @@ export default function RoomsPage() {
             <p className="t-overline text-primary">PEEK &amp; POKE</p>
             <h1 className="mt-2 t-display text-ink-9">Room together.</h1>
             <p className="mt-2 max-w-md t-body text-ink-6">
-              Scan the same QR code as your crew to join one shared conversation. No map or location sharing required.
+              Scan the QR code on your table to join its shared conversation. Rooms add group chat without replacing the map or direct messages.
             </p>
           </div>
           <div className="hidden rounded-2xl bg-ink-1 p-4 md:block">
@@ -74,7 +74,7 @@ export default function RoomsPage() {
             onClick={() => setScannerOpen(true)}
             disabled={joinMutation.isPending}
           >
-            <ScanLine size={18} /> Scan a QR code
+            <ScanLine size={18} /> Scan a table QR code
           </button>
           <button
             type="button"
@@ -82,7 +82,7 @@ export default function RoomsPage() {
             onClick={() => createMutation.mutate()}
             disabled={createMutation.isPending}
           >
-            <Plus size={18} /> {createMutation.isPending ? "Creating…" : "Create a room QR"}
+            <Plus size={18} /> {createMutation.isPending ? "Creating…" : "Create a share QR"}
           </button>
         </div>
 
@@ -148,7 +148,7 @@ export default function RoomsPage() {
           <div className="w-full max-w-sm rounded-2xl bg-surface p-5 text-center shadow-e-2">
             <div className="flex justify-end"><button type="button" className="iconbtn" aria-label="Close QR code" onClick={() => { setCreatedPayload(null); setCreatedRoomId(null); }}><X size={18} /></button></div>
             <h2 className="t-title-3 text-ink-9">Share this room QR</h2>
-            <p className="mt-1 t-caption muted">Anyone who scans it joins this group room.</p>
+            <p className="mt-1 t-caption muted">A secondary share code for inviting people to this group room.</p>
             <div className="mx-auto mt-5 w-fit rounded-xl bg-white p-4"><QRCodeSVG value={createdPayload} size={220} includeMargin /></div>
             <button
               type="button"

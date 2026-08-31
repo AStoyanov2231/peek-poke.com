@@ -25,7 +25,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "Peek & Poke",
-  description: "Scan together. Chat together.",
+  description: "Connect with friends nearby",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

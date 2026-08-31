@@ -1,4 +1,6 @@
 export const coreNativeTabs = [
+  { name: "map", route: "/(app)/map", path: "/map" },
+  { name: "inbox", route: "/(app)/inbox", path: "/inbox" },
   { name: "rooms", route: "/(app)/rooms", path: "/rooms" },
   { name: "profile", route: "/(app)/profile", path: "/profile" },
 ] as const;
@@ -24,6 +26,7 @@ export const coreNativeStackRoutes = [
 
 const staticNotificationRoutes = new Set([
   "/",
+  "/map",
   "/rooms",
   "/scan",
   "/inbox",

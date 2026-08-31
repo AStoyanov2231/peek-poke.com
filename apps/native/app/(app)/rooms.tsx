@@ -34,14 +34,14 @@ export default function RoomsScreen() {
         <View style={styles.headingCopy}>
           <Caption style={styles.eyebrow}>PEEK &amp; POKE</Caption>
           <Title>Room together.</Title>
-          <Muted style={styles.description}>Scan the same QR code as your crew to join one shared conversation.</Muted>
+          <Muted style={styles.description}>Scan the QR code on your table to join its shared conversation. Rooms add group chat alongside the map and Inbox.</Muted>
         </View>
         <QrCode color={colors.primary[500]} size={30} strokeWidth={1.6} />
       </View>
 
       <View style={styles.actions}>
-        <Button fullWidth leftIcon="camera" onPress={() => router.push("/(app)/scan" as never)}>Scan a QR code</Button>
-        <Button fullWidth variant="secondary" leftIcon="share" loading={createMutation.isPending} onPress={() => createMutation.mutate()}>Create a room QR</Button>
+        <Button fullWidth leftIcon="camera" onPress={() => router.push("/(app)/scan" as never)}>Scan a table QR code</Button>
+        <Button fullWidth variant="secondary" leftIcon="share" loading={createMutation.isPending} onPress={() => createMutation.mutate()}>Create a share QR</Button>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 
@@ -95,7 +95,7 @@ export default function RoomsScreen() {
           <View style={styles.modalCard}>
             <Pressable accessibilityRole="button" accessibilityLabel="Close QR code" onPress={() => setCreatedRoom(null)} style={styles.close}><X color={colors.ink[6]} size={20} /></Pressable>
             <Text style={styles.modalTitle}>Share this room QR</Text>
-            <Muted style={styles.modalCopy}>Anyone who scans it joins this group room.</Muted>
+            <Muted style={styles.modalCopy}>A secondary share code for inviting people to this group room.</Muted>
             {createdRoom ? <View style={styles.qrWrap}><QRCode value={createdRoom.qrPayload} size={220} backgroundColor="white" color="black" /></View> : null}
             <View style={styles.modalActions}>
               <Button size="sm" variant="secondary" onPress={() => { if (createdRoom) void Clipboard.setStringAsync(createdRoom.qrPayload); }}>Copy code</Button>

@@ -1,6 +1,6 @@
 import {
   authProfileEnsureResponseSchema,
-  roomBootstrapSchema,
+  bootstrapSchema,
   boundedCursorPath,
   coinsResponseSchema,
   currentProfileResponseSchema,
@@ -13,14 +13,14 @@ import {
   createMeetingCompletionRegistry,
   StaleMeetingAttemptError,
   type AuthProfileEnsureResponse,
-  type RoomBootstrap,
+  type Bootstrap,
+  type RoomCurrentProfile,
   type DmInboxResponse,
   type Friend,
   type FriendsReadResponse,
   type MessagesResponse,
   type MeetingResponse,
-  type CurrentProfile,
-  type RoomCurrentProfile,
+  type ProfileView,
 } from "@peekpoke/shared";
 import { randomUUID } from "expo-crypto";
 import { apiFetch, jsonBody } from "@/lib/api";
@@ -57,8 +57,8 @@ function currentMeetingOwnerEpoch(accountId: string) {
   return meetingCompletions.current(accountId);
 }
 
-export function fetchBootstrap(signal?: AbortSignal): Promise<RoomBootstrap> {
-  return apiFetch("/api/bootstrap?surface=rooms", { signal, responseSchema: roomBootstrapSchema });
+export function fetchBootstrap(signal?: AbortSignal): Promise<Bootstrap> {
+  return apiFetch("/api/bootstrap", { signal, responseSchema: bootstrapSchema });
 }
 
 export function ensureAuthenticatedProfile(signal?: AbortSignal): Promise<AuthProfileEnsureResponse> {
@@ -70,8 +70,8 @@ export function ensureAuthenticatedProfile(signal?: AbortSignal): Promise<AuthPr
   });
 }
 
-export async function fetchCurrentProfile(): Promise<CurrentProfile> {
-  const response = await apiFetch<{ profile: CurrentProfile | null }>("/api/profile", {
+export async function fetchCurrentProfile(): Promise<ProfileView> {
+  const response = await apiFetch<{ profile: ProfileView | null }>("/api/profile", {
     responseSchema: currentProfileResponseSchema,
   });
   if (!response.profile) throw new Error("Profile not found");

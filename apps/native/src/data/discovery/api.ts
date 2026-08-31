@@ -1,10 +1,20 @@
 import type {
-  RoomPublicProfileResponse,
+  AdminBot,
+  AdminBotCollectResult,
+  LocationUpdateResponse,
+  NearbyResponse,
+  NearbyUser,
+  PublicProfileResponse,
   ResolvedTag,
   SearchTagResult,
   SearchUserResult,
 } from "@peekpoke/shared";
 import {
+  adminBotCollectRequestSchema,
+  adminBotCollectResultSchema,
+  adminBotListResponseSchema,
+  locationUpdateResponseSchema,
+  nearbyResponseSchemaForViewer,
   publicProfileResponseSchemaForTarget,
   resolvedTagsSchemaForRequest,
   normalizeUserSearchQuery,
@@ -18,8 +28,54 @@ import {
 import { apiFetch, jsonBody } from "@/lib/api";
 import { env } from "@/lib/env";
 
-export type PublicProfileData = RoomPublicProfileResponse;
+export type Coordinates = { lat: number; lng: number };
+export type Bot = AdminBot;
+export type PublicProfileData = PublicProfileResponse;
 
+export const LOCATION_UPDATE_TIMEOUT_MS = 8_000;
+
+export function updateLocation(
+  coords: Coordinates,
+  signal?: AbortSignal,
+): Promise<LocationUpdateResponse> {
+  return apiFetch<LocationUpdateResponse>("/api/location", {
+    method: "POST",
+    body: jsonBody(coords),
+    signal,
+    timeoutMs: LOCATION_UPDATE_TIMEOUT_MS,
+    responseSchema: locationUpdateResponseSchema,
+  });
+}
+
+export async function fetchNearby(
+  coords: Coordinates,
+  viewerId: string,
+  signal?: AbortSignal,
+): Promise<NearbyUser[]> {
+  const response = await apiFetch<NearbyResponse>("/api/nearby", {
+    method: "POST",
+    body: jsonBody(coords),
+    signal,
+    responseSchema: nearbyResponseSchemaForViewer(viewerId, env.supabaseUrl),
+  });
+  return response.users;
+}
+
+export function fetchBots(coords: Coordinates, signal?: AbortSignal) {
+  return apiFetch<Bot[]>(
+    `/api/bots?lat=${encodeURIComponent(coords.lat)}&lng=${encodeURIComponent(coords.lng)}`,
+    { signal, responseSchema: adminBotListResponseSchema },
+  );
+}
+
+export function collectBot(botId: string, coords: Coordinates) {
+  const body = adminBotCollectRequestSchema.parse({ id: botId, ...coords });
+  return apiFetch<AdminBotCollectResult>("/api/bots", {
+    method: "POST",
+    body: jsonBody(body),
+    responseSchema: adminBotCollectResultSchema,
+  });
+}
 
 export function fetchTagSuggestions(prefix: string, signal?: AbortSignal) {
   return fetchTagSuggestionsRequest({ q: prefix, limit: 20 }, signal);
@@ -82,8 +138,8 @@ export function searchUsersPageRequest(
 }
 
 export function fetchPublicProfile(userId: string, signal?: AbortSignal) {
-  return apiFetch<PublicProfileData>(`/api/profile/${encodeURIComponent(userId)}?limit=100&surface=rooms`, {
+  return apiFetch<PublicProfileData>(`/api/profile/${encodeURIComponent(userId)}?limit=100`, {
     signal,
-    responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl, true),
+    responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl),
   });
 }

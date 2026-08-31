@@ -43,6 +43,9 @@ const AVATAR_COLORS = [
 // Coin spent animation duration in ms
 export const COIN_SPENT_ANIMATION_MS = 600;
 
+// Presence tracking location update debounce in ms
+export const TRACK_DEBOUNCE_MS = 10_000;
+
 // Rate limits per endpoint: { limit: max requests, window: duration in seconds }
 export const RATE_LIMITS = {
   sendMessage:   { limit: 30, window: 60 },
