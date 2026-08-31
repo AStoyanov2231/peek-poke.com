@@ -40,7 +40,7 @@ export const GET = withAuth(async (request, { supabase }) => {
 
   const { data: rawRooms, error } = await supabase.rpc("list_chat_room_summaries", {
     p_limit: pagination.data.limit + 1,
-    p_cursor_at: decodedCursor ? new Date(decodedCursor.sort_value).toISOString() : null,
+    p_cursor_at: decodedCursor?.sort_value ?? null,
     p_cursor_id: decodedCursor?.id ?? null,
   });
   if (error) {
