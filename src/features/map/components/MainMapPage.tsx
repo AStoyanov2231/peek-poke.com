@@ -10,14 +10,12 @@ import { LocationGate } from "@/features/map/components/LocationGate";
 import { LocationRecoveryAlert } from "@/features/map/components/LocationRecoveryAlert";
 import { useQuery } from "@tanstack/react-query";
 import { bootstrapQueryOptions } from "@/data/web-query";
-import { useGeolocation } from "@/features/map/useGeolocation";
 import { useMeetingDetection } from "@/features/map/useMeetingDetection";
-import { useNearbyPresence } from "@/features/map/useNearbyPresence";
+import { useWebLocationPresence } from "@/features/map/useNearbyPresence";
 
 export default function MainPage() {
   const userId = useQuery(bootstrapQueryOptions).data?.identity.id;
-  useGeolocation(userId);
-  const locationPresence = useNearbyPresence(userId);
+  const locationPresence = useWebLocationPresence();
   useMeetingDetection(userId);
 
   return (

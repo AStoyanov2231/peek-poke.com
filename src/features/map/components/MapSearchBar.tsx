@@ -6,16 +6,17 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/appStore";
 import { useFriends, useNearbyUsers } from "@/stores/selectors";
 import { SearchAutocomplete } from "@/features/search/components/SearchAutocomplete";
-import { filterNearbyUsers, mapFilterOptions, type MapFilter } from "@/features/map/filters";
+import { filterNearbyUsers, mapFilterOptions } from "@/features/map/filters";
 
 export function MapSearchBar() {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<MapFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [cursorPos, setCursorPos] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const nearbyUsers = useNearbyUsers();
   const friends = useFriends();
+  const filter = useAppStore((s) => s.mapFilter);
+  const setMapFilter = useAppStore((s) => s.setMapFilter);
   const setVisibleUsers = useAppStore((s) => s.setVisibleUsers);
   const router = useRouter();
 
@@ -119,7 +120,7 @@ export function MapSearchBar() {
               aria-checked={filter === option.value}
               className="min-h-11 rounded px-3 text-left text-sm text-ink-8"
               onClick={() => {
-                setFilter(option.value);
+                setMapFilter(option.value);
                 setFilterOpen(false);
               }}
             >

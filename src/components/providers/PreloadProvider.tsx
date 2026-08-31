@@ -6,6 +6,7 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useIncomingCall } from "@/features/call/useIncomingCall";
 import { recoverUnauthorizedWebSession } from "@/features/auth/session-recovery";
 import { useCallStore } from "@/stores/callStore";
+import { WebLocationPresenceProvider } from "@/features/map/useNearbyPresence";
 
 interface PreloadProviderProps {
   children: ReactNode;
@@ -53,11 +54,11 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
   }, []);
 
   return (
-    <>
+    <WebLocationPresenceProvider userId={bootstrap.data?.identity.id}>
       {deferred && bootstrap.data && callAccountReady && (
         <DeferredEffects profileId={bootstrap.data.identity.id} />
       )}
       {children}
-    </>
+    </WebLocationPresenceProvider>
   );
 }

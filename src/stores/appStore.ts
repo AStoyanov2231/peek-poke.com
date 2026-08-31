@@ -13,6 +13,7 @@ import type {
   NearbyUser,
   Profile,
 } from "@/types/database";
+import type { MapFilter } from "@/features/map/filters";
 
 export type Bot = { id: string; lat: number; lng: number };
 
@@ -46,6 +47,7 @@ interface AppState {
   visibleUserIds: string[];
   selectedClusterUserIds: string[] | null;
   highlightedUserId: string | null;
+  mapFilter: MapFilter;
   setDraft: (threadId: string, text: string) => void;
   setActiveThreadId: (threadId: string | null) => void;
   setMapReady: (ready: boolean) => void;
@@ -61,6 +63,7 @@ interface AppState {
   setVisibleUsers: (users: NearbyUser[]) => void;
   setSelectedClusterUserIds: (ids: string[] | null) => void;
   setHighlightedUserId: (id: string | null) => void;
+  setMapFilter: (filter: MapFilter) => void;
   selectUser: (userId: string) => void;
   clearStore: () => void;
 }
@@ -80,6 +83,7 @@ const initialState = {
   visibleUserIds: [],
   selectedClusterUserIds: null,
   highlightedUserId: null,
+  mapFilter: "all" as MapFilter,
 };
 
 let coinSpentTimer: ReturnType<typeof setTimeout> | null = null;
@@ -261,6 +265,7 @@ export const useAppStore = create<AppState>((set, get) => {
   }),
   setSelectedClusterUserIds: (selectedClusterUserIds) => set({ selectedClusterUserIds }),
   setHighlightedUserId: (highlightedUserId) => set({ highlightedUserId }),
+  setMapFilter: (mapFilter) => set({ mapFilter }),
   selectUser: (userId) => {
     if (get().highlightedUserId === userId) return;
     set({ highlightedUserId: userId });

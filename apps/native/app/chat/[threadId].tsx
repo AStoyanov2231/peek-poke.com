@@ -109,7 +109,7 @@ export default function ChatScreen() {
       ? nativeQueryKeys.discovery.nearby(profile.id, location.lat, location.lng)
       : ["discovery", "nearby", "disabled"],
     queryFn: ({ signal }) => fetchNearby(location!, profile!.id, signal),
-    enabled: false,
+    enabled: Boolean(locationFresh && location && profile?.id),
   });
   const draft = useAppStore((state) => state.drafts[threadId] ?? "");
   const setDraft = useAppStore((state) => state.setDraft);

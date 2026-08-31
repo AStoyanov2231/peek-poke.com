@@ -10,6 +10,7 @@ import { UserPinContent } from "./UserPin";
 import { HighlightedPin } from "./HighlightedPin";
 import { BotPin } from "./BotPin";
 import { useBots as useBotsHook } from "@/features/map/useBots";
+import { filterNearbyUsers } from "@/features/map/filters";
 import { haversineKm } from "@/lib/geo";
 import type { NearbyUser } from "@/types/database";
 import type { MapRef } from "react-map-gl/mapbox";
@@ -34,6 +35,7 @@ export function MapViewInner() {
   const profile = useProfile();
   const friends = useFriends();
   const friendIds = useMemo(() => new Set(friends.map(f => f.id)), [friends]);
+  const mapFilter = useAppStore((s) => s.mapFilter);
   const highlightedUserId = useHighlightedUserId();
   const pendingUserId = usePendingUserId();
   const highlightedData = useHighlightedData();
@@ -150,9 +152,10 @@ export function MapViewInner() {
     if (!b) return;
     setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
     useAppStore.getState().setVisibleUsers(
-      nearbyUsers.filter(u => b.contains([u.lng, u.lat]))
+      filterNearbyUsers(nearbyUsers, mapFilter, friendIds, "")
+        .filter(u => b.contains([u.lng, u.lat]))
     );
-  }, [nearbyUsers]);
+  }, [friendIds, mapFilter, nearbyUsers]);
 
   const handleDragStart = useCallback(() => { isDragging.current = true; }, []);
   const handleDragEnd = useCallback(() => { setTimeout(() => { isDragging.current = false; }, 100); }, []);

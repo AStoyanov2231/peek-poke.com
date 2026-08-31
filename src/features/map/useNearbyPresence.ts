@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { safeQueryRetryDelay, shouldRetrySafeQuery } from "@peekpoke/shared";
 import { useAppStore } from "@/stores/appStore";
@@ -17,6 +25,16 @@ import {
   runWebLocationSyncAttempt,
   type WebCoordinates,
 } from "@/features/map/location-sync";
+import { useGeolocation } from "@/features/map/useGeolocation";
+
+export type WebLocationPresence = {
+  isLocationFresh: boolean;
+  isLocationSyncError: boolean;
+  isLocationSyncPending: boolean;
+  retryLocationSync: () => void;
+};
+
+const WebLocationPresenceContext = createContext<WebLocationPresence | null>(null);
 
 function locationFailureMessage(error: unknown) {
   return error instanceof Error ? error.message : "Could not recover your location.";
@@ -140,4 +158,26 @@ export function useNearbyPresence(userId: string | undefined) {
     isLocationSyncPending: pendingForUserId === userId,
     retryLocationSync,
   };
+}
+
+export function WebLocationPresenceProvider({
+  children,
+  userId,
+}: {
+  children: ReactNode;
+  userId: string | undefined;
+}) {
+  useGeolocation(userId);
+  const presence = useNearbyPresence(userId);
+  return (
+    <WebLocationPresenceContext.Provider value={presence}>
+      {children}
+    </WebLocationPresenceContext.Provider>
+  );
+}
+
+export function useWebLocationPresence() {
+  const presence = useContext(WebLocationPresenceContext);
+  if (!presence) throw new Error("WebLocationPresenceProvider is missing");
+  return presence;
 }
