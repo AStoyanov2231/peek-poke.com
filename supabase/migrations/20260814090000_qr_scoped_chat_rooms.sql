@@ -335,6 +335,21 @@ begin
     set last_read_sequence = greatest(last_read_sequence, v_sequence), updated_at = now()
     where room_id = p_room_id and user_id = p_sender_id;
   else
+    if exists (
+      select 1
+      from public.chat_room_messages message
+      where message.id = v_message_id
+        and (
+          message.sender_id is distinct from p_sender_id
+          or message.content is distinct from p_content
+          or message.message_type::text is distinct from p_message_type
+          or message.media_url is distinct from p_media_url
+          or message.media_thumbnail_url is distinct from p_media_thumbnail_url
+          or message.reply_to_id is distinct from p_reply_to_id
+        )
+    ) then
+      return jsonb_build_object('error', 'IDEMPOTENCY_KEY_REUSED');
+    end if;
     v_deduplicated := true;
   end if;
 

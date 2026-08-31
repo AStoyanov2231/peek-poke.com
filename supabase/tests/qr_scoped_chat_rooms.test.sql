@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(16);
 
 insert into auth.users (id, email)
 values
@@ -89,7 +89,7 @@ select is(
   (
     public.send_room_message_transactional(
       ((select created from qr_room_state)->>'room_id')::uuid,
-      '70000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000002',
       '70000000-0000-4000-8000-000000000011',
       'first message'
     )->'message'->>'sequence'
@@ -100,27 +100,54 @@ select is(
 select is(
   (
     public.send_room_message_transactional(
-      p_room_id := ((select created from qr_room_state)->>'room_id')::uuid,
-      p_sender_id := '70000000-0000-4000-8000-000000000001',
-      p_client_id := '70000000-0000-4000-8000-000000000011',
-      p_content := 'retry with deleted reply target',
-      p_reply_to_id := '70000000-0000-4000-8000-000000000099'
-    )->'message'->>'sequence'
-  )::bigint,
-  1::bigint,
-  'retries return the committed message before validating reply targets'
-);
-select is(
-  (
-    public.send_room_message_transactional(
       ((select created from qr_room_state)->>'room_id')::uuid,
       '70000000-0000-4000-8000-000000000002',
       '70000000-0000-4000-8000-000000000012',
-      'second message'
+      'second message',
+      p_reply_to_id := (
+        select message.id
+        from public.chat_room_messages message
+        where message.client_id = '70000000-0000-4000-8000-000000000011'
+      )
     )->'message'->>'sequence'
   )::bigint,
   2::bigint,
   'the second room message receives sequence two'
+);
+update public.chat_room_messages
+set is_deleted = true
+where client_id = '70000000-0000-4000-8000-000000000011';
+select is(
+  (
+    public.send_room_message_transactional(
+      p_room_id := ((select created from qr_room_state)->>'room_id')::uuid,
+      p_sender_id := '70000000-0000-4000-8000-000000000002',
+      p_client_id := '70000000-0000-4000-8000-000000000012',
+      p_content := 'second message',
+      p_reply_to_id := (
+        select message.id
+        from public.chat_room_messages message
+        where message.client_id = '70000000-0000-4000-8000-000000000011'
+      )
+    )->'message'->>'sequence'
+  )::bigint,
+  2::bigint,
+  'retries return the committed message before validating reply targets'
+);
+select is(
+  public.send_room_message_transactional(
+    ((select created from qr_room_state)->>'room_id')::uuid,
+    '70000000-0000-4000-8000-000000000002',
+    '70000000-0000-4000-8000-000000000012',
+    'different message',
+    p_reply_to_id := (
+      select message.id
+      from public.chat_room_messages message
+      where message.client_id = '70000000-0000-4000-8000-000000000011'
+    )
+  )->>'error',
+  'IDEMPOTENCY_KEY_REUSED',
+  'reusing a client key for different request data is rejected'
 );
 select is(
   (

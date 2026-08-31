@@ -28,7 +28,12 @@ const rawRoomMessageResponseSchema = z.strictObject({
 });
 
 const roomMessageErrorSchema = z.strictObject({
-  error: z.enum(["ROOM_NOT_FOUND", "ACCOUNT_DELETED", "REPLY_TARGET_NOT_FOUND"]),
+  error: z.enum([
+    "ROOM_NOT_FOUND",
+    "ACCOUNT_DELETED",
+    "REPLY_TARGET_NOT_FOUND",
+    "IDEMPOTENCY_KEY_REUSED",
+  ]),
 });
 
 const roomReadDeniedResponseSchema = z.strictObject({
@@ -197,6 +202,13 @@ export const POST = withAuth<{ roomId: string }>(async (request, { user, params 
   }
   const denial = roomMessageErrorSchema.safeParse(data);
   if (denial.success) {
+    if (denial.data.error === "IDEMPOTENCY_KEY_REUSED") {
+      return apiError(
+        "Idempotency key was already used for a different message",
+        409,
+        "IDEMPOTENCY_KEY_REUSED",
+      );
+    }
     if (denial.data.error === "REPLY_TARGET_NOT_FOUND") {
       return apiError("Reply target not found", 400, "ROOM_MESSAGE_INVALID");
     }
