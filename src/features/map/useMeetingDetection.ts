@@ -15,6 +15,7 @@ import {
 } from "@/stores/selectors";
 import {
   meetingPairCompleted,
+  observeMeetingAuthOwner,
   recordMeeting,
   unsubscribeMeetingAttempt,
   webQueryKeys,
@@ -53,6 +54,10 @@ export function useMeetingDetection(userId: string | undefined) {
     return () => {
       if (activeAccountIdRef.current === userId) activeAccountIdRef.current = undefined;
     };
+  }, [userId]);
+
+  useEffect(() => {
+    observeMeetingAuthOwner(userId ?? null);
   }, [userId]);
 
   // react-doctor-disable-next-line no-fetch-in-effect

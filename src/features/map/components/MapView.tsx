@@ -121,12 +121,17 @@ export function MapViewInner() {
     return () => { isOrbitingRef.current = false; clearTimeout(tid); cancelAnimationFrame(rafId); };
   }, [highlightedUserId, nearbyUsers]);
 
+  const filteredUsers = useMemo(
+    () => filterNearbyUsers(nearbyUsers, mapFilter, friendIds, mapSearchQuery),
+    [friendIds, mapFilter, mapSearchQuery, nearbyUsers],
+  );
+
   // Supercluster for marker clustering
   const supercluster = useMemo(() => {
     const sc = new Supercluster<UserPointProperties>({ radius: 40, maxZoom: 20 });
-    const highlightedPos = highlightedUserId ? nearbyUsers.find(u => u.userId === highlightedUserId) : null;
+    const highlightedPos = highlightedUserId ? filteredUsers.find(u => u.userId === highlightedUserId) : null;
     const points: Supercluster.PointFeature<UserPointProperties>[] = [];
-    for (const user of nearbyUsers) {
+    for (const user of filteredUsers) {
       if (user.userId === highlightedUserId) continue;
       if (highlightedPos && haversineKm(user.lat, user.lng, highlightedPos.lat, highlightedPos.lng) < 0.03) continue;
       points.push({
@@ -137,7 +142,7 @@ export function MapViewInner() {
     }
     sc.load(points);
     return sc;
-  }, [nearbyUsers, highlightedUserId]);
+  }, [filteredUsers, highlightedUserId]);
 
   // Compute clusters from current viewport — only recomputes when zoom changes or pan ends
   const clusters = useMemo(() => {
@@ -184,7 +189,7 @@ export function MapViewInner() {
   }, [supercluster, setSelectedClusterUserIds]);
 
   const highlightedUser = highlightedUserId
-    ? nearbyUsers.find((u) => u.userId === highlightedUserId)
+    ? filteredUsers.find((u) => u.userId === highlightedUserId)
     : null;
 
   if (!userLocation) return null;

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { bootstrapQueryOptions, WebQueryError } from "@/data/web-query";
+import { bootstrapQueryOptions, observeMeetingAuthOwner, WebQueryError } from "@/data/web-query";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useIncomingCall } from "@/features/call/useIncomingCall";
 import { recoverUnauthorizedWebSession } from "@/features/auth/session-recovery";
@@ -36,6 +36,10 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
   const [deferred, setDeferred] = useState(false);
   const callAccountId = bootstrap.data?.identity.id ?? null;
   const callAccountReady = useCallAccountSessionOwner(callAccountId);
+
+  useEffect(() => {
+    observeMeetingAuthOwner(callAccountId);
+  }, [callAccountId]);
 
   useEffect(() => {
     if (bootstrap.error instanceof WebQueryError && bootstrap.error.status === 401) {
