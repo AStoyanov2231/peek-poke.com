@@ -10,7 +10,7 @@ import { createChatMessageAttemptCoordinator, mergeNewestFirstMessagePages, room
 import { colors, spacing } from "@peekpoke/design";
 import { Avatar, Caption, Muted } from "@/components/ui";
 import { fetchRoomMessages, sendRoomMessage } from "@/data/rooms";
-import { fetchCurrentProfile } from "@/data/api";
+import { fetchRoomCurrentProfile } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { supabase } from "@/lib/supabase";
 
@@ -30,8 +30,8 @@ export default function RoomChatScreen() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendAttempts] = useState(() => createChatMessageAttemptCoordinator(() => randomUUID()));
   const profileQuery = useQuery({
-    queryKey: nativeQueryKeys.profile.current,
-    queryFn: fetchCurrentProfile,
+    queryKey: nativeQueryKeys.profile.roomCurrent,
+    queryFn: fetchRoomCurrentProfile,
   });
   const profile = profileQuery.data;
   const conversationQuery = useInfiniteQuery({

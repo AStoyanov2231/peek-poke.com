@@ -7,6 +7,7 @@ import {
   boundedCursorPath,
   coinsResponseSchema,
   currentProfileResponseSchema,
+  roomCurrentProfileResponseSchema,
   dmInboxResponseSchema,
   friendsReadResponseSchema,
   interestCatalogResponseSchema,
@@ -28,7 +29,7 @@ import {
   type OwnerProfilePatchRequest,
   type ProfileCard,
   type ProfileInterestDto,
-  type PublicProfileResponse,
+  type RoomPublicProfileResponse,
   type MessagesResponse,
   type MeetingResponse,
 } from "@peekpoke/shared";
@@ -53,6 +54,7 @@ export const WEB_QUERY_STALE_TIME = {
 export const webQueryKeys = {
   bootstrap: ["web", "bootstrap"] as const,
   profile: ["web", "profile"] as const,
+  roomProfile: ["web", "room-profile"] as const,
   photos: ["web", "profile", "photos"] as const,
   interests: ["web", "profile", "interests"] as const,
   interestTags: ["web", "interest-tags"] as const,
@@ -101,7 +103,7 @@ export type ThreadsQueryData = {
 
 export type ThreadQueryData = MessagesResponse;
 
-export type PublicProfileData = PublicProfileResponse;
+export type PublicProfileData = RoomPublicProfileResponse;
 
 const meetingAttempts = createMeetingAttemptCoordinator(() => crypto.randomUUID());
 const meetingCompletions = createMeetingCompletionRegistry();
@@ -197,6 +199,15 @@ export const profileQueryOptions = queryOptions({
   queryKey: webQueryKeys.profile,
   queryFn: async ({ signal }) => {
     const data = await fetchContract("/api/profile", currentProfileResponseSchema, { signal });
+    return data.profile;
+  },
+  staleTime: WEB_QUERY_STALE_TIME.profile,
+});
+
+export const roomProfileQueryOptions = queryOptions({
+  queryKey: webQueryKeys.roomProfile,
+  queryFn: async ({ signal }) => {
+    const data = await fetchContract("/api/profile?surface=rooms", roomCurrentProfileResponseSchema, { signal });
     return data.profile;
   },
   staleTime: WEB_QUERY_STALE_TIME.profile,
@@ -403,6 +414,7 @@ export function publicProfileQueryOptions(userId: string) {
       publicProfileResponseSchemaForTarget(
         userId,
         process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+        true,
       ),
       { signal },
     ),

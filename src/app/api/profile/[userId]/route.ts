@@ -113,12 +113,23 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
   const safeProfile = mapPublicProfile(rawProfile);
   safeProfile.avatar_url = approvedAvatar?.url ?? null;
   safeProfile.cover_image_url = approvedCover?.url ?? null;
-  const profileForResponse = { ...safeProfile };
-  if (roomSurface) delete profileForResponse.location_text;
+  const profileForResponse = roomSurface
+    ? {
+        id: safeProfile.id,
+        username: safeProfile.username,
+        display_name: safeProfile.display_name,
+        bio: safeProfile.bio,
+        avatar_url: safeProfile.avatar_url,
+        cover_image_url: safeProfile.cover_image_url,
+        created_at: safeProfile.created_at,
+        is_premium: safeProfile.is_premium,
+      }
+    : safeProfile;
   const payload = publicProfileResponseSchemaFor(
     user.id,
     userId,
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    roomSurface,
   ).safeParse({
     profile: profileForResponse,
     photos: photoPage.data.items,

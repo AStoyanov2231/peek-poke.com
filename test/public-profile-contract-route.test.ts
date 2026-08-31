@@ -195,10 +195,12 @@ describe("public profile route contract", () => {
 
   it("omits location from room-surface profile responses", async () => {
     const response = await requestProfile("rooms");
-    const body = publicProfileResponseSchemaFor(VIEWER_ID, TARGET_ID).parse(await response.json());
+    const body = publicProfileResponseSchemaFor(VIEWER_ID, TARGET_ID, undefined, true).parse(await response.json());
 
     expect(response.status).toBe(200);
     expect(Object.hasOwn(body.profile, "location_text")).toBe(false);
+    expect(Object.hasOwn(body.profile, "is_online")).toBe(false);
+    expect(Object.hasOwn(body.profile, "last_seen_at")).toBe(false);
   });
 
   it("returns only a time-limited signed URL for entitled private media", async () => {

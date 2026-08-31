@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { QrCode, Coins, Shield } from "lucide-react";
-import { useProfile, useCoins, useTotalUnread, useHasRole } from "@/stores/selectors";
+import { useRoomProfile, useCoins, useTotalUnread, useHasRole } from "@/stores/selectors";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ export function DesktopNav() {
 function DesktopNavInner() {
   const pathname = usePathname();
   const router = useTransitionRouter();
-  const profile = useProfile();
+  const profile = useRoomProfile();
   const coins = useCoins();
   const unreadCount = useTotalUnread();
   const isAdmin = useHasRole("admin");

@@ -4,14 +4,20 @@ import { profilePatchSchema, parseBody } from "@/lib/validators";
 import { apiError } from "@/lib/api-error";
 import { createServiceClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { currentProfileResponseSchema, ownerProfileUpdateResponseSchema } from "@peekpoke/shared";
+import {
+  currentProfileResponseSchema,
+  ownerProfileUpdateResponseSchema,
+  roomCurrentProfileResponseSchema,
+} from "@peekpoke/shared";
 import { notifyProfileChanged } from "@/lib/realtime-broadcast";
 
 const PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover_image_url, is_online, last_seen_at, created_at, onboarding_completed";
+const ROOM_PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover_image_url, created_at, onboarding_completed";
 
-export const GET = withAuth(async (_request, { user, supabase }) => {
+export const GET = withAuth(async (request, { user, supabase }) => {
+  const roomSurface = request.nextUrl.searchParams.get("surface") === "rooms";
   const [profileResult, rolesResult] = await Promise.all([
-    supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).single(),
+    supabase.from("profiles").select(roomSurface ? ROOM_PROFILE_COLUMNS : PROFILE_COLUMNS).eq("id", user.id).single(),
     createServiceClient().rpc("get_user_roles", { p_user_id: user.id }),
   ]);
 
@@ -19,7 +25,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     ? { ...profileResult.data, roles: rolesResult.data || ["user"] }
     : null;
 
-  return NextResponse.json(currentProfileResponseSchema.parse({ profile }));
+  return NextResponse.json((roomSurface ? roomCurrentProfileResponseSchema : currentProfileResponseSchema).parse({ profile }));
 });
 
 export const PATCH = withAuth(async (request, { user }) => {

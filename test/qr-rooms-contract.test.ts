@@ -7,6 +7,7 @@ import {
   roomMessagesResponseSchema,
   roomsResponseSchema,
 } from "@peekpoke/shared";
+import { mapRoomMessage } from "@/lib/api-contract";
 
 const ROOM_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
@@ -77,5 +78,20 @@ describe("QR room contracts", () => {
       ...message,
       sender: { ...message.sender, is_online: true },
     }).success).toBe(false);
+  });
+
+  it("preserves the room-safe sender mapping", () => {
+    const mapped = mapRoomMessage({
+      ...message,
+      sender: {
+        ...message.sender,
+        is_online: true,
+        last_seen_at: timestamp,
+        location_text: "Sofia",
+      },
+    });
+
+    expect(mapped.sender).toEqual(message.sender);
+    expect(roomMessageSchema.parse(mapped).sender).toEqual(message.sender);
   });
 });

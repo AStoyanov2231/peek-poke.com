@@ -1,5 +1,5 @@
 import type {
-  PublicProfileResponse,
+  RoomPublicProfileResponse,
   ResolvedTag,
   SearchTagResult,
   SearchUserResult,
@@ -18,7 +18,7 @@ import {
 import { apiFetch, jsonBody } from "@/lib/api";
 import { env } from "@/lib/env";
 
-export type PublicProfileData = PublicProfileResponse;
+export type PublicProfileData = RoomPublicProfileResponse;
 
 
 export function fetchTagSuggestions(prefix: string, signal?: AbortSignal) {
@@ -84,6 +84,6 @@ export function searchUsersPageRequest(
 export function fetchPublicProfile(userId: string, signal?: AbortSignal) {
   return apiFetch<PublicProfileData>(`/api/profile/${encodeURIComponent(userId)}?limit=100&surface=rooms`, {
     signal,
-    responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl),
+    responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl, true),
   });
 }

@@ -19,12 +19,12 @@ import {
   type OwnerProfilePhotoMutationResponse,
   type OwnerProfilePhotosResponse,
   type OwnerProfilePatchRequest,
-  type PublicProfileResponse,
+  type RoomPublicProfileResponse,
 } from "@peekpoke/shared";
 import { apiFetch, jsonBody } from "@/lib/api";
 import { env } from "@/lib/env";
 
-export type PublicProfileData = PublicProfileResponse;
+export type PublicProfileData = RoomPublicProfileResponse;
 
 export function fetchCurrentProfile(): Promise<CurrentProfile> {
   return apiFetch<{ profile: CurrentProfile | null }>("/api/profile", {
@@ -57,7 +57,7 @@ export function fetchInterestTags(): Promise<InterestTag[]> {
 
 export function fetchPublicProfile(userId: string): Promise<PublicProfileData> {
   return apiFetch(`/api/profile/${encodeURIComponent(userId)}?limit=100&surface=rooms`, {
-    responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl),
+    responseSchema: publicProfileResponseSchemaForTarget(userId, env.supabaseUrl, true),
   });
 }
 

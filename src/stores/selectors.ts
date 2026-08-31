@@ -20,6 +20,7 @@ import {
   interestsQueryOptions,
   photosQueryOptions,
   profileQueryOptions,
+  roomProfileQueryOptions,
   threadsQueryOptions,
 } from "@/data/web-query";
 
@@ -33,6 +34,7 @@ const EMPTY_THREADS: Thread[] = [];
 
 // Profile selectors
 export const useProfile = () => useQuery(profileQueryOptions).data ?? null;
+export const useRoomProfile = () => useQuery(roomProfileQueryOptions).data ?? null;
 export const usePhotos = () => useQuery(photosQueryOptions).data ?? EMPTY_PHOTOS;
 export const useInterests = () => useQuery(interestsQueryOptions).data ?? EMPTY_INTERESTS;
 export const useAllTags = () => useQuery(interestTagsQueryOptions).data ?? EMPTY_TAGS;

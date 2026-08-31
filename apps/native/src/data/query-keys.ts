@@ -2,6 +2,7 @@ export const nativeQueryKeys = {
   bootstrap: ["bootstrap"] as const,
   profile: {
     current: ["profile", "current"] as const,
+    roomCurrent: ["profile", "current", "rooms"] as const,
     public: (userId: string) => ["profile", "public", userId] as const,
     photos: ["profile", "photos"] as const,
     interests: ["profile", "interests"] as const,

@@ -232,6 +232,15 @@ export const currentProfileResponseSchema = z.strictObject({
   profile: currentProfileSchema.nullable(),
 });
 
+export const roomCurrentProfileSchema = currentProfileSchema.omit({
+  is_online: true,
+  last_seen_at: true,
+});
+
+export const roomCurrentProfileResponseSchema = z.strictObject({
+  profile: roomCurrentProfileSchema.nullable(),
+});
+
 export const ownerProfilePatchRequestSchema = z
   .strictObject({
     display_name: displayNameInputSchema.optional(),
@@ -1542,11 +1551,23 @@ export const publicProfileResponseSchema = z.strictObject({
   }
 });
 
+export const roomPublicProfileSchema = publicProfileSchema.omit({
+  location_text: true,
+  is_online: true,
+  last_seen_at: true,
+});
+
+export const roomPublicProfileResponseSchema = publicProfileResponseSchema.safeExtend({
+  profile: roomPublicProfileSchema,
+});
+
 export function publicProfileResponseSchemaForTarget(
   targetId: string,
   configuredStorageOrigin?: string,
+  roomSurface = false,
 ) {
-  return publicProfileResponseSchema.superRefine((response, context) => {
+  const schema = roomSurface ? roomPublicProfileResponseSchema : publicProfileResponseSchema;
+  return schema.superRefine((response, context) => {
     if (response.profile.id !== targetId) {
       context.addIssue({
         code: "custom",
@@ -1595,8 +1616,9 @@ export function publicProfileResponseSchemaFor(
   viewerId: string,
   targetId: string,
   configuredStorageOrigin?: string,
+  roomSurface = false,
 ) {
-  return publicProfileResponseSchemaForTarget(targetId, configuredStorageOrigin).superRefine((response, context) => {
+  return publicProfileResponseSchemaForTarget(targetId, configuredStorageOrigin, roomSurface).superRefine((response, context) => {
     const friendship = response.friendship;
     if (!friendship) return;
     const participants = new Set([friendship.requester_id, friendship.addressee_id]);
@@ -1746,6 +1768,7 @@ export function pageSchema<T extends z.ZodType>(itemSchema: T) {
 export type ProfileCard = z.infer<typeof profileCardSchema>;
 export type ProfileView = z.infer<typeof profileViewSchema>;
 export type CurrentProfile = z.infer<typeof currentProfileSchema>;
+export type RoomCurrentProfile = z.infer<typeof roomCurrentProfileSchema>;
 export type CurrentProfileResponse = z.infer<typeof currentProfileResponseSchema>;
 export type OwnerProfilePatchRequest = z.infer<typeof ownerProfilePatchRequestSchema>;
 export type OwnerProfileUpdateResponse = z.infer<typeof ownerProfileUpdateResponseSchema>;
@@ -1760,9 +1783,11 @@ export type OwnerProfilePhotosResponse = z.infer<typeof ownerProfilePhotosRespon
 export type OwnerProfilePhotoMutationResponse = z.infer<typeof ownerProfilePhotoMutationResponseSchema>;
 export type PublicProfilePhoto = z.infer<typeof publicProfilePhotoSchema>;
 export type PublicProfile = z.infer<typeof publicProfileSchema>;
+export type RoomPublicProfile = z.infer<typeof roomPublicProfileSchema>;
 export type PublicProfileStats = z.infer<typeof publicProfileStatsSchema>;
 export type PublicProfileRelationship = z.infer<typeof publicProfileRelationshipSchema>;
 export type PublicProfileResponse = z.infer<typeof publicProfileResponseSchema>;
+export type RoomPublicProfileResponse = z.infer<typeof roomPublicProfileResponseSchema>;
 export type OnboardingCompleteProfile = z.infer<typeof onboardingCompleteProfileSchema>;
 export type OnboardingCompleteResponse = z.infer<typeof onboardingCompleteResponseSchema>;
 export type Friend = z.infer<typeof friendSchema>;

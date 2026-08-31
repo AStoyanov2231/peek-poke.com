@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge, IconGlyph, type IconName } from "@/components/ui";
 import { RouteErrorRecovery } from "@/components/error-recovery";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
-import { fetchBootstrap, fetchCurrentProfile } from "@/data/api";
+import { fetchBootstrap, fetchRoomCurrentProfile } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
@@ -22,8 +22,8 @@ export default function AppLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const profileQuery = useQuery({
-    queryKey: nativeQueryKeys.profile.current,
-    queryFn: fetchCurrentProfile,
+    queryKey: nativeQueryKeys.profile.roomCurrent,
+    queryFn: fetchRoomCurrentProfile,
   });
   const bootstrapQuery = useQuery({
     queryKey: nativeQueryKeys.bootstrap,

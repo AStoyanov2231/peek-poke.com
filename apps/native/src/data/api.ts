@@ -4,6 +4,7 @@ import {
   boundedCursorPath,
   coinsResponseSchema,
   currentProfileResponseSchema,
+  roomCurrentProfileResponseSchema,
   dmInboxResponseSchema,
   friendsReadResponseSchema,
   messagesResponseSchema,
@@ -19,6 +20,7 @@ import {
   type MessagesResponse,
   type MeetingResponse,
   type CurrentProfile,
+  type RoomCurrentProfile,
 } from "@peekpoke/shared";
 import { randomUUID } from "expo-crypto";
 import { apiFetch, jsonBody } from "@/lib/api";
@@ -71,6 +73,14 @@ export function ensureAuthenticatedProfile(signal?: AbortSignal): Promise<AuthPr
 export async function fetchCurrentProfile(): Promise<CurrentProfile> {
   const response = await apiFetch<{ profile: CurrentProfile | null }>("/api/profile", {
     responseSchema: currentProfileResponseSchema,
+  });
+  if (!response.profile) throw new Error("Profile not found");
+  return response.profile;
+}
+
+export async function fetchRoomCurrentProfile(): Promise<RoomCurrentProfile> {
+  const response = await apiFetch<{ profile: RoomCurrentProfile | null }>("/api/profile?surface=rooms", {
+    responseSchema: roomCurrentProfileResponseSchema,
   });
   if (!response.profile) throw new Error("Profile not found");
   return response.profile;

@@ -140,8 +140,12 @@ export function mapRoomMessage(value: unknown): RoomMessage {
         };
       })()
     : row.sender;
-  const message = mapMessage({ ...row, thread_id: row.room_id, sender });
-  return { ...message, room_id: stringValue(row.room_id) };
+  const message = mapMessage({ ...row, thread_id: row.room_id });
+  return {
+    ...message,
+    room_id: stringValue(row.room_id),
+    ...(sender ? { sender: sender as RoomMessage["sender"] } : {}),
+  };
 }
 
 export function mapMessage(value: unknown): Message {
