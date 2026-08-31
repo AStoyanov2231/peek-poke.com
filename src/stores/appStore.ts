@@ -48,6 +48,7 @@ interface AppState {
   selectedClusterUserIds: string[] | null;
   highlightedUserId: string | null;
   mapFilter: MapFilter;
+  mapSearchQuery: string;
   setDraft: (threadId: string, text: string) => void;
   setActiveThreadId: (threadId: string | null) => void;
   setMapReady: (ready: boolean) => void;
@@ -64,6 +65,7 @@ interface AppState {
   setSelectedClusterUserIds: (ids: string[] | null) => void;
   setHighlightedUserId: (id: string | null) => void;
   setMapFilter: (filter: MapFilter) => void;
+  setMapSearchQuery: (query: string) => void;
   selectUser: (userId: string) => void;
   clearStore: () => void;
 }
@@ -84,6 +86,7 @@ const initialState = {
   selectedClusterUserIds: null,
   highlightedUserId: null,
   mapFilter: "all" as MapFilter,
+  mapSearchQuery: "",
 };
 
 let coinSpentTimer: ReturnType<typeof setTimeout> | null = null;
@@ -266,6 +269,7 @@ export const useAppStore = create<AppState>((set, get) => {
   setSelectedClusterUserIds: (selectedClusterUserIds) => set({ selectedClusterUserIds }),
   setHighlightedUserId: (highlightedUserId) => set({ highlightedUserId }),
   setMapFilter: (mapFilter) => set({ mapFilter }),
+  setMapSearchQuery: (mapSearchQuery) => set({ mapSearchQuery }),
   selectUser: (userId) => {
     if (get().highlightedUserId === userId) return;
     set({ highlightedUserId: userId });

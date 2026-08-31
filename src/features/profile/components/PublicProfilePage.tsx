@@ -42,7 +42,8 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (user?.id && user.id === userId) window.location.replace("/profile");
   }, [user?.id, userId]);
-  const coins = useQuery(coinsQueryOptions).data?.balance ?? 0;
+  const coinsQuery = useQuery(coinsQueryOptions);
+  const coins = coinsQuery.data?.balance ?? 0;
 
   const [showNoCoins, setShowNoCoins] = useState(false);
   const [reportCategory, setReportCategory] = useState("other");
@@ -90,6 +91,7 @@ export default function PublicProfilePage() {
 
   const handleAddFriend = () => {
     if (isPending || isFriend) return;
+    if (!coinsQuery.isSuccess) return;
     if (coins < 1) {
       setShowNoCoins(true);
       return;
@@ -274,8 +276,9 @@ export default function PublicProfilePage() {
                 </div>
               ) : (
                 <button type="button"
+                  disabled={!coinsQuery.isSuccess}
                   onClick={handleAddFriend}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-ink-9 text-white shadow-e-1"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-ink-9 text-white shadow-e-1 disabled:opacity-60"
                 >
                   <UserPlus className="h-4 w-4" />
                   <span className="text-sm font-medium">Add Friend</span>

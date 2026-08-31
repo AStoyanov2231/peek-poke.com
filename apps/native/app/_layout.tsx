@@ -56,7 +56,27 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} />;
 }
 
-function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, pendingInvite?: string) {
+function shouldPreserveAuthenticatedPath(pathname: string) {
+  const path = pathname.replace(/^\/\(app\)/, "") || "/";
+  return path === "/inbox"
+    || path === "/rooms"
+    || path === "/profile"
+    || path === "/scan"
+    || path === "/premium"
+    || path === "/admin"
+    || path === "/map"
+    || path === "/friends"
+    || path === "/messages"
+    || path.startsWith("/chat/")
+    || path.startsWith("/room/")
+    || path.startsWith("/profile/");
+}
+
+function routeAfterBootstrap(
+  data: Awaited<ReturnType<typeof fetchBootstrap>>,
+  pendingInvite?: string,
+  pathname = "/",
+) {
   if (!data.onboarding_completed) {
     router.replace({ pathname: "/onboarding", params: pendingInvite ? { invite: pendingInvite } : {} });
     return;
@@ -65,6 +85,7 @@ function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, p
     router.replace(`/invite/${pendingInvite}` as never);
     return;
   }
+  if (shouldPreserveAuthenticatedPath(pathname)) return;
   router.replace("/(app)/map");
 }
 
@@ -116,11 +137,15 @@ function RootLayoutContent() {
   const queryInviter = Array.isArray(routeParams.invite) ? routeParams.invite[0] : routeParams.invite;
   const pendingInvite = pathname.startsWith("/invite/") ? routeInviter : queryInviter;
   const pendingInviteRef = useRef(pendingInvite);
+  const pathnameRef = useRef(pathname);
   const isAuthCallback = pathname === "/auth/callback";
   const isPasswordRecovery = pathname === "/auth/reset-password";
   useEffect(() => {
     pendingInviteRef.current = pendingInvite;
   }, [pendingInvite]);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
   const [fontsLoaded, fontError] = useFonts({
     "Geist-Regular": require("../assets/fonts/Geist-Regular.ttf"),
     "Geist-Medium": require("../assets/fonts/Geist-Medium.ttf"),
@@ -223,7 +248,7 @@ function RootLayoutContent() {
           }
 
           nativeQueryClient.setQueryData(nativeQueryKeys.bootstrap, result.data);
-          routeAfterBootstrap(result.data, pendingInviteRef.current);
+          routeAfterBootstrap(result.data, pendingInviteRef.current, pathnameRef.current);
           setAuthenticatedUserId(key.userId);
           void nativePushRegistration.start({
             key,

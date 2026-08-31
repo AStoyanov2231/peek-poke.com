@@ -9,14 +9,15 @@ import { SearchAutocomplete } from "@/features/search/components/SearchAutocompl
 import { filterNearbyUsers, mapFilterOptions } from "@/features/map/filters";
 
 export function MapSearchBar() {
-  const [query, setQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [cursorPos, setCursorPos] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const nearbyUsers = useNearbyUsers();
   const friends = useFriends();
   const filter = useAppStore((s) => s.mapFilter);
+  const query = useAppStore((s) => s.mapSearchQuery);
   const setMapFilter = useAppStore((s) => s.setMapFilter);
+  const setMapSearchQuery = useAppStore((s) => s.setMapSearchQuery);
   const setVisibleUsers = useAppStore((s) => s.setVisibleUsers);
   const router = useRouter();
 
@@ -32,7 +33,7 @@ export function MapSearchBar() {
   }, [filteredUsers, setVisibleUsers]);
 
   const handleSearch = (value: string) => {
-    setQuery(value);
+    setMapSearchQuery(value);
   };
 
   const handleReplaceActiveTag = ({ name }: { name: string }) => {

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Badge, IconGlyph, type IconName } from "@/components/ui";
 import { RouteErrorRecovery } from "@/components/error-recovery";
 import { useMeetingDetection } from "@/hooks/use-meeting-detection";
+import { useDiscoveryLocationOwner } from "@/hooks/use-discovery-location-owner";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useLocationFreshnessLifecycle } from "@/hooks/use-location-freshness-lifecycle";
 import { fetchCurrentProfile, fetchFriends, fetchThreads } from "@/data/api";
@@ -23,7 +24,6 @@ const tabs = [
 ] as const;
 
 export default function AppLayout() {
-  useMeetingDetection();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const profileQuery = useQuery({
@@ -41,6 +41,8 @@ export default function AppLayout() {
     enabled: Boolean(profileQuery.data?.id),
   });
   const profileId = profileQuery.data?.id;
+  useDiscoveryLocationOwner(profileId);
+  useMeetingDetection();
   useLocationFreshnessLifecycle(profileId);
   const roles = profileQuery.data?.roles ?? [];
   const unread = threadsQuery.data?.total_unread ?? 0;

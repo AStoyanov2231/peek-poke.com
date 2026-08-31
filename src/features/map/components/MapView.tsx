@@ -36,6 +36,7 @@ export function MapViewInner() {
   const friends = useFriends();
   const friendIds = useMemo(() => new Set(friends.map(f => f.id)), [friends]);
   const mapFilter = useAppStore((s) => s.mapFilter);
+  const mapSearchQuery = useAppStore((s) => s.mapSearchQuery);
   const highlightedUserId = useHighlightedUserId();
   const pendingUserId = usePendingUserId();
   const highlightedData = useHighlightedData();
@@ -152,10 +153,10 @@ export function MapViewInner() {
     if (!b) return;
     setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
     useAppStore.getState().setVisibleUsers(
-      filterNearbyUsers(nearbyUsers, mapFilter, friendIds, "")
+      filterNearbyUsers(nearbyUsers, mapFilter, friendIds, mapSearchQuery)
         .filter(u => b.contains([u.lng, u.lat]))
     );
-  }, [friendIds, mapFilter, nearbyUsers]);
+  }, [friendIds, mapFilter, mapSearchQuery, nearbyUsers]);
 
   const handleDragStart = useCallback(() => { isDragging.current = true; }, []);
   const handleDragEnd = useCallback(() => { setTimeout(() => { isDragging.current = false; }, 100); }, []);

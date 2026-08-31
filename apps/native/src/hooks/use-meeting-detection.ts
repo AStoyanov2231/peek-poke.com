@@ -1,16 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   meetingResponseCompletesPair,
   type NearbyUser,
 } from "@peekpoke/shared";
 import { useDiscoveryActivity } from "@/data/discovery/lifecycle";
 import { meetingCandidateIds, shouldDetectMeetings } from "@/data/discovery/meeting";
-import {
-  createLocationSyncCoordinator,
-  locationIsFreshForDiscovery,
-  runLocationSyncAttempt,
-} from "@/data/discovery/location-sync";
+import { locationIsFreshForDiscovery } from "@/data/discovery/location-sync";
 import { nearbyQueryOptions } from "@/data/discovery/queries";
 import {
   fetchCoins,
@@ -19,15 +15,9 @@ import {
   recordMeeting,
   unsubscribeMeetingAttempt,
 } from "@/data/api";
-import { updateLocation } from "@/data/discovery/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { socialQuery } from "@/data/social/queries";
-import {
-  markDeviceLocationStale,
-  markDeviceLocationSynced,
-  refreshDeviceLocation,
-  useDeviceLocation,
-} from "@/lib/location";
+import { useDeviceLocation } from "@/lib/location";
 
 const EMPTY_NEARBY_USERS: NearbyUser[] = [];
 
@@ -57,8 +47,6 @@ export function useMeetingDetection() {
   const { coords: location } = deviceLocation;
   const locationFresh = locationIsFreshForDiscovery(deviceLocation, profileId);
   const active = activity.appState === "active" && !!profileId;
-  const ownsLocation = active && !activity.focused;
-  const [locationSyncCoordinator] = useState(createLocationSyncCoordinator);
   const nearbyQuery = useQuery({
     ...nearbyQueryOptions(location ?? { lat: 0, lng: 0 }, profileId ?? ""),
     enabled: active && locationFresh,
@@ -70,32 +58,6 @@ export function useMeetingDetection() {
   const metFriendIdsRef = useRef(new Set<string>());
   const requestsRef = useRef(new Set<string>());
   const activeProfileIdRef = useRef<string | undefined>(profileId);
-
-  useEffect(() => {
-    if (!ownsLocation || !profileId || locationFresh) return;
-    let current = true;
-    void runLocationSyncAttempt({
-      coordinator: locationSyncCoordinator,
-      userId: profileId,
-      resolveCoordinates: refreshDeviceLocation,
-      sync: updateLocation,
-      onFailure: (error) => {
-        if (!current) return;
-        markDeviceLocationStale(
-          profileId,
-          error instanceof Error ? error.message : "Could not refresh your location",
-        );
-      },
-      onPending: () => undefined,
-      onSuccess: (coords) => {
-        if (current) markDeviceLocationSynced(profileId, coords);
-      },
-    });
-    return () => {
-      current = false;
-      locationSyncCoordinator.cancel();
-    };
-  }, [locationFresh, locationSyncCoordinator, ownsLocation, profileId]);
 
   useEffect(() => {
     activeProfileIdRef.current = profileId;
