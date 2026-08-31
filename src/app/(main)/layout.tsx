@@ -6,7 +6,6 @@ import { ContentWrapper } from "@/features/layout/components/ContentWrapper";
 import { PreloadProvider } from "@/components/providers/PreloadProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { SplashScreen } from "@/components/providers/SplashScreen";
-import { PersistentMapHost } from "@/features/map/components/PersistentMapHost";
 import { CallProvider } from "@/features/call/components/CallProvider";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
@@ -21,7 +20,6 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       <PreloadProvider>
         <SplashScreen />
         <div className="h-screen-safe bg-background flex overflow-hidden">
-          <PersistentMapHost />
           <DesktopNav />
           <ContentWrapper>{children}</ContentWrapper>
           <MobileNav />

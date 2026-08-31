@@ -1,8 +1,19 @@
 # Shared API contract v1
 
 The contract is defined in `packages/shared/src/contract.ts` and exported from
-`@peekpoke/shared`. It contains explicit DTO schemas for bootstrap, profiles,
-friends, threads, messages, nearby users, photos, and moderation.
+`@peekpoke/shared`.
+It contains explicit DTO schemas for bootstrap, profiles, friends, legacy
+direct messages and nearby users, QR rooms, photos, and moderation.
+
+The current client flow uses the QR-room contracts for room listing, room
+creation, capability-based joining, bounded text messages, and monotonic read
+state.
+Room QR payloads are opaque high-entropy capabilities with the
+`pp-room-v1.` prefix; clients never use them as room identifiers.
+Join scanners do not persist a payload after the join request, while a room
+creator may hold the returned payload long enough to render or share it.
+The legacy direct-message and location/discovery contracts remain available
+for compatibility, but the current web and Expo room flow does not call them.
 
 List responses keep the existing top-level field names during migration and
 add a `pagination` object:

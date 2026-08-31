@@ -6,10 +6,9 @@ import {
 } from "@/lib/navigation-policy";
 
 describe("native navigation definitions", () => {
-  it("keeps the three core tabs in product order", () => {
+  it("keeps the QR-room and profile tabs in product order", () => {
     expect(coreNativeTabs).toEqual([
-      { name: "map", route: "/(app)/map", path: "/map" },
-      { name: "inbox", route: "/(app)/inbox", path: "/inbox" },
+      { name: "rooms", route: "/(app)/rooms", path: "/rooms" },
       { name: "profile", route: "/(app)/profile", path: "/profile" },
     ]);
   });
@@ -28,6 +27,8 @@ describe("native navigation definitions", () => {
       "/onboarding",
       "/(app)",
       "/chat/[threadId]",
+      "/room/[roomId]",
+      "/scan",
       "/invite/[inviterId]",
     ]);
   });
@@ -35,6 +36,6 @@ describe("native navigation definitions", () => {
   it("runs the same route contract for each native platform command", () => {
     const platform = process.env.NATIVE_TEST_PLATFORM === "ios" ? "ios" : "android";
     expect(["ios", "android"]).toContain(platform);
-    expect(coreNativeTabs).toHaveLength(3);
+    expect(coreNativeTabs).toHaveLength(2);
   });
 });

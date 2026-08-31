@@ -43,9 +43,6 @@ const AVATAR_COLORS = [
 // Coin spent animation duration in ms
 export const COIN_SPENT_ANIMATION_MS = 600;
 
-// Presence tracking location update debounce in ms
-export const TRACK_DEBOUNCE_MS = 10_000;
-
 // Rate limits per endpoint: { limit: max requests, window: duration in seconds }
 export const RATE_LIMITS = {
   sendMessage:   { limit: 30, window: 60 },
@@ -62,6 +59,9 @@ export const RATE_LIMITS = {
   messageMutation: { limit: 60, window: 60 },
   realtimeSignal: { limit: 120, window: 60 },
   threadCreate:  { limit: 20, window: 60 },
+  roomCreate:    { limit: 10, window: 60 },
+  roomJoin:      { limit: 30, window: 60 },
+  roomMessage:   { limit: 30, window: 60 },
   friendMutation: { limit: 60, window: 60 },
   profileMutation: { limit: 60, window: 60 },
   pushToken:     { limit: 20, window: 86_400 },

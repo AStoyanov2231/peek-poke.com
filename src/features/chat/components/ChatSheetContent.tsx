@@ -11,7 +11,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/useAuth";
-import { useProximityToThread } from "@/features/chat/useProximityToThread";
 import { useAppStore } from "@/stores/appStore";
 import { type DMMessage } from "@/types/database";
 import {
@@ -25,7 +24,6 @@ import {
   type DmMessageMutationAttempt,
 } from "@peekpoke/shared";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
-import { ChatProximityBanner } from "@/features/chat/components/ChatProximityBanner";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { useCallStore } from "@/stores/callStore";
@@ -113,7 +111,6 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, user?.id);
 
   const isOtherOnline = other?.is_online === true && !isReadOnly;
-  const { distanceMeters, isNearby, meetingEligible } = useProximityToThread(threadId);
 
   const lifecycleOwnerIdentity = JSON.stringify([threadId, user?.id ?? null]);
   useClientLayoutEffect(() => {
@@ -439,7 +436,6 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         other={other}
         isOnline={isOtherOnline}
         isTyping={isPeerTyping}
-        distanceMeters={distanceMeters}
         onBack={() => router.push("/inbox")}
         onStartCall={isReadOnly ? undefined : handleStartCall}
       />
@@ -448,17 +444,6 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         <ReadReceiptRecovery pending={readReceipt.isPending} onRetry={readReceipt.retry} />
       ) : null}
 
-      {!isReadOnly && user && other && isNearby && distanceMeters !== null && (
-        <ChatProximityBanner
-          key={`${user.id}:${threadId}:${other.id}`}
-          accountId={user.id}
-          friendId={other.id}
-          distanceMeters={distanceMeters}
-          meetingEligible={meetingEligible}
-          name={other.display_name || other.username}
-          threadId={threadId}
-        />
-      )}
 
       <ChatMessageList
         messages={messages}

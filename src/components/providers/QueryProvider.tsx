@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createWebQueryClient } from "@/data/web-query-client";
-import { WebLocationFreshnessLifecycle } from "@/features/map/components/WebLocationFreshnessLifecycle";
 import { createClient } from "@/lib/supabase/client";
 import { shouldClearQueryCacheForAuthChange } from "@/data/query-auth-boundary";
 
@@ -36,7 +35,6 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <WebLocationFreshnessLifecycle />
       {children}
     </QueryClientProvider>
   );

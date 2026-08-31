@@ -1,6 +1,5 @@
 export const coreNativeTabs = [
-  { name: "map", route: "/(app)/map", path: "/map" },
-  { name: "inbox", route: "/(app)/inbox", path: "/inbox" },
+  { name: "rooms", route: "/(app)/rooms", path: "/rooms" },
   { name: "profile", route: "/(app)/profile", path: "/profile" },
 ] as const;
 
@@ -18,12 +17,15 @@ export const coreNativeStackRoutes = [
   "/onboarding",
   "/(app)",
   "/chat/[threadId]",
+  "/room/[roomId]",
+  "/scan",
   "/invite/[inviterId]",
 ] as const;
 
 const staticNotificationRoutes = new Set([
   "/",
-  "/map",
+  "/rooms",
+  "/scan",
   "/inbox",
   "/profile",
   "/premium",
@@ -31,7 +33,7 @@ const staticNotificationRoutes = new Set([
   "/onboarding",
 ]);
 
-const dynamicNotificationRoute = /^\/(?:chat|profile)\/[A-Za-z0-9_-]+$/;
+const dynamicNotificationRoute = /^\/(?:chat|room|profile)\/[A-Za-z0-9_-]+$/;
 const unsafeEncoding = /%(?:2e|2f|5c)/i;
 
 export function resolveNotificationRoute(value: unknown): string | null {

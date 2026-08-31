@@ -66,6 +66,8 @@ let hook: ReturnType<typeof useWebRTCCall> | null = null;
 let consoleError: ReturnType<typeof vi.spyOn>;
 
 function Harness() {
+  // Test harness intentionally exposes the hook result to assertions.
+  // eslint-disable-next-line react-hooks/globals
   hook = useWebRTCCall(activeCall);
   return null;
 }

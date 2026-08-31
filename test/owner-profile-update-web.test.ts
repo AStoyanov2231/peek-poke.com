@@ -18,7 +18,6 @@ const profile = {
   bio: "Hello",
   avatar_url: null,
   cover_image_url: null,
-  location_text: null,
   is_online: true,
   last_seen_at: timestamp,
   created_at: timestamp,
@@ -84,7 +83,6 @@ describe("web owner profile cache commit", () => {
     });
     const matchingKeys = [
       webQueryKeys.threads,
-      ["web", "nearby", USER_ID] as const,
       ["web", "search", "users", "ada"] as const,
     ];
     client.setQueryData(webQueryKeys.friends, {
@@ -94,7 +92,7 @@ describe("web owner profile cache commit", () => {
       threads: [{ participant_1: { id: USER_ID }, participant_2: { id: OTHER_ID } }],
     });
     client.setQueryData(matchingKeys[1], [{ userId: USER_ID }]);
-    client.setQueryData(matchingKeys[2], [{ id: USER_ID }]);
+    client.setQueryData(matchingKeys[1], [{ id: USER_ID }]);
 
     expect(commitWebOwnerProfileUpdate(client, USER_ID, profile)).toBe(true);
     expect(client.getQueryData(webQueryKeys.profile)).toEqual(profile);
@@ -105,14 +103,13 @@ describe("web owner profile cache commit", () => {
     expect(client.getQueryState(webQueryKeys.friends)?.isInvalidated).toBe(false);
   });
 
-  it("targets a counterpart across public, social, inbox, nearby, and search without touching a nonrecipient", async () => {
+  it("targets a counterpart across public, social, inbox, and search without touching a nonrecipient", async () => {
     const client = new QueryClient();
     client.setQueryData(webQueryKeys.profile, { ...profile, id: OTHER_ID });
     const matching = {
       public: webQueryKeys.publicProfile(USER_ID),
       friends: webQueryKeys.friends,
       threads: webQueryKeys.threads,
-      nearby: ["web", "nearby", OTHER_ID, "42.0", "23.0"] as const,
       search: ["web", "search", "users", "ada"] as const,
     };
     const unrelatedPublic = webQueryKeys.publicProfile("33333333-3333-4333-8333-333333333333");
@@ -123,7 +120,6 @@ describe("web owner profile cache commit", () => {
     client.setQueryData(matching.threads, {
       threads: [{ participant_1: { id: OTHER_ID }, participant_2: { id: USER_ID } }],
     });
-    client.setQueryData(matching.nearby, [{ userId: USER_ID }]);
     client.setQueryData(matching.search, [{ id: USER_ID }]);
     client.setQueryData(unrelatedPublic, { profile: { id: unrelatedPublic[2] } });
 

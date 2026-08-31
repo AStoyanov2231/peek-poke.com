@@ -8,7 +8,11 @@ import {
   type StorageObject,
 } from "@/lib/account-deletion";
 import { sendPushToUser } from "@/lib/push/send";
-import { broadcastPrivateRealtimeEvent } from "@/lib/realtime-broadcast";
+import {
+  broadcastPrivateRealtimeEvent,
+  notifyRoomMessagesChanged,
+  notifyRoomUnreadChanged,
+} from "@/lib/realtime-broadcast";
 import { createServiceClient } from "@/lib/supabase/server";
 import { PRIVATE_DM_MEDIA_BUCKET } from "@/lib/storage-urls";
 import {
@@ -38,12 +42,38 @@ type WorkerResult = {
   queue_age_seconds: number;
 };
 
+const ACCOUNT_ERASURE_ROOM_PAGE_SIZE = 500;
+
 function stringField(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Outbox payload is missing ${key}`);
   }
   return value;
+}
+
+async function loadErasedRoomIds(
+  supabase: SupabaseClient,
+  userId: string,
+) {
+  const roomIds = new Set<string>();
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("chat_room_messages")
+      .select("room_id")
+      .eq("sender_id", userId)
+      .order("room_id", { ascending: true })
+      .range(offset, offset + ACCOUNT_ERASURE_ROOM_PAGE_SIZE - 1);
+    if (error) throw error;
+
+    for (const message of data ?? []) roomIds.add(message.room_id);
+    if ((data ?? []).length < ACCOUNT_ERASURE_ROOM_PAGE_SIZE) break;
+    offset += ACCOUNT_ERASURE_ROOM_PAGE_SIZE;
+  }
+
+  return [...roomIds];
 }
 
 async function handleMessageEvent(
@@ -354,6 +384,21 @@ async function handleAccountCleanup(
     .update({ status: "processing", attempts: event.attempts, last_error: null })
     .eq("id", jobId);
   if (processingError) throw processingError;
+
+  const roomIds = await loadErasedRoomIds(supabase, userId);
+  const roomInvalidations = await Promise.all(
+    roomIds.map(async (roomId) => {
+      const [messagesDelivered, unreadDelivered] = await Promise.all([
+        notifyRoomMessagesChanged(roomId, "deleted", userId),
+        notifyRoomUnreadChanged(roomId, "deleted", userId),
+      ]);
+      return messagesDelivered && unreadDelivered;
+    }),
+  );
+  if (roomInvalidations.some((delivered) => !delivered)) {
+    throw new Error("Realtime room erasure delivery failed");
+  }
+
   await deleteStripeCustomer(job.stripe_customer_id);
   await eraseStorageObjects(supabase, parseAccountStorageObjects(job.storage_objects));
 

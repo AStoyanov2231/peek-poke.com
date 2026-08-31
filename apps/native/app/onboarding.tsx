@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -90,7 +90,6 @@ function InlineError({ message, style }: { message: string; style?: StyleProp<Vi
 // This route coordinates onboarding state, animations, and navigation for the screen.
 // react-doctor-disable-next-line no-giant-component
 export default function OnboardingScreen() {
-  const { invite } = useLocalSearchParams<{ invite?: string }>();
   const queryClient = useQueryClient();
   const profileQuery = useQuery({
     queryKey: nativeQueryKeys.profile.current,
@@ -230,11 +229,11 @@ export default function OnboardingScreen() {
   useEffect(() => {
     if (step !== 3) return;
     const timeout = setTimeout(
-      () => router.replace(invite ? (`/invite/${invite}` as never) : ("/(app)/map" as never)),
+      () => router.replace("/(app)/rooms" as never),
       1500
     );
     return () => clearTimeout(timeout);
-  }, [invite, step]);
+  }, [step]);
 
   const groupedTags = useMemo(() => {
     return allTags.reduce<Record<string, InterestTag[]>>((acc, tag) => {
@@ -517,7 +516,7 @@ export default function OnboardingScreen() {
             You{`'`}re all set, @{username}
           </Animated.Text>
           <Animated.View style={[styles.splashBody, { opacity: splashBody }]}>
-            <Text style={styles.splashDescription}>Taking you to the map...</Text>
+            <Text style={styles.splashDescription}>Taking you to your rooms...</Text>
             <ActivityIndicator color={colors.primary[500]} size={24} />
           </Animated.View>
         </Animated.View>

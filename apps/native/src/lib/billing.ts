@@ -1,7 +1,7 @@
 import * as WebBrowser from "expo-web-browser";
 import { Alert } from "react-native";
 import type { EntitlementsResponse } from "@peekpoke/shared/api";
-import type { ProfileView } from "@peekpoke/shared";
+import type { CurrentProfile } from "@peekpoke/shared";
 import { nativeQueryClient } from "@/data/query-client";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { apiFetch } from "./api";
@@ -21,7 +21,7 @@ const USD_FORMATTER = new Intl.NumberFormat(undefined, {
 export async function refreshEntitlements() {
   const entitlements = await apiFetch<EntitlementsResponse>("/api/billing/entitlements");
   nativeQueryClient.setQueryData(nativeQueryKeys.entitlements, entitlements);
-  nativeQueryClient.setQueryData<ProfileView>(nativeQueryKeys.profile.current, (profile) =>
+  nativeQueryClient.setQueryData<CurrentProfile>(nativeQueryKeys.profile.current, (profile) =>
     profile ? mergeAuthoritativeRoles(profile, entitlements.roles) : profile,
   );
   return entitlements;

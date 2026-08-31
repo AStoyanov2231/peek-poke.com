@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, Ban, Clock, Flag, UserPlus } from "lucide-react";
+import { ArrowLeft, Ban, Flag } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { OtherUserGallery } from "@/features/profile/components/OtherUserGallery";
 import { ProfileInterests } from "@/features/profile/components/ProfileInterests";
 import { useIsPremium } from "@/stores/selectors";
 import { useAuth } from "@/features/auth/useAuth";
-import { InsufficientCoinsDialog } from "@/features/coins/components/InsufficientCoinsDialog";
 import {
-  coinsQueryOptions,
   publicProfileQueryOptions,
   webQueryKeys,
 } from "@/data/web-query";
@@ -21,10 +19,7 @@ import {
   blockUser,
   discardBlockUser,
   pendingBlockUser,
-  sendFriendRequest,
 } from "@/data/friend-mutations";
-import { createOrFindThread } from "@/data/thread-mutations";
-import { commitBlockedUserCache } from "@/data/block-cache";
 import { ApiTransportError } from "@peekpoke/shared";
 
 // This page coordinates public-profile queries, actions, and presentation.
@@ -42,14 +37,11 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (user?.id && user.id === userId) window.location.replace("/profile");
   }, [user?.id, userId]);
-  const coins = useQuery(coinsQueryOptions).data?.balance ?? 0;
 
-  const [showNoCoins, setShowNoCoins] = useState(false);
   const [reportCategory, setReportCategory] = useState("other");
   const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
   const [safetyLoading, setSafetyLoading] = useState(false);
   const blockTargetRef = useRef<string | null>(null);
-  const [, startTransition] = useTransition();
   const publicProfile = useQuery(publicProfileQueryOptions(userId));
   const data = publicProfile.data;
   const loading = publicProfile.isPending;
@@ -60,9 +52,6 @@ export default function PublicProfilePage() {
   const avatarUrl = profile?.avatar_url;
   const coverUrl = profile?.cover_image_url;
   const initial = name.slice(0, 1).toUpperCase();
-  const friendship = data?.friendship;
-  const isFriend = friendship?.status === "accepted";
-  const isPending = friendship?.status === "pending";
   const targetIsPremium = profile?.is_premium ?? false;
   const hasPendingBlockRecovery = pendingBlockUser(userId) !== null;
 
@@ -88,44 +77,6 @@ export default function PublicProfilePage() {
     );
   }
 
-  const handleAddFriend = () => {
-    if (isPending || isFriend) return;
-    if (coins < 1) {
-      setShowNoCoins(true);
-      return;
-    }
-    startTransition(async () => {
-      try {
-        await sendFriendRequest(userId, (response) => {
-          queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
-          queryClient.setQueryData(
-            webQueryKeys.publicProfile(userId),
-            data ? { ...data, friendship: response.friendship } : data,
-          );
-          void queryClient.invalidateQueries({ queryKey: webQueryKeys.friends });
-        });
-      } catch (err) {
-        if (err instanceof ApiTransportError && err.code === "INSUFFICIENT_COINS") {
-          setShowNoCoins(true);
-        }
-        console.error("Failed to send friend request:", err);
-      }
-    });
-  };
-
-  const handleSendMessage = () => {
-    if (!isFriend) return;
-    startTransition(async () => {
-      try {
-        const response = await createOrFindThread(userId);
-        queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
-        router.push(`/inbox?tab=chats&thread=${response.id}`);
-      } catch (err) {
-        console.error("Failed to start DM:", err);
-      }
-    });
-  };
-
   async function handleReport() {
     if (safetyLoading || !window.confirm("Send this profile to the safety team for review?")) return;
     setSafetyLoading(true);
@@ -145,12 +96,10 @@ export default function PublicProfilePage() {
     }
   }
 
-  function commitBlockedUser() {
+  function commitBlockedUser(balance: number | null) {
     if (blockTargetRef.current !== userId) return;
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: webQueryKeys.friends }),
-      queryClient.invalidateQueries({ queryKey: webQueryKeys.threads }),
-    ]);
+    if (balance !== null) queryClient.setQueryData(webQueryKeys.coins, { balance });
+    queryClient.removeQueries({ queryKey: webQueryKeys.publicProfile(userId) });
   }
 
   async function runBlock(askForConfirmation: boolean) {
@@ -164,8 +113,7 @@ export default function PublicProfilePage() {
     try {
       await blockUser(userId, (response) => {
         if (blockTargetRef.current !== userId) return;
-        commitBlockedUserCache(queryClient, userId, friendship?.id ?? null, response.balance);
-        commitBlockedUser();
+        commitBlockedUser(response.balance);
         router.replace("/");
       });
     } catch (error) {
@@ -186,8 +134,6 @@ export default function PublicProfilePage() {
     if (!discardBlockUser(userId)) return;
     setSafetyStatus("Pending block request discarded. Current data is being refreshed.");
     void Promise.all([
-      queryClient.invalidateQueries({ queryKey: webQueryKeys.friends }),
-      queryClient.invalidateQueries({ queryKey: webQueryKeys.threads }),
       queryClient.invalidateQueries({ queryKey: webQueryKeys.publicProfile(userId) }),
       queryClient.invalidateQueries({ queryKey: webQueryKeys.coins }),
     ]);
@@ -225,17 +171,8 @@ export default function PublicProfilePage() {
             </div>
             {!loading && data && (
               <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-background shadow-e-1 rounded-full px-3 py-1 text-xs whitespace-nowrap z-10">
-                <span className="font-semibold text-primary">{data.stats.friends_count}</span>
-                <span className="text-muted-foreground">Friends</span>
-                <span className="text-muted-foreground/40">·</span>
                 <span className="font-semibold text-primary">{data.stats.photos_count}</span>
                 <span className="text-muted-foreground">Photos</span>
-                {profile?.location_text && (
-                  <>
-                    <span className="text-muted-foreground/40">·</span>
-                    <span className="font-semibold text-primary">{profile.location_text}</span>
-                  </>
-                )}
               </div>
             )}
           </div>
@@ -256,33 +193,7 @@ export default function PublicProfilePage() {
             </p>
           )}
 
-          {/* Action buttons */}
-          {!loading && data && (
-            <div className="flex gap-3 pt-2">
-              {isFriend ? (
-                <button type="button"
-                  onClick={handleSendMessage}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1"
-                >
-                  <span className="text-base leading-none">👋</span>
-                  <span className="text-sm font-medium text-primary">Say Hi</span>
-                </button>
-              ) : isPending ? (
-                <div className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">Requested</span>
-                </div>
-              ) : (
-                <button type="button"
-                  onClick={handleAddFriend}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-ink-9 text-white shadow-e-1"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  <span className="text-sm font-medium">Add Friend</span>
-                </button>
-              )}
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -378,7 +289,6 @@ export default function PublicProfilePage() {
           </Card>
         </div>
       )}
-      <InsufficientCoinsDialog open={showNoCoins} onOpenChange={setShowNoCoins} />
     </div>
   );
 }

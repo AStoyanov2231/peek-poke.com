@@ -18,6 +18,7 @@ interface ChatMessageListProps {
   hasOlder?: boolean;
   isLoadingOlder?: boolean;
   onLoadOlder?: () => void;
+  allowMutations?: boolean;
 }
 
 type ContextMenuState = {
@@ -50,6 +51,7 @@ export function ChatMessageList({
   hasOlder = false,
   isLoadingOlder = false,
   onLoadOlder,
+  allowMutations = true,
 }: ChatMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -326,7 +328,7 @@ export function ChatMessageList({
               </div>
               <div className="fixed z-50" style={{ top: menuTop, ...menuAlign }}>
                 <div className="bg-surface rounded-lg border border-hairline overflow-hidden min-w-[180px] shadow-e-2">
-                  {canEdit && (
+                  {allowMutations && canEdit && (
                     <>
                       <button type="button"
                         className="w-full flex items-center gap-3 px-4 py-3 md:hover:bg-ink-1 t-body text-ink-8"
@@ -348,7 +350,7 @@ export function ChatMessageList({
                   >
                     <Copy size={18} />Copy
                   </button>
-                  {contextMenu.isOwn && (
+                  {allowMutations && contextMenu.isOwn && (
                     <>
                       <div className="hr" />
                       <button type="button"

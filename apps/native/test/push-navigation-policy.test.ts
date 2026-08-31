@@ -4,10 +4,12 @@ import { resolveNotificationRoute } from "@/lib/navigation-policy";
 describe("push notification navigation policy", () => {
   it("allows only supported static and entity routes", () => {
     expect(resolveNotificationRoute("/")).toBe("/");
-    expect(resolveNotificationRoute("/map")).toBe("/map");
+    expect(resolveNotificationRoute("/map")).toBeNull();
+    expect(resolveNotificationRoute("/rooms")).toBe("/rooms");
+    expect(resolveNotificationRoute("/scan")).toBe("/scan");
     expect(resolveNotificationRoute("/inbox")).toBe("/inbox");
-    expect(resolveNotificationRoute("/chat/4de036ee-bf15-47d7-b3f7-fdd723038b8b"))
-      .toBe("/chat/4de036ee-bf15-47d7-b3f7-fdd723038b8b");
+    expect(resolveNotificationRoute("/room/4de036ee-bf15-47d7-b3f7-fdd723038b8b"))
+      .toBe("/room/4de036ee-bf15-47d7-b3f7-fdd723038b8b");
     expect(resolveNotificationRoute("/profile/user_123")).toBe("/profile/user_123");
     expect(resolveNotificationRoute("/premium")).toBe("/premium");
     expect(resolveNotificationRoute("/admin")).toBe("/admin");
@@ -26,7 +28,7 @@ describe("push notification navigation policy", () => {
       "https://example.com/inbox",
       "peekpoke://inbox",
       "//example.com/inbox",
-      "/chat/../admin",
+      "/room/../admin",
       "/chat/%2e%2e/admin",
       "/chat%2Fthread-1",
       "/auth/reset-password",

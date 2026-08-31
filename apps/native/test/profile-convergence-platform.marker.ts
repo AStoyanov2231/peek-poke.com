@@ -13,11 +13,9 @@ describe(`profile convergence on ${Platform.OS}`, () => {
     client.setQueryData(nativeQueryKeys.profile.current, { id: VIEWER_ID });
     const targetPublic = nativeQueryKeys.profile.public(PROFILE_ID);
     const unrelatedPublic = nativeQueryKeys.profile.public(UNRELATED_ID);
-    const nearby = nativeQueryKeys.discovery.nearby(VIEWER_ID, 42.1, 23.2);
     const search = [...nativeQueryKeys.discovery.userSearch, "peer"] as const;
     client.setQueryData(targetPublic, { profile: { id: PROFILE_ID } });
     client.setQueryData(unrelatedPublic, { profile: { id: UNRELATED_ID } });
-    client.setQueryData(nearby, [{ userId: PROFILE_ID }]);
     client.setQueryData(search, [{ id: PROFILE_ID }]);
 
     await expect(refreshNativeProfileReferences(
@@ -27,7 +25,7 @@ describe(`profile convergence on ${Platform.OS}`, () => {
       { refetch: false },
     )).resolves.toBe(true);
 
-    [targetPublic, nearby, search].forEach((key) => {
+    [targetPublic, search].forEach((key) => {
       expect(client.getQueryState(key)?.isInvalidated).toBe(true);
     });
     expect(client.getQueryState(unrelatedPublic)?.isInvalidated).toBe(false);

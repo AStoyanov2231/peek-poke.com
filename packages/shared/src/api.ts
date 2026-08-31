@@ -12,7 +12,6 @@ export type EntitlementsResponse = {
 };
 
 export type NearbyResponse = import("./contract").NearbyResponseDto;
-
 export type PushTokenRequest = {
   token: string;
   platform: import("./types").PushPlatform;

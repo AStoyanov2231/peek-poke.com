@@ -11,15 +11,12 @@ import {
   friendRequestsReadResponseSchema,
   inviteAcceptanceResponseSchema,
   inviteLinkResponseSchema,
-  locationUpdateResponseSchema,
   meetingRequestSchema,
   meetingResponseSchema,
   messagesResponseSchema,
   readReceiptResponseSchema,
-  nearbyResponseSchema,
   publicProfileResponseSchema,
 } from "./contract";
-import { coordsSchema } from "./validation";
 import { apiErrorEnvelopeSchema, type ApiErrorEnvelope } from "./errors";
 
 export const DEFAULT_API_TIMEOUT_MS = 30_000;
@@ -81,18 +78,6 @@ export const endpointContracts = {
     path: "/api/coins/meeting",
     request: meetingRequestSchema,
     response: meetingResponseSchema,
-  },
-  nearby: {
-    method: "POST",
-    path: "/api/nearby",
-    request: coordsSchema,
-    response: nearbyResponseSchema,
-  },
-  locationUpdate: {
-    method: "POST",
-    path: "/api/location",
-    request: coordsSchema,
-    response: locationUpdateResponseSchema,
   },
   friends: {
     method: "GET",

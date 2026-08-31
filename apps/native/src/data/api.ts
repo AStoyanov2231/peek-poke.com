@@ -1,9 +1,10 @@
 import {
   authProfileEnsureResponseSchema,
-  bootstrapSchema,
+  roomBootstrapSchema,
   boundedCursorPath,
   coinsResponseSchema,
   currentProfileResponseSchema,
+  roomCurrentProfileResponseSchema,
   dmInboxResponseSchema,
   friendsReadResponseSchema,
   messagesResponseSchema,
@@ -12,13 +13,14 @@ import {
   createMeetingCompletionRegistry,
   StaleMeetingAttemptError,
   type AuthProfileEnsureResponse,
-  type Bootstrap,
+  type RoomBootstrap,
   type DmInboxResponse,
   type Friend,
   type FriendsReadResponse,
   type MessagesResponse,
   type MeetingResponse,
-  type ProfileView,
+  type CurrentProfile,
+  type RoomCurrentProfile,
 } from "@peekpoke/shared";
 import { randomUUID } from "expo-crypto";
 import { apiFetch, jsonBody } from "@/lib/api";
@@ -55,8 +57,8 @@ function currentMeetingOwnerEpoch(accountId: string) {
   return meetingCompletions.current(accountId);
 }
 
-export function fetchBootstrap(signal?: AbortSignal): Promise<Bootstrap> {
-  return apiFetch("/api/bootstrap", { signal, responseSchema: bootstrapSchema });
+export function fetchBootstrap(signal?: AbortSignal): Promise<RoomBootstrap> {
+  return apiFetch("/api/bootstrap?surface=rooms", { signal, responseSchema: roomBootstrapSchema });
 }
 
 export function ensureAuthenticatedProfile(signal?: AbortSignal): Promise<AuthProfileEnsureResponse> {
@@ -68,9 +70,17 @@ export function ensureAuthenticatedProfile(signal?: AbortSignal): Promise<AuthPr
   });
 }
 
-export async function fetchCurrentProfile(): Promise<ProfileView> {
-  const response = await apiFetch<{ profile: ProfileView | null }>("/api/profile", {
+export async function fetchCurrentProfile(): Promise<CurrentProfile> {
+  const response = await apiFetch<{ profile: CurrentProfile | null }>("/api/profile", {
     responseSchema: currentProfileResponseSchema,
+  });
+  if (!response.profile) throw new Error("Profile not found");
+  return response.profile;
+}
+
+export async function fetchRoomCurrentProfile(): Promise<RoomCurrentProfile> {
+  const response = await apiFetch<{ profile: RoomCurrentProfile | null }>("/api/profile?surface=rooms", {
+    responseSchema: roomCurrentProfileResponseSchema,
   });
   if (!response.profile) throw new Error("Profile not found");
   return response.profile;

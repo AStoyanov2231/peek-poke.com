@@ -205,7 +205,6 @@ export const currentProfileSchema = z.strictObject({
   bio: z.string().nullable(),
   avatar_url: z.string().nullable(),
   cover_image_url: z.string().nullable(),
-  location_text: z.string().nullable(),
   is_online: z.boolean(),
   last_seen_at: utcTimestampSchema,
   created_at: utcTimestampSchema,
@@ -233,11 +232,19 @@ export const currentProfileResponseSchema = z.strictObject({
   profile: currentProfileSchema.nullable(),
 });
 
+export const roomCurrentProfileSchema = currentProfileSchema.omit({
+  is_online: true,
+  last_seen_at: true,
+});
+
+export const roomCurrentProfileResponseSchema = z.strictObject({
+  profile: roomCurrentProfileSchema.nullable(),
+});
+
 export const ownerProfilePatchRequestSchema = z
   .strictObject({
     display_name: displayNameInputSchema.optional(),
     bio: z.string().max(MAX_BIO_LENGTH, `Bio must be ${MAX_BIO_LENGTH} characters or less`).optional(),
-    location_text: z.string().max(100, "Location must be 100 characters or less").optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Provide at least one profile change");
 
@@ -547,19 +554,24 @@ export const publicProfilePhotoSchema = z.strictObject({
   }
 });
 
-export const publicProfileSchema = z.strictObject({
+const publicProfileBaseSchema = z.strictObject({
   id: z.uuid(),
   username: z.string().min(1).max(64),
   display_name: displayNameSchema.nullable(),
   bio: z.string().nullable(),
   avatar_url: httpImageUrlSchema.nullable(),
   cover_image_url: httpImageUrlSchema.nullable(),
-  location_text: z.string().nullable(),
+  location_text: z.string().nullable().optional(),
   is_online: z.boolean(),
   last_seen_at: utcTimestampSchema.nullable(),
   created_at: utcTimestampSchema,
   is_premium: z.boolean(),
-}).superRefine((profile, context) => {
+});
+
+function validatePublicProfileMedia(
+  profile: { avatar_url: string | null; cover_image_url: string | null },
+  context: z.RefinementCtx,
+) {
   for (const field of ["avatar_url", "cover_image_url"] as const) {
     const value = profile[field];
     if (value !== null && isPrivateProfilePhotoMediaUrl(value)) {
@@ -570,7 +582,9 @@ export const publicProfileSchema = z.strictObject({
       });
     }
   }
-});
+}
+
+export const publicProfileSchema = publicProfileBaseSchema.superRefine(validatePublicProfileMedia);
 
 export const publicProfileStatsSchema = z.strictObject({
   photos_count: z.number().int().nonnegative(),
@@ -1102,6 +1116,24 @@ export const messageHintSchema = z.object({
   sequence: z.number().int().positive().optional(),
 });
 
+export const roomMessageHintSchema = z.strictObject({
+  room_id: z.uuid(),
+  action: z.enum(["sent", "edited", "deleted", "read"]),
+  actor_id: z.uuid().nullable().optional(),
+  sequence: z.number().int().positive().optional(),
+});
+
+export const roomUnreadHintSchema = z.strictObject({
+  room_id: z.uuid(),
+  action: z.enum(["sent", "read", "deleted"]),
+  actor_id: z.uuid().nullable().optional(),
+  sequence: z.number().int().positive().optional(),
+});
+
+export const roomMembershipHintSchema = z.strictObject({
+  room_id: z.uuid(),
+});
+
 /** Sanitized private-channel hint. Durable profile data is always re-read via the API. */
 export const profileUpdatedHintSchema = z.strictObject({
   profile_id: z.uuid(),
@@ -1195,10 +1227,6 @@ export function nearbyResponseSchemaForViewer(
     });
   });
 }
-
-export const locationUpdateResponseSchema = z.strictObject({
-  ok: z.literal(true),
-});
 
 export const moderationReportStatusSchema = z.enum([
   "pending",
@@ -1328,6 +1356,11 @@ export const bootstrapSchema = z.object({
   unread_summary: z.object({ threads: z.number().int().nonnegative() }),
 });
 
+/** Bootstrap contract for the QR-room client; it does not read legacy DM counts. */
+export const roomBootstrapSchema = bootstrapSchema.omit({ unread_summary: true }).extend({
+  unread_summary: z.object({ rooms: z.number().int().nonnegative() }),
+});
+
 export const authProfileEnsureRequestSchema = z.strictObject({});
 
 export const authProfileEnsureResponseSchema = z.strictObject({
@@ -1343,6 +1376,85 @@ export const pageInfoSchema = z.strictObject({
   next_cursor: cursorSchema.nullable(),
   has_more: z.boolean(),
   limit: z.number().int().min(1).max(MAX_PAGE_SIZE),
+});
+
+/**
+ * QR room payloads are deliberately opaque capabilities. The payload is only
+ * accepted at the join boundary and is never used as a room identifier.
+ */
+export const roomQrPayloadSchema = z.string().regex(
+  /^pp-room-v1\.[A-Za-z0-9_-]{43}$/,
+  "Invalid room QR payload",
+);
+
+export const roomJoinRequestSchema = z.strictObject({
+  qr_payload: roomQrPayloadSchema,
+});
+
+export const roomCreateRequestSchema = z.strictObject({});
+
+export const roomSummarySchema = z.strictObject({
+  id: z.uuid(),
+  name: z.string().min(1).max(80),
+  created_at: utcTimestampSchema,
+  last_message_at: utcTimestampSchema.nullable(),
+  last_message_preview: z.string().nullable(),
+  member_count: z.number().int().positive(),
+  unread_count: z.number().int().nonnegative(),
+});
+
+export const roomsResponseSchema = z.strictObject({
+  rooms: z.array(roomSummarySchema).max(MAX_PAGE_SIZE),
+  pagination: pageInfoSchema,
+});
+
+export const roomCreateResponseSchema = z.strictObject({
+  room: roomSummarySchema,
+  /** Returned only to the creator so it can be rendered into a QR code. */
+  qr_payload: roomQrPayloadSchema,
+});
+
+export const roomJoinResponseSchema = z.strictObject({
+  room: roomSummarySchema,
+  is_new_member: z.boolean(),
+});
+
+export const roomMessageSchema = messageSchema.extend({
+  room_id: z.uuid(),
+  sender: z.strictObject({
+    id: z.uuid(),
+    username: z.string().min(1).max(64),
+    display_name: displayNameSchema.nullable(),
+    avatar_url: z.string().nullable(),
+  }).optional(),
+}).superRefine((message, context) => {
+  if (message.thread_id !== message.room_id) {
+    context.addIssue({
+      code: "custom",
+      path: ["thread_id"],
+      message: "Room message thread ID must match room ID",
+    });
+  }
+});
+
+export const roomMessageMutationResponseSchema = z.strictObject({
+  message: roomMessageSchema,
+});
+
+export const roomMessagesResponseSchema = z.strictObject({
+  room: roomSummarySchema,
+  messages: z.array(roomMessageSchema),
+  pagination: pageInfoSchema,
+}).superRefine((response, context) => {
+  response.messages.forEach((message, index) => {
+    if (message.room_id !== response.room.id) {
+      context.addIssue({
+        code: "custom",
+        path: ["messages", index, "room_id"],
+        message: "Room message does not belong to the requested room",
+      });
+    }
+  });
 });
 
 export const moderationReportsResponseSchema = z.strictObject({
@@ -1421,7 +1533,7 @@ export function ownerProfilePhotoMutationResponseSchemaFor(
   });
 }
 
-export const publicProfileResponseSchema = z.strictObject({
+const publicProfileResponseShape = {
   profile: publicProfileSchema,
   photos: z.array(publicProfilePhotoSchema).max(MAX_PAGE_SIZE),
   featured_media: z.strictObject({
@@ -1432,7 +1544,18 @@ export const publicProfileResponseSchema = z.strictObject({
   stats: publicProfileStatsSchema,
   friendship: publicProfileRelationshipSchema.nullable(),
   pagination: pageInfoSchema,
-}).superRefine((response, context) => {
+};
+
+function validatePublicProfileResponseMedia(
+  response: {
+    profile: { avatar_url: string | null; cover_image_url: string | null };
+    featured_media: {
+      avatar: { url: string | null; is_avatar: boolean; is_cover: boolean; is_private: boolean; access: string } | null;
+      cover: { url: string | null; is_avatar: boolean; is_cover: boolean; is_private: boolean; access: string } | null;
+    };
+  },
+  context: z.RefinementCtx,
+) {
   const avatar = response.featured_media.avatar;
   const cover = response.featured_media.cover;
   if (
@@ -1455,13 +1578,30 @@ export const publicProfileResponseSchema = z.strictObject({
       message: "Cover must match one target-owned approved cover photo",
     });
   }
-});
+}
+
+export const publicProfileResponseSchema = z.strictObject(publicProfileResponseShape).superRefine(
+  validatePublicProfileResponseMedia,
+);
+
+export const roomPublicProfileSchema = publicProfileBaseSchema.omit({
+  location_text: true,
+  is_online: true,
+  last_seen_at: true,
+}).superRefine(validatePublicProfileMedia);
+
+export const roomPublicProfileResponseSchema = z.strictObject({
+  ...publicProfileResponseShape,
+  profile: roomPublicProfileSchema,
+}).superRefine(validatePublicProfileResponseMedia);
 
 export function publicProfileResponseSchemaForTarget(
   targetId: string,
   configuredStorageOrigin?: string,
+  roomSurface = false,
 ) {
-  return publicProfileResponseSchema.superRefine((response, context) => {
+  const schema = roomSurface ? roomPublicProfileResponseSchema : publicProfileResponseSchema;
+  return schema.superRefine((response, context) => {
     if (response.profile.id !== targetId) {
       context.addIssue({
         code: "custom",
@@ -1510,8 +1650,9 @@ export function publicProfileResponseSchemaFor(
   viewerId: string,
   targetId: string,
   configuredStorageOrigin?: string,
+  roomSurface = false,
 ) {
-  return publicProfileResponseSchemaForTarget(targetId, configuredStorageOrigin).superRefine((response, context) => {
+  return publicProfileResponseSchemaForTarget(targetId, configuredStorageOrigin, roomSurface).superRefine((response, context) => {
     const friendship = response.friendship;
     if (!friendship) return;
     const participants = new Set([friendship.requester_id, friendship.addressee_id]);
@@ -1538,6 +1679,12 @@ export const messagesResponseSchema = z.object({
 export const readReceiptResponseSchema = z.strictObject({
   success: z.literal(true),
   last_read_sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+});
+
+export const roomReadReceiptResponseSchema = z.strictObject({
+  success: z.literal(true),
+  last_read_sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  advanced: z.boolean(),
 });
 
 export const messageMutationResponseSchema = z.strictObject({
@@ -1661,6 +1808,7 @@ export function pageSchema<T extends z.ZodType>(itemSchema: T) {
 export type ProfileCard = z.infer<typeof profileCardSchema>;
 export type ProfileView = z.infer<typeof profileViewSchema>;
 export type CurrentProfile = z.infer<typeof currentProfileSchema>;
+export type RoomCurrentProfile = z.infer<typeof roomCurrentProfileSchema>;
 export type CurrentProfileResponse = z.infer<typeof currentProfileResponseSchema>;
 export type OwnerProfilePatchRequest = z.infer<typeof ownerProfilePatchRequestSchema>;
 export type OwnerProfileUpdateResponse = z.infer<typeof ownerProfileUpdateResponseSchema>;
@@ -1675,9 +1823,11 @@ export type OwnerProfilePhotosResponse = z.infer<typeof ownerProfilePhotosRespon
 export type OwnerProfilePhotoMutationResponse = z.infer<typeof ownerProfilePhotoMutationResponseSchema>;
 export type PublicProfilePhoto = z.infer<typeof publicProfilePhotoSchema>;
 export type PublicProfile = z.infer<typeof publicProfileSchema>;
+export type RoomPublicProfile = z.infer<typeof roomPublicProfileSchema>;
 export type PublicProfileStats = z.infer<typeof publicProfileStatsSchema>;
 export type PublicProfileRelationship = z.infer<typeof publicProfileRelationshipSchema>;
 export type PublicProfileResponse = z.infer<typeof publicProfileResponseSchema>;
+export type RoomPublicProfileResponse = z.infer<typeof roomPublicProfileResponseSchema>;
 export type OnboardingCompleteProfile = z.infer<typeof onboardingCompleteProfileSchema>;
 export type OnboardingCompleteResponse = z.infer<typeof onboardingCompleteResponseSchema>;
 export type Friend = z.infer<typeof friendSchema>;
@@ -1699,7 +1849,6 @@ export type DmThreadCreateResponse = z.infer<typeof dmThreadCreateResponseSchema
 export type Message = z.infer<typeof messageSchema>;
 export type NearbyUserDto = z.infer<typeof nearbyUserSchema>;
 export type NearbyResponseDto = z.infer<typeof nearbyResponseSchema>;
-export type LocationUpdateResponse = z.infer<typeof locationUpdateResponseSchema>;
 export type SearchUserDto = SearchUserResult;
 export type ModerationReportStatus = z.infer<typeof moderationReportStatusSchema>;
 export type ModerationReportAction = z.infer<typeof moderationReportActionSchema>;
@@ -1708,8 +1857,18 @@ export type ModerationReportMutationResponse = z.infer<typeof moderationReportMu
 export type ModerationReportsResponse = z.infer<typeof moderationReportsResponseSchema>;
 export type ModerationPhoto = z.infer<typeof moderationPhotoSchema>;
 export type Bootstrap = z.infer<typeof bootstrapSchema>;
+export type RoomBootstrap = z.infer<typeof roomBootstrapSchema>;
 export type AuthProfileEnsureResponse = z.infer<typeof authProfileEnsureResponseSchema>;
 export type PageInfo = z.infer<typeof pageInfoSchema>;
+export type RoomQrPayload = z.infer<typeof roomQrPayloadSchema>;
+export type RoomJoinRequest = z.infer<typeof roomJoinRequestSchema>;
+export type RoomSummary = z.infer<typeof roomSummarySchema>;
+export type RoomsResponse = z.infer<typeof roomsResponseSchema>;
+export type RoomCreateResponse = z.infer<typeof roomCreateResponseSchema>;
+export type RoomJoinResponse = z.infer<typeof roomJoinResponseSchema>;
+export type RoomMessage = z.infer<typeof roomMessageSchema>;
+export type RoomMessageMutationResponse = z.infer<typeof roomMessageMutationResponseSchema>;
+export type RoomMessagesResponse = z.infer<typeof roomMessagesResponseSchema>;
 export type MessagesResponse = z.infer<typeof messagesResponseSchema>;
 export type ReadReceiptResponse = z.infer<typeof readReceiptResponseSchema>;
 export type MessageMutationResponse = z.infer<typeof messageMutationResponseSchema>;

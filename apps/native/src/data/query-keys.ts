@@ -2,6 +2,7 @@ export const nativeQueryKeys = {
   bootstrap: ["bootstrap"] as const,
   profile: {
     current: ["profile", "current"] as const,
+    roomCurrent: ["profile", "current", "rooms"] as const,
     public: (userId: string) => ["profile", "public", userId] as const,
     photos: ["profile", "photos"] as const,
     interests: ["profile", "interests"] as const,
@@ -16,16 +17,16 @@ export const nativeQueryKeys = {
   inbox: {
     threads: ["inbox", "threads"] as const,
   },
+  rooms: {
+    list: ["rooms"] as const,
+    messages: (roomId: string) => ["rooms", roomId, "messages"] as const,
+  },
   chat: {
     all: ["chat"] as const,
     messages: (threadId: string) => ["chat", threadId, "messages"] as const,
   },
   discovery: {
     userSearch: ["discovery", "search", "users"] as const,
-    nearby: (viewerId: string, lat: number, lng: number) =>
-      ["discovery", "nearby", viewerId, lat.toFixed(4), lng.toFixed(4)] as const,
-    bots: (viewerId: string, lat: number, lng: number) =>
-      ["discovery", "bots", viewerId, lat.toFixed(4), lng.toFixed(4)] as const,
   },
   coins: ["coins"] as const,
   entitlements: ["billing", "entitlements"] as const,

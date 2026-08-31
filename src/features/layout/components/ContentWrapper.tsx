@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 export function ContentWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isChat = pathname.startsWith("/chat");
-  const isMap = pathname === "/";
+  const isRoom = pathname.startsWith("/room/");
   return (
-    <div className={cn("flex-1 min-w-0 overflow-y-auto flex flex-col relative z-[1]", isChat && "overflow-hidden", isMap && "pointer-events-none")}>
+    <div className={cn("flex-1 min-w-0 overflow-y-auto flex flex-col relative z-[1]", (isChat || isRoom) && "overflow-hidden")}>
       {children}
     </div>
   );

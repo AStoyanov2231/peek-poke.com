@@ -3,7 +3,6 @@ import { AppState } from "react-native";
 import { refreshEntitlements } from "@/lib/billing";
 import { nativeQueryClient } from "@/data/query-client";
 import { isNativeUserSyncQueryKey } from "@/data/query-keys";
-import { expireDeviceLocationIfNeeded } from "@/lib/location";
 
 const FOREGROUND_REFRESH_MIN_INTERVAL_MS = 30_000;
 
@@ -21,7 +20,6 @@ export function useForegroundRefresh(enabled: boolean) {
       previousState = nextState;
       if (!returnedToForeground) return;
       const now = Date.now();
-      expireDeviceLocationIfNeeded(now);
       if (refreshInFlight.current) return;
       if (now - lastRefreshAt.current < FOREGROUND_REFRESH_MIN_INTERVAL_MS) return;
       lastRefreshAt.current = now;

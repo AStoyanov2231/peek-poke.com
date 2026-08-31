@@ -19,6 +19,8 @@ import {
   type ProfileView,
   type ThreadSummary,
   type SearchUserDto,
+  type RoomMessage,
+  type RoomSummary,
 } from "@peekpoke/shared";
 import { apiError } from "@/lib/api-error";
 
@@ -109,6 +111,40 @@ export function mapThreadSummary(value: unknown): ThreadSummary {
     unread_count: Math.max(0, Math.trunc(unread)),
     ...(row.participant_1 ? { participant_1: mapProfileCard(row.participant_1) } : {}),
     ...(row.participant_2 ? { participant_2: mapProfileCard(row.participant_2) } : {}),
+  };
+}
+
+export function mapRoomSummary(value: unknown): RoomSummary {
+  const row = record(value);
+  return {
+    id: stringValue(row.id ?? row.room_id),
+    name: stringValue(row.name, "Group room"),
+    created_at: utc(row.created_at) ?? new Date(0).toISOString(),
+    last_message_at: utc(row.last_message_at),
+    last_message_preview: nullableString(row.last_message_preview),
+    member_count: Math.max(1, Math.trunc(numberValue(row.member_count, 1))),
+    unread_count: Math.max(0, Math.trunc(numberValue(row.unread_count))),
+  };
+}
+
+export function mapRoomMessage(value: unknown): RoomMessage {
+  const row = record(value);
+  const sender = row.sender && typeof row.sender === "object"
+    ? (() => {
+        const senderRow = record(row.sender);
+        return {
+          id: stringValue(senderRow.id ?? senderRow.user_id),
+          username: stringValue(senderRow.username, "unknown"),
+          display_name: nullableString(senderRow.display_name),
+          avatar_url: nullableString(senderRow.avatar_url),
+        };
+      })()
+    : row.sender;
+  const message = mapMessage({ ...row, thread_id: row.room_id });
+  return {
+    ...message,
+    room_id: stringValue(row.room_id),
+    ...(sender ? { sender: sender as RoomMessage["sender"] } : {}),
   };
 }
 

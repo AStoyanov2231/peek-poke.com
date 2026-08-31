@@ -35,8 +35,8 @@ type SettingsView = "main" | "help" | "terms" | "delete";
 
 const faqs = [
   {
-    q: "How do I find people nearby?",
-    a: "Open the map on the home screen. Pins show users who are currently sharing their location near you.",
+    q: "How do I join a room?",
+    a: "Scan a room QR code from the Rooms tab, or create a room and share its code with your group.",
   },
   {
     q: "How do I send a friend request?",
@@ -144,7 +144,7 @@ export function SettingsSheet({
                   title="Terms of Service"
                 />
                 <LegalCard
-                  body="We collect only the data needed to provide the Peek & Poke service. Your location is only shared when you choose to enable it. We never sell your data."
+                  body="We collect only the data needed to provide the Peek & Poke service. We never sell your data."
                   title="Privacy Policy"
                 />
               </>

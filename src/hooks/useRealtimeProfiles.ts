@@ -19,6 +19,7 @@ export function useRealtimeProfiles({ isPreloading }: { isPreloading: boolean })
       if (!force && now - lastRefresh.current < PROFILE_REFRESH_THROTTLE_MS) return;
       lastRefresh.current = now;
       void queryClient.invalidateQueries({ queryKey: webQueryKeys.profile });
+      void queryClient.invalidateQueries({ queryKey: webQueryKeys.roomProfile });
     };
     const handleFocus = () => refresh();
     const handleVisibilityChange = () => {

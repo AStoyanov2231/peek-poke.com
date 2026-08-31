@@ -46,6 +46,7 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
     return apiError("Profile not found", 404, "USER_NOT_FOUND");
   }
 
+  const roomSurface = new URL(request.url).searchParams.get("surface") === "rooms";
   const { data: rawPhotoRows, error: photoError } = await serviceClient
     .from("profile_photos")
     .select(PROFILE_PHOTO_COLUMNS as any)
@@ -112,20 +113,35 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
   const safeProfile = mapPublicProfile(rawProfile);
   safeProfile.avatar_url = approvedAvatar?.url ?? null;
   safeProfile.cover_image_url = approvedCover?.url ?? null;
+  const profileForResponse = roomSurface
+    ? {
+        id: safeProfile.id,
+        username: safeProfile.username,
+        display_name: safeProfile.display_name,
+        bio: safeProfile.bio,
+        avatar_url: safeProfile.avatar_url,
+        cover_image_url: safeProfile.cover_image_url,
+        created_at: safeProfile.created_at,
+        is_premium: safeProfile.is_premium,
+      }
+    : safeProfile;
   const payload = publicProfileResponseSchemaFor(
     user.id,
     userId,
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    roomSurface,
   ).safeParse({
-    profile: safeProfile,
+    profile: profileForResponse,
     photos: photoPage.data.items,
     featured_media: { avatar: approvedAvatar, cover: approvedCover },
     interests,
     stats: {
       photos_count: photos.length,
-      friends_count: rawStats.friends_count,
+      friends_count: roomSurface ? 0 : rawStats.friends_count,
     },
-    friendship: data?.friendship ? mapPublicProfileRelationship(data.friendship) : null,
+    friendship: roomSurface
+      ? null
+      : data?.friendship ? mapPublicProfileRelationship(data.friendship) : null,
     pagination: photoPage.data.page,
   });
   if (!payload.success) {
