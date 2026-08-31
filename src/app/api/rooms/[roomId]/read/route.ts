@@ -4,6 +4,7 @@ import { withAuth, verifyRoomMembership } from "@/lib/auth";
 import { apiError } from "@/lib/api-error";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isValidUUID } from "@/lib/validation";
+import { notifyRoomMessagesChanged } from "@/lib/realtime-broadcast";
 import { z } from "zod";
 
 const roomReadResponseSchema = z.strictObject({
@@ -34,7 +35,12 @@ export const POST = withAuth<{ roomId: string }>(async (_request, { user, params
     return apiError("Room read state unavailable", 503, "ROOM_READ_UNAVAILABLE");
   }
   const response = readReceiptResponseSchema.safeParse(parsed.data);
-  return response.success
-    ? NextResponse.json(response.data)
-    : apiError("Room read state unavailable", 503, "ROOM_READ_UNAVAILABLE");
+  if (!response.success) return apiError("Room read state unavailable", 503, "ROOM_READ_UNAVAILABLE");
+  await notifyRoomMessagesChanged(
+    roomId,
+    "read",
+    user.id,
+    response.data.last_read_sequence > 0 ? response.data.last_read_sequence : undefined,
+  );
+  return NextResponse.json(response.data);
 });

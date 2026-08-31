@@ -122,10 +122,17 @@ export const GET = withAuth<{ roomId: string }>(async (request, { user, supabase
       if (roomReadDeniedResponseSchema.safeParse(readResult).success) {
         return apiError("Room not found", 404, "ROOM_NOT_FOUND");
       }
-      if (!readReceiptResponseSchema.safeParse(readResult).success) {
+      const parsedReadReceipt = readReceiptResponseSchema.safeParse(readResult);
+      if (!parsedReadReceipt.success) {
         console.error("rooms/messages: malformed read receipt response");
         return roomFailure();
       }
+      await notifyRoomMessagesChanged(
+        roomId,
+        "read",
+        user.id,
+        parsedReadReceipt.data.last_read_sequence > 0 ? parsedReadReceipt.data.last_read_sequence : undefined,
+      );
     }
     const loaded = await loadRoomSummary(roomId, supabase);
     if (loaded.error || !loaded.summary) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
