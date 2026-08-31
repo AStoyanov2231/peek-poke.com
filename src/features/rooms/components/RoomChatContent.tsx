@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createChatMessageAttemptCoordinator, mergeNewestFirstMessagePages, roomMessageHintSchema, type RoomMessagesResponse } from "@peekpoke/shared";
 import { createClient } from "@/lib/supabase/client";
 import { roomMessagesQueryOptions, sendRoomMessage } from "@/data/rooms";
-import { webQueryKeys } from "@/data/web-query";
-import { useAuth } from "@/features/auth/useAuth";
+import { bootstrapQueryOptions, webQueryKeys } from "@/data/web-query";
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { RoomHeader } from "@/features/rooms/components/RoomHeader";
@@ -19,7 +18,7 @@ const EMPTY_MESSAGES: DMMessage[] = [];
 
 export function RoomChatContent({ roomId }: { roomId: string }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const userId = useQuery(bootstrapQueryOptions).data?.identity.id ?? "";
   const queryClient = useQueryClient();
   const query = useInfiniteQuery(roomMessagesQueryOptions(roomId));
   const [input, setInput] = useState("");
@@ -114,7 +113,7 @@ export function RoomChatContent({ roomId }: { roomId: string }) {
       <RoomHeader room={room} onBack={() => router.push("/")} />
       <ChatMessageList
         messages={messages}
-        userId={user?.id ?? ""}
+        userId={userId}
         onDelete={() => undefined}
         onEdit={() => undefined}
         onReply={() => undefined}
