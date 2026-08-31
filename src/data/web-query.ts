@@ -39,6 +39,7 @@ import type {
   FriendshipWithRequester,
   Thread,
 } from "@/stores/appStore";
+import type { Profile } from "@/types/database";
 import { fetchContract, fetchJson } from "@/lib/typed-api";
 
 export { ApiTransportError as WebQueryError } from "@peekpoke/shared";
@@ -84,7 +85,7 @@ export type FriendsQueryData = {
   sentRequestUserIds: string[];
 };
 
-function profileFromCard(profile: ProfileCard): CurrentProfile {
+function profileFromCard(profile: ProfileCard): Profile {
   return {
     ...profile,
     bio: null,

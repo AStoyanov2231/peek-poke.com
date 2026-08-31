@@ -1533,7 +1533,7 @@ export function ownerProfilePhotoMutationResponseSchemaFor(
   });
 }
 
-export const publicProfileResponseSchema = z.strictObject({
+const publicProfileResponseShape = {
   profile: publicProfileSchema,
   photos: z.array(publicProfilePhotoSchema).max(MAX_PAGE_SIZE),
   featured_media: z.strictObject({
@@ -1544,7 +1544,18 @@ export const publicProfileResponseSchema = z.strictObject({
   stats: publicProfileStatsSchema,
   friendship: publicProfileRelationshipSchema.nullable(),
   pagination: pageInfoSchema,
-}).superRefine((response, context) => {
+};
+
+function validatePublicProfileResponseMedia(
+  response: {
+    profile: { avatar_url: string | null; cover_image_url: string | null };
+    featured_media: {
+      avatar: { url: string | null; is_avatar: boolean; is_cover: boolean; is_private: boolean; access: string } | null;
+      cover: { url: string | null; is_avatar: boolean; is_cover: boolean; is_private: boolean; access: string } | null;
+    };
+  },
+  context: z.RefinementCtx,
+) {
   const avatar = response.featured_media.avatar;
   const cover = response.featured_media.cover;
   if (
@@ -1567,7 +1578,11 @@ export const publicProfileResponseSchema = z.strictObject({
       message: "Cover must match one target-owned approved cover photo",
     });
   }
-});
+}
+
+export const publicProfileResponseSchema = z.strictObject(publicProfileResponseShape).superRefine(
+  validatePublicProfileResponseMedia,
+);
 
 export const roomPublicProfileSchema = publicProfileBaseSchema.omit({
   location_text: true,
@@ -1575,9 +1590,10 @@ export const roomPublicProfileSchema = publicProfileBaseSchema.omit({
   last_seen_at: true,
 }).superRefine(validatePublicProfileMedia);
 
-export const roomPublicProfileResponseSchema = publicProfileResponseSchema.safeExtend({
+export const roomPublicProfileResponseSchema = z.strictObject({
+  ...publicProfileResponseShape,
   profile: roomPublicProfileSchema,
-});
+}).superRefine(validatePublicProfileResponseMedia);
 
 export function publicProfileResponseSchemaForTarget(
   targetId: string,

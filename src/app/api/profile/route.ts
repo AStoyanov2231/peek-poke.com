@@ -16,8 +16,11 @@ const ROOM_PROFILE_COLUMNS = "id, username, display_name, bio, avatar_url, cover
 
 export const GET = withAuth(async (request, { user, supabase }) => {
   const roomSurface = request.nextUrl.searchParams.get("surface") === "rooms";
+  const profileQuery = roomSurface
+    ? supabase.from("profiles").select(ROOM_PROFILE_COLUMNS).eq("id", user.id).single()
+    : supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).single();
   const [profileResult, rolesResult] = await Promise.all([
-    supabase.from("profiles").select(roomSurface ? ROOM_PROFILE_COLUMNS : PROFILE_COLUMNS).eq("id", user.id).single(),
+    profileQuery,
     createServiceClient().rpc("get_user_roles", { p_user_id: user.id }),
   ]);
 
