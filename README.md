@@ -12,6 +12,15 @@ Peek & Poke is a Next.js web/server app with a separate Expo React Native app th
 - `supabase/`: Supabase assets and migrations.
 - `test/`, `e2e/`: Vitest and Playwright tests.
 
+## Current user flow
+
+The authenticated home screen is the Rooms screen on web, iOS, and Android.
+Create a room QR code to share with a group, or scan or paste a room QR payload
+to join a shared text conversation.
+
+The former map, inbox, friends, messages, and direct-chat entry points remain
+only as compatibility aliases where supported and redirect to Rooms.
+
 ## Setup
 
 ```bash
@@ -52,4 +61,6 @@ EXPO_PUBLIC_MAPBOX_TOKEN=...
 
 ## Services
 
-Required services include Supabase, Stripe, Google Places, Mapbox, and Expo push notifications. Keep service-role keys, webhook secrets, and signing assets out of commits.
+Required services include Supabase, Stripe, Mapbox for admin coin management,
+and Expo push notifications.
+Keep service-role keys, webhook secrets, and signing assets out of commits.
