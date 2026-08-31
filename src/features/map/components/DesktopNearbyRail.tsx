@@ -11,10 +11,7 @@ import { avatarColor } from "@/lib/avatar-color";
 import { SearchAutocomplete } from "@/features/search/components/SearchAutocomplete";
 import { AddFriendButton } from "@/components/ui/AddFriendButton";
 import type { NearbyUser } from "@/types/database";
-
-type Filter = "all" | "friends" | "online";
-
-const FILTER_LABELS: Record<Filter, string> = { all: "All", friends: "Friends", online: "Online" };
+import { filterNearbyUsers, mapFilterOptions, type MapFilter } from "@/features/map/filters";
 
 interface NearbyRailRowProps {
   user: NearbyUser;
@@ -74,7 +71,7 @@ const NearbyRailRow = memo(function NearbyRailRow({ user, isOnline, isSelected, 
 });
 
 export function DesktopNearbyRail() {
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<MapFilter>("all");
   const [query, setQuery] = useState("");
   const [cursorPos, setCursorPos] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -89,20 +86,10 @@ export function DesktopNearbyRail() {
   const nearbyIds = useMemo(() => nearbyUsers.map((u) => u.userId), [nearbyUsers]);
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
 
-  const filtered = useMemo(() => {
-    let users = nearbyUsers;
-    if (filter === "friends") users = users.filter((u) => friendIds.has(u.userId));
-    if (filter === "online") users = users.filter((user) => user.is_online === true);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      users = users.filter(
-        (u) =>
-          (u.display_name ?? "").toLowerCase().includes(q) ||
-          (u.username ?? "").toLowerCase().includes(q)
-      );
-    }
-    return users;
-  }, [nearbyUsers, filter, query, friendIds]);
+  const filtered = useMemo(
+    () => filterNearbyUsers(nearbyUsers, filter, friendIds, query),
+    [nearbyUsers, filter, query, friendIds],
+  );
 
   const handleReplaceActiveTag = useCallback(({ name }: { name: string }) => {
     const beforeCursor = query.slice(0, cursorPos);
@@ -160,13 +147,13 @@ export function DesktopNearbyRail() {
 
         {/* Filter chips */}
         <div className="flex gap-1.5 mt-3">
-          {(["all", "friends", "online"] as const).map((f) => (
+          {mapFilterOptions.map(({ value: f, label }) => (
             <button type="button"
               key={f}
               onClick={() => setFilter(f)}
               className={filter === f ? "chip chip-active" : "chip"}
             >
-              {FILTER_LABELS[f]}
+              {label}
             </button>
           ))}
         </div>

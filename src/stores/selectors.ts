@@ -98,7 +98,7 @@ export const useNearbyUsers = () => {
   const location = useUserLocation();
   const viewerId = useQuery(bootstrapQueryOptions).data?.identity.id;
   const locationFresh = useLocationFreshness(viewerId);
-  const data = useQuery({ ...nearbyQueryOptions(location, viewerId), enabled: false }).data;
+  const data = useQuery({ ...nearbyQueryOptions(location, viewerId), enabled: locationFresh }).data;
   return locationFresh ? (data ?? EMPTY_NEARBY) : EMPTY_NEARBY;
 };
 export const useVisibleUsers = () => {

@@ -7,7 +7,6 @@ import {
 import { useDiscoveryActivity } from "@/data/discovery/lifecycle";
 import { meetingCandidateIds, shouldDetectMeetings } from "@/data/discovery/meeting";
 import { locationIsFreshForDiscovery } from "@/data/discovery/location-sync";
-import { shouldRunDiscovery } from "@/data/discovery/policy";
 import { nearbyQueryOptions } from "@/data/discovery/queries";
 import {
   fetchCoins,
@@ -47,10 +46,10 @@ export function useMeetingDetection() {
   const deviceLocation = useDeviceLocation();
   const { coords: location } = deviceLocation;
   const locationFresh = locationIsFreshForDiscovery(deviceLocation, profileId);
-  const active = shouldRunDiscovery(activity.focused, activity.appState, !!profileId);
+  const active = activity.appState === "active" && !!profileId;
   const nearbyQuery = useQuery({
     ...nearbyQueryOptions(location ?? { lat: 0, lng: 0 }, profileId ?? ""),
-    enabled: false,
+    enabled: active && locationFresh,
   });
   const nearbyUsers = locationFresh
     ? (nearbyQuery.data ?? EMPTY_NEARBY_USERS)

@@ -1,35 +1,37 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Filter } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/appStore";
-import { useNearbyUsers } from "@/stores/selectors";
+import { useFriends, useNearbyUsers } from "@/stores/selectors";
 import { SearchAutocomplete } from "@/features/search/components/SearchAutocomplete";
+import { filterNearbyUsers, mapFilterOptions, type MapFilter } from "@/features/map/filters";
 
 export function MapSearchBar() {
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<MapFilter>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
   const [cursorPos, setCursorPos] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const nearbyUsers = useNearbyUsers();
+  const friends = useFriends();
   const setVisibleUsers = useAppStore((s) => s.setVisibleUsers);
   const router = useRouter();
 
   const nearbyIds = nearbyUsers.map((u) => u.userId);
+  const friendIds = useMemo(() => new Set(friends.map((friend) => friend.id)), [friends]);
+  const filteredUsers = useMemo(
+    () => filterNearbyUsers(nearbyUsers, filter, friendIds, query),
+    [filter, friendIds, nearbyUsers, query],
+  );
+
+  useEffect(() => {
+    setVisibleUsers(filteredUsers);
+  }, [filteredUsers, setVisibleUsers]);
 
   const handleSearch = (value: string) => {
     setQuery(value);
-    if (!value.trim()) {
-      setVisibleUsers(nearbyUsers);
-      return;
-    }
-    const q = value.toLowerCase();
-    const filtered = nearbyUsers.filter(
-      (u) =>
-        (u.display_name ?? "").toLowerCase().includes(q) ||
-        (u.username ?? "").toLowerCase().includes(q)
-    );
-    setVisibleUsers(filtered);
   };
 
   const handleReplaceActiveTag = ({ name }: { name: string }) => {
@@ -95,10 +97,37 @@ export function MapSearchBar() {
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
         }}
+        aria-expanded={filterOpen}
+        aria-haspopup="menu"
         aria-label="Filter"
+        onClick={() => setFilterOpen((open) => !open)}
       >
         <Filter size={18} strokeWidth={2} />
       </button>
+      {filterOpen && (
+        <div
+          role="menu"
+          aria-label="Filter nearby people"
+          className="absolute right-0 top-full mt-1 flex min-w-36 flex-col rounded-md p-1 shadow-e-2"
+          style={{ background: "rgba(255,255,255,0.96)", backdropFilter: "blur(8px)" }}
+        >
+          {mapFilterOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={filter === option.value}
+              className="min-h-11 rounded px-3 text-left text-sm text-ink-8"
+              onClick={() => {
+                setFilter(option.value);
+                setFilterOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
