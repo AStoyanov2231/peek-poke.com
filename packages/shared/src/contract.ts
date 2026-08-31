@@ -554,7 +554,7 @@ export const publicProfilePhotoSchema = z.strictObject({
   }
 });
 
-export const publicProfileSchema = z.strictObject({
+const publicProfileBaseSchema = z.strictObject({
   id: z.uuid(),
   username: z.string().min(1).max(64),
   display_name: displayNameSchema.nullable(),
@@ -566,7 +566,12 @@ export const publicProfileSchema = z.strictObject({
   last_seen_at: utcTimestampSchema.nullable(),
   created_at: utcTimestampSchema,
   is_premium: z.boolean(),
-}).superRefine((profile, context) => {
+});
+
+function validatePublicProfileMedia(
+  profile: { avatar_url: string | null; cover_image_url: string | null },
+  context: z.RefinementCtx,
+) {
   for (const field of ["avatar_url", "cover_image_url"] as const) {
     const value = profile[field];
     if (value !== null && isPrivateProfilePhotoMediaUrl(value)) {
@@ -577,7 +582,9 @@ export const publicProfileSchema = z.strictObject({
       });
     }
   }
-});
+}
+
+export const publicProfileSchema = publicProfileBaseSchema.superRefine(validatePublicProfileMedia);
 
 export const publicProfileStatsSchema = z.strictObject({
   photos_count: z.number().int().nonnegative(),
@@ -1562,11 +1569,11 @@ export const publicProfileResponseSchema = z.strictObject({
   }
 });
 
-export const roomPublicProfileSchema = publicProfileSchema.omit({
+export const roomPublicProfileSchema = publicProfileBaseSchema.omit({
   location_text: true,
   is_online: true,
   last_seen_at: true,
-});
+}).superRefine(validatePublicProfileMedia);
 
 export const roomPublicProfileResponseSchema = publicProfileResponseSchema.safeExtend({
   profile: roomPublicProfileSchema,
