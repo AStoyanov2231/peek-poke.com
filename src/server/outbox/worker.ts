@@ -42,12 +42,38 @@ type WorkerResult = {
   queue_age_seconds: number;
 };
 
+const ACCOUNT_ERASURE_ROOM_PAGE_SIZE = 500;
+
 function stringField(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Outbox payload is missing ${key}`);
   }
   return value;
+}
+
+async function loadErasedRoomIds(
+  supabase: SupabaseClient,
+  userId: string,
+) {
+  const roomIds = new Set<string>();
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("chat_room_messages")
+      .select("room_id")
+      .eq("sender_id", userId)
+      .order("room_id", { ascending: true })
+      .range(offset, offset + ACCOUNT_ERASURE_ROOM_PAGE_SIZE - 1);
+    if (error) throw error;
+
+    for (const message of data ?? []) roomIds.add(message.room_id);
+    if ((data ?? []).length < ACCOUNT_ERASURE_ROOM_PAGE_SIZE) break;
+    offset += ACCOUNT_ERASURE_ROOM_PAGE_SIZE;
+  }
+
+  return [...roomIds];
 }
 
 async function handleMessageEvent(
@@ -359,12 +385,7 @@ async function handleAccountCleanup(
     .eq("id", jobId);
   if (processingError) throw processingError;
 
-  const { data: erasedRoomMessages, error: roomMessageError } = await supabase
-    .from("chat_room_messages")
-    .select("room_id")
-    .eq("sender_id", userId);
-  if (roomMessageError) throw roomMessageError;
-  const roomIds = [...new Set((erasedRoomMessages ?? []).map((message) => message.room_id))];
+  const roomIds = await loadErasedRoomIds(supabase, userId);
   const roomInvalidations = await Promise.all(
     roomIds.map(async (roomId) => {
       const [messagesDelivered, unreadDelivered] = await Promise.all([

@@ -81,11 +81,16 @@ function configure(storageObjects: unknown) {
       return chain;
     }
     if (table === "chat_room_messages") {
-      return {
-        select: () => ({
-          eq: async () => ({ data: [], error: null }),
-        }),
+      const chain = {
+        select: vi.fn(),
+        eq: vi.fn(),
+        order: vi.fn(),
+        range: vi.fn(async () => ({ data: [], error: null })),
       };
+      chain.select.mockReturnValue(chain);
+      chain.eq.mockReturnValue(chain);
+      chain.order.mockReturnValue(chain);
+      return chain;
     }
     throw new Error(`Unexpected table: ${table}`);
   });
