@@ -1394,6 +1394,12 @@ export const roomJoinResponseSchema = z.strictObject({
 
 export const roomMessageSchema = messageSchema.extend({
   room_id: z.uuid(),
+  sender: z.strictObject({
+    id: z.uuid(),
+    username: z.string().min(1).max(64),
+    display_name: displayNameSchema.nullable(),
+    avatar_url: z.string().nullable(),
+  }).optional(),
 }).superRefine((message, context) => {
   if (message.thread_id !== message.room_id) {
     context.addIssue({

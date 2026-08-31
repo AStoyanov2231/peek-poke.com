@@ -50,7 +50,7 @@ const ROOM_MESSAGE_COLUMNS = [
   "is_deleted",
   "created_at",
   "reply_to_id",
-  "sender:profiles!sender_id(id, username, display_name, avatar_url, is_online, last_seen_at)",
+  "sender:profiles!sender_id(id, username, display_name, avatar_url)",
 ].join(", ");
 
 function roomFailure() {

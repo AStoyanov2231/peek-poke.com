@@ -339,7 +339,12 @@ begin
   end if;
 
   select to_jsonb(message.*) || jsonb_build_object(
-    'sender', to_jsonb(sender.*),
+    'sender', pg_catalog.jsonb_build_object(
+      'id', sender.id,
+      'username', sender.username,
+      'display_name', sender.display_name,
+      'avatar_url', sender.avatar_url
+    ),
     'reply_to', case when message.reply_to_id is not null then (
       select jsonb_build_object('id', reply.id, 'sender_id', reply.sender_id, 'content', reply.content)
       from public.chat_room_messages reply where reply.id = message.reply_to_id
@@ -524,14 +529,11 @@ begin
   select pg_catalog.count(*)::integer
   into v_count
   from public.chat_room_members member
-  where member.user_id = v_user_id
-    and exists (
-      select 1
-      from public.chat_room_messages unread
-      where unread.room_id = member.room_id
-        and unread.is_deleted = false
-        and unread.sequence > member.last_read_sequence
-    );
+  join public.chat_room_messages unread
+    on unread.room_id = member.room_id
+   and unread.is_deleted = false
+   and unread.sequence > member.last_read_sequence
+  where member.user_id = v_user_id;
   return v_count;
 end;
 $$;

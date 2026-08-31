@@ -45,9 +45,6 @@ const message = {
     username: "member",
     display_name: null,
     avatar_url: null,
-    location_text: null,
-    is_online: true,
-    last_seen_at: timestamp,
   },
 };
 
@@ -76,5 +73,9 @@ describe("QR room contracts", () => {
       pagination: { version: "v1", next_cursor: null, has_more: false, limit: 20 },
     }).messages).toHaveLength(1);
     expect(roomMessageSchema.safeParse({ ...message, thread_id: "55555555-5555-4555-8555-555555555555" }).success).toBe(false);
+    expect(roomMessageSchema.safeParse({
+      ...message,
+      sender: { ...message.sender, is_online: true },
+    }).success).toBe(false);
   });
 });

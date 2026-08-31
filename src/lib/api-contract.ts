@@ -130,7 +130,15 @@ export function mapRoomSummary(value: unknown): RoomSummary {
 export function mapRoomMessage(value: unknown): RoomMessage {
   const row = record(value);
   const sender = row.sender && typeof row.sender === "object"
-    ? { ...(row.sender as Record<string, unknown>), location_text: null }
+    ? (() => {
+        const senderRow = record(row.sender);
+        return {
+          id: stringValue(senderRow.id ?? senderRow.user_id),
+          username: stringValue(senderRow.username, "unknown"),
+          display_name: nullableString(senderRow.display_name),
+          avatar_url: nullableString(senderRow.avatar_url),
+        };
+      })()
     : row.sender;
   const message = mapMessage({ ...row, thread_id: row.room_id, sender });
   return { ...message, room_id: stringValue(row.room_id) };
