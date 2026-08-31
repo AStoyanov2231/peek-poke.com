@@ -141,7 +141,8 @@ export const GET = withAuth<{ roomId: string }>(async (request, { user, supabase
       }
     }
     const loaded = await loadRoomSummary(roomId, supabase);
-    if (loaded.error || !loaded.summary) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
+    if (loaded.error) return roomFailure();
+    if (!loaded.summary) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
     return NextResponse.json({
       room: loaded.summary,
       messages: parsedMessages.data,

@@ -47,6 +47,8 @@ create index if not exists chat_room_members_user_idx
   on public.chat_room_members (user_id, updated_at desc, room_id);
 create index if not exists chat_room_messages_room_created_idx
   on public.chat_room_messages (room_id, created_at desc, id desc);
+create index if not exists chat_room_messages_sender_room_idx
+  on public.chat_room_messages (sender_id, room_id);
 
 alter table public.chat_rooms enable row level security;
 alter table public.chat_room_members enable row level security;
