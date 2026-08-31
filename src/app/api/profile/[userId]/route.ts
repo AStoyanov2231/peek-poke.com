@@ -46,7 +46,7 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
     return apiError("Profile not found", 404, "USER_NOT_FOUND");
   }
 
-  const roomSurface = request.nextUrl.searchParams.get("surface") === "rooms";
+  const roomSurface = new URL(request.url).searchParams.get("surface") === "rooms";
   const { data: rawPhotoRows, error: photoError } = await serviceClient
     .from("profile_photos")
     .select(PROFILE_PHOTO_COLUMNS as any)
