@@ -554,6 +554,8 @@ declare
   v_profile_deleted_at timestamptz;
   v_sequence bigint;
   v_last_read_sequence bigint;
+  v_previous_last_read_sequence bigint;
+  v_advanced boolean;
   v_count integer;
 begin
   select profile.deleted_at
@@ -565,7 +567,8 @@ begin
     return jsonb_build_object('error', 'ROOM_NOT_FOUND');
   end if;
 
-  select room.next_message_sequence into v_sequence
+  select room.next_message_sequence, member.last_read_sequence
+  into v_sequence, v_previous_last_read_sequence
   from public.chat_rooms room
   join public.chat_room_members member on member.room_id = room.id
   where room.id = p_room_id and member.user_id = p_user_id
@@ -583,12 +586,17 @@ begin
       v_sequence
     )
   );
+  v_advanced := v_sequence > pg_catalog.coalesce(v_previous_last_read_sequence, 0);
   update public.chat_room_members
   set last_read_sequence = greatest(last_read_sequence, coalesce(v_sequence, 0)), updated_at = now()
   where room_id = p_room_id and user_id = p_user_id
   returning last_read_sequence into v_last_read_sequence;
   get diagnostics v_count = row_count;
-  return jsonb_build_object('success', v_count = 1, 'last_read_sequence', coalesce(v_last_read_sequence, 0));
+  return jsonb_build_object(
+    'success', v_count = 1,
+    'last_read_sequence', coalesce(v_last_read_sequence, 0),
+    'advanced', coalesce(v_advanced, false)
+  );
 end;
 $$;
 

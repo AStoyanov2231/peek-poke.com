@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { roomMessageHintSchema } from "@peekpoke/shared";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { roomMessageHintSchema, roomUnreadHintSchema } from "@peekpoke/shared";
 import { useIsPreloading } from "@/stores/selectors";
 import { useRealtimeProfiles } from "@/hooks/useRealtimeProfiles";
 import { roomsQueryOptions } from "@/data/rooms";
-import { webQueryKeys } from "@/data/web-query";
+import { bootstrapQueryOptions, webQueryKeys } from "@/data/web-query";
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
@@ -22,7 +22,9 @@ const supabase = createClient();
 export function useRealtimeSync() {
   const isPreloading = useIsPreloading();
   const queryClient = useQueryClient();
+  const bootstrap = useQuery(bootstrapQueryOptions);
   const roomsQuery = useInfiniteQuery(roomsQueryOptions);
+  const userId = bootstrap.data?.identity.id;
   const roomIds = useMemo(
     () => (roomsQuery.data?.pages.flatMap((page) => page.rooms) ?? []).map((room) => room.id).sort(),
     [roomsQuery.data?.pages],
@@ -31,7 +33,17 @@ export function useRealtimeSync() {
   useRealtimeProfiles({ isPreloading });
 
   useEffect(() => {
-    if (isPreloading || roomIds.length === 0) return;
+    if (isPreloading || !userId) return;
+
+    const userChannel = supabase
+      .channel(`sync:user:${userId}`, { config: { private: true } })
+      .on("broadcast", { event: "rooms-unread-changed" }, (event) => {
+        const parsed = roomUnreadHintSchema.safeParse(event.payload);
+        if (!parsed.success) return;
+        void queryClient.invalidateQueries({ queryKey: webQueryKeys.bootstrap });
+        void queryClient.invalidateQueries({ queryKey: webQueryKeys.rooms });
+      })
+      .subscribe();
 
     const channels = roomIds.map((roomId) => supabase
       .channel(`room:${roomId}`, { config: { private: true } })
@@ -45,10 +57,12 @@ export function useRealtimeSync() {
       .subscribe());
 
     return () => {
+      void userChannel.unsubscribe();
+      void supabase.removeChannel(userChannel);
       channels.forEach((channel) => {
         void channel.unsubscribe();
         void supabase.removeChannel(channel);
       });
     };
-  }, [isPreloading, queryClient, roomIds]);
+  }, [isPreloading, queryClient, roomIds, userId]);
 }

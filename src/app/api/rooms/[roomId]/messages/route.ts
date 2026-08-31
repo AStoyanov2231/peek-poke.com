@@ -3,7 +3,7 @@ import {
   API_VERSION,
   decodeCursor,
   messageCreateSchema,
-  readReceiptResponseSchema,
+  roomReadReceiptResponseSchema,
   roomMessageMutationResponseSchema,
   roomMessageSchema,
 } from "@peekpoke/shared";
@@ -16,7 +16,7 @@ import { idempotencyKey, mapRoomMessage, parseContractPagination } from "@/lib/a
 import { loadRoomSummary } from "@/lib/room-server";
 import { parseBody } from "@/lib/validators";
 import { isValidUUID } from "@/lib/validation";
-import { notifyRoomMessagesChanged } from "@/lib/realtime-broadcast";
+import { notifyRoomMessagesChanged, notifyRoomUnreadChanged } from "@/lib/realtime-broadcast";
 import {
   finalizeDescendingSequenceMessagePage,
   olderThanSequenceMessageCursor,
@@ -122,17 +122,18 @@ export const GET = withAuth<{ roomId: string }>(async (request, { user, supabase
       if (roomReadDeniedResponseSchema.safeParse(readResult).success) {
         return apiError("Room not found", 404, "ROOM_NOT_FOUND");
       }
-      const parsedReadReceipt = readReceiptResponseSchema.safeParse(readResult);
+      const parsedReadReceipt = roomReadReceiptResponseSchema.safeParse(readResult);
       if (!parsedReadReceipt.success) {
         console.error("rooms/messages: malformed read receipt response");
         return roomFailure();
       }
-      await notifyRoomMessagesChanged(
-        roomId,
-        "read",
-        user.id,
-        parsedReadReceipt.data.last_read_sequence > 0 ? parsedReadReceipt.data.last_read_sequence : undefined,
-      );
+      if (parsedReadReceipt.data.advanced) {
+        const sequence = parsedReadReceipt.data.last_read_sequence > 0
+          ? parsedReadReceipt.data.last_read_sequence
+          : undefined;
+        await notifyRoomMessagesChanged(roomId, "read", user.id, sequence);
+        await notifyRoomUnreadChanged(roomId, "read", user.id, sequence);
+      }
     }
     const loaded = await loadRoomSummary(roomId, supabase);
     if (loaded.error || !loaded.summary) return apiError("Room not found", 404, "ROOM_NOT_FOUND");
@@ -207,5 +208,6 @@ export const POST = withAuth<{ roomId: string }>(async (request, { user, params 
     return roomFailure();
   }
   await notifyRoomMessagesChanged(roomId, "sent", user.id, mapped.sequence);
+  await notifyRoomUnreadChanged(roomId, "sent", user.id, mapped.sequence);
   return NextResponse.json(parsed.data, { headers: { "idempotency-key": message.client_id } });
 });

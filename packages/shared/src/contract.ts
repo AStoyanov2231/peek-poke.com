@@ -1116,6 +1116,13 @@ export const roomMessageHintSchema = z.strictObject({
   sequence: z.number().int().positive().optional(),
 });
 
+export const roomUnreadHintSchema = z.strictObject({
+  room_id: z.uuid(),
+  action: z.enum(["sent", "read"]),
+  actor_id: z.uuid().nullable().optional(),
+  sequence: z.number().int().positive().optional(),
+});
+
 /** Sanitized private-channel hint. Durable profile data is always re-read via the API. */
 export const profileUpdatedHintSchema = z.strictObject({
   profile_id: z.uuid(),
@@ -1645,6 +1652,12 @@ export const messagesResponseSchema = z.object({
 export const readReceiptResponseSchema = z.strictObject({
   success: z.literal(true),
   last_read_sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+});
+
+export const roomReadReceiptResponseSchema = z.strictObject({
+  success: z.literal(true),
+  last_read_sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  advanced: z.boolean(),
 });
 
 export const messageMutationResponseSchema = z.strictObject({

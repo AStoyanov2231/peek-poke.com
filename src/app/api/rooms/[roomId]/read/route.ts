@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
-import { readReceiptResponseSchema } from "@peekpoke/shared";
+import { readReceiptResponseSchema, roomReadReceiptResponseSchema } from "@peekpoke/shared";
 import { withAuth, verifyRoomMembership } from "@/lib/auth";
 import { apiError } from "@/lib/api-error";
 import { createServiceClient } from "@/lib/supabase/server";
 import { isValidUUID } from "@/lib/validation";
-import { notifyRoomMessagesChanged } from "@/lib/realtime-broadcast";
-import { z } from "zod";
-
-const roomReadResponseSchema = z.strictObject({
-  success: z.literal(true),
-  last_read_sequence: z.number().int().nonnegative(),
-});
+import { notifyRoomMessagesChanged, notifyRoomUnreadChanged } from "@/lib/realtime-broadcast";
 
 export const POST = withAuth<{ roomId: string }>(async (_request, { user, params }) => {
   const { roomId } = params;
@@ -29,18 +23,19 @@ export const POST = withAuth<{ roomId: string }>(async (_request, { user, params
   if (data && typeof data === "object" && "error" in data) {
     return apiError("Room not found", 404, "ROOM_NOT_FOUND");
   }
-  const parsed = roomReadResponseSchema.safeParse(data);
+  const parsed = roomReadReceiptResponseSchema.safeParse(data);
   if (!parsed.success) {
     console.error("rooms/read: malformed response");
     return apiError("Room read state unavailable", 503, "ROOM_READ_UNAVAILABLE");
   }
-  const response = readReceiptResponseSchema.safeParse(parsed.data);
-  if (!response.success) return apiError("Room read state unavailable", 503, "ROOM_READ_UNAVAILABLE");
-  await notifyRoomMessagesChanged(
-    roomId,
-    "read",
-    user.id,
-    response.data.last_read_sequence > 0 ? response.data.last_read_sequence : undefined,
-  );
-  return NextResponse.json(response.data);
+  const response = readReceiptResponseSchema.parse({
+    success: parsed.data.success,
+    last_read_sequence: parsed.data.last_read_sequence,
+  });
+  if (parsed.data.advanced) {
+    const sequence = response.last_read_sequence > 0 ? response.last_read_sequence : undefined;
+    await notifyRoomMessagesChanged(roomId, "read", user.id, sequence);
+    await notifyRoomUnreadChanged(roomId, "read", user.id, sequence);
+  }
+  return NextResponse.json(response);
 });

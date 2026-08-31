@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { roomMessageHintSchema } from "@peekpoke/shared";
+import { roomMessageHintSchema, roomUnreadHintSchema } from "@peekpoke/shared";
 import { roomsQueryOptions } from "@/data/rooms";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { supabase } from "@/lib/supabase";
@@ -18,7 +18,16 @@ export function useRealtimeRooms(userId: string | undefined) {
   );
 
   useEffect(() => {
-    if (!userId || roomIds.length === 0) return;
+    if (!userId) return;
+    const userChannel = supabase
+      .channel(`sync:user:${userId}`, { config: { private: true } })
+      .on("broadcast", { event: "rooms-unread-changed" }, (event) => {
+        const parsed = roomUnreadHintSchema.safeParse(event.payload);
+        if (!parsed.success) return;
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.rooms.list });
+      })
+      .subscribe();
     const channels = roomIds.map((roomId) => supabase
       .channel(`room:${roomId}`, { config: { private: true } })
       .on("broadcast", { event: "messages-changed" }, (event) => {
@@ -31,6 +40,8 @@ export function useRealtimeRooms(userId: string | undefined) {
       .subscribe());
 
     return () => {
+      void userChannel.unsubscribe();
+      void supabase.removeChannel(userChannel);
       channels.forEach((channel) => {
         void channel.unsubscribe();
         void supabase.removeChannel(channel);

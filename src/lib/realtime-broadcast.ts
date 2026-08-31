@@ -1,3 +1,5 @@
+import { createServiceClient } from "@/lib/supabase/server";
+
 export async function broadcastPrivateRealtimeEvent(
   topic: string,
   event: string,
@@ -83,6 +85,36 @@ export async function notifyRoomMessagesChanged(
       action,
       ...(sequence === undefined ? {} : { sequence }),
     },
+  );
+}
+
+export async function notifyRoomUnreadChanged(
+  roomId: string,
+  action: "sent" | "read",
+  actorId: string,
+  sequence?: number,
+) {
+  const { data: members, error } = await createServiceClient()
+    .from("chat_room_members")
+    .select("user_id")
+    .eq("room_id", roomId);
+  if (error) {
+    console.error("Realtime room unread notification lookup failed:", error);
+    return;
+  }
+  await Promise.all(
+    (members ?? []).map((member) =>
+      broadcastPrivateRealtimeEvent(
+        `sync:user:${member.user_id}`,
+        "rooms-unread-changed",
+        {
+          room_id: roomId,
+          actor_id: actorId,
+          action,
+          ...(sequence === undefined ? {} : { sequence }),
+        },
+      )
+    ),
   );
 }
 

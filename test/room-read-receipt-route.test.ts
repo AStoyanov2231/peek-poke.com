@@ -33,6 +33,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/realtime-broadcast", () => ({
   notifyRoomMessagesChanged: testData.broadcast,
+  notifyRoomUnreadChanged: testData.broadcast,
 }));
 
 import { POST } from "@/app/api/rooms/[roomId]/read/route";
@@ -46,7 +47,7 @@ describe("POST /api/rooms/[roomId]/read", () => {
     vi.clearAllMocks();
     testData.membership.value = { room_id: testData.roomId };
     testData.rpc.mockResolvedValue({
-      data: { success: true, last_read_sequence: 7 },
+      data: { success: true, last_read_sequence: 7, advanced: true },
       error: null,
     });
   });
@@ -62,11 +63,11 @@ describe("POST /api/rooms/[roomId]/read", () => {
 
   it("does not send an invalid zero sequence hint", async () => {
     testData.rpc.mockResolvedValue({
-      data: { success: true, last_read_sequence: 0 },
+      data: { success: true, last_read_sequence: 0, advanced: false },
       error: null,
     });
 
     await expect(request()).resolves.toMatchObject({ status: 200 });
-    expect(testData.broadcast).toHaveBeenCalledWith(testData.roomId, "read", testData.userId, undefined);
+    expect(testData.broadcast).not.toHaveBeenCalled();
   });
 });

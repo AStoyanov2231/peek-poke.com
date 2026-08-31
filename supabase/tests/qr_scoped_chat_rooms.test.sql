@@ -135,6 +135,28 @@ select is(
 );
 select is(
   (
+    public.mark_chat_room_read(
+      ((select created from qr_room_state)->>'room_id')::uuid,
+      '70000000-0000-4000-8000-000000000001',
+      1
+    )->>'advanced'
+  ),
+  'true',
+  'read response identifies an advancing transition'
+);
+select is(
+  (
+    public.mark_chat_room_read(
+      ((select created from qr_room_state)->>'room_id')::uuid,
+      '70000000-0000-4000-8000-000000000001',
+      1
+    )->>'advanced'
+  ),
+  'false',
+  'read response suppresses duplicate transitions'
+);
+select is(
+  (
     select member.last_read_sequence
     from public.chat_room_members member
     where member.room_id = ((select created from qr_room_state)->>'room_id')::uuid
