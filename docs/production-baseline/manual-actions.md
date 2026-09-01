@@ -1,6 +1,6 @@
 # Remaining manual actions
 
-- Pull the complete 134-migration schema-only baseline into an isolated project, reconcile the hosted/local migration-history name drift, apply `20260729235452_durable_workflows.sql` followed by the cursor indexes, and pass migration/RLS/rollback checks. The current checkout cannot recreate the hosted schema from its two additive migrations alone.
+- Pull the complete 134-migration schema-only baseline into an isolated project, reconcile the hosted/local migration-history name drift, apply the committed post-baseline migrations in timestamp order, and pass migration/RLS/rollback checks. The current checkout still cannot recreate the hosted schema from its partial migration history alone.
 - Configure separate development, preview/staging, and production Supabase/Vercel/EAS variables and project references. Do not reuse production values in preview.
 - Configure a per-environment `CRON_SECRET`, promote the migration first, then deploy the `dub1` Vercel region and outbox Cron. Verify the function region from `x-vercel-id`, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency.
 - Enable Supabase leaked-password protection and rerun security advisors. Record the previous setting and rollback action before changing it.

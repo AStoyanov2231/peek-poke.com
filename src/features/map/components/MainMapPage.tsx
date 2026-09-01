@@ -20,7 +20,7 @@ export default function MainPage() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* 340px nearby rail — desktop only (hidden on mobile) */}
+      {/* 340px nearby rail - desktop only (hidden on mobile) */}
       <DesktopNearbyRail />
 
       {/* Map canvas */}

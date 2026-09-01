@@ -19,7 +19,8 @@ The Inbox keeps direct-message threads, friends, and friend requests available t
 Rooms is an additional group-chat feature available at `/rooms` and in the Rooms navigation tab.
 Physical table QR codes use stable opaque identifiers: the first scan creates the associated room, and later scans join it.
 Generated room-sharing QR codes remain a secondary invitation option.
-
+Foreground client GPS powers nearby discovery during this restoration.
+It is legacy GPS, not attestation, and is never labeled verified.
 
 ## Setup
 

@@ -821,7 +821,7 @@ export default function MapScreen() {
               <MapMarkerButton
                 key={bot.id}
                 coordinate={[bot.lng, bot.lat]}
-                accessibilityLabel={collectable ? "Collect coin" : "Coin — get closer"}
+                accessibilityLabel={collectable ? "Collect coin" : "Coin - get closer"}
                 onPress={() => void collectBot(bot)}
                 style={styles.annotationTarget}
               >

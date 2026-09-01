@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 const supabase = createClient();
 
 /**
- * Orchestrator for the legacy social/DM and additive QR-room realtime
+ * Orchestrator for the restored social/DM and additive QR-room realtime
  * surfaces. Both channels carry hints only; durable state is always re-read
  * through the authenticated APIs.
  */

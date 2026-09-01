@@ -1,6 +1,6 @@
 # Cross-platform parity matrix
 
-Updated: 2026-08-07
+Updated: 2026-09-01
 
 The Next.js product is the functional and visual reference. “Native” means the
 single Expo Router application in `apps/native`, with the same TypeScript
@@ -31,7 +31,7 @@ established by those repository results.
 | `/profile` — `src/features/profile/components/ProfilePageClient.tsx` | View profile; edit canonical display name, bio, and interests; manage cover, avatar, and photos; view stats/Premium and use share/settings. Display-name updates use the shared profile contract and invalidate current projections | `apps/native/app/(app)/profile.tsx` uses `owner-display-name-editor` with terminal profile/search/discovery invalidation after an update; bio/interests retain their dedicated bounded paths | Same Expo route with native pickers, sheets, alerts, and sharing | REPOSITORY PASS / RELEASE BLOCKED: `20260807221500_enforce_display_name_invariant.sql` and `20260807193532_durable_profile_update_fanout.sql` require hosted promotion plus disposable-Postgres, staging, browser, and device proof |
 | `/profile/[userId]` — `src/features/profile/components/PublicProfilePage.tsx` | Viewer-aware profile, public/private media gating, interests/stats, friend request, chat, report, block, deleted/unauthorized/not-found/error. Public avatar/cover derive only from approved visible featured media, not stale raw profile strings | `apps/native/app/(app)/profile/[userId].tsx` uses the same strict public-photo/profile DTO and rejects malformed/foreign media before cache commit | Same Expo route | REPOSITORY PASS / RELEASE BLOCKED: `20260807145740_enforce_approved_profile_media_references.sql`, hosted promotion, and browser/device proof are required |
 | `/premium` — `src/features/profile/components/PremiumPage.tsx` | Entitlement display/refresh, price, web checkout, web subscription portal, return-from-payment refresh | `apps/native/app/(app)/premium.tsx` displays authoritative backend entitlement; native dialog opens canonical HTTPS page only when policy permits | Same, with independent Android policy branch | Implemented; external store-policy config required |
-| `/` map UI — `src/features/map/components/MainMapPage.tsx` | Location permission gate, nearby map/list, search, tags, bots, highlighted users, meeting detection, recenter, loading/empty/error. The web desktop nearby rail applies All/Friends/Online filtering to its rail list and search; the canvas continues to derive from nearby results | `apps/native/app/(app)/map.tsx` exposes an accessible All/Friends/Online menu. The selected filter and normalized search derive native markers, clusters, cards, highlighted user, and selected-cluster members; filter changes clear stale cluster selection | Same Expo route, with static iOS/Android filter and real Pressability coverage | Runtime-free repository PASS for this bounded filter behavior; device gestures, visual comparison, and live location/provider proof remain pending |
+| `/` map UI — `src/features/map/components/MainMapPage.tsx` | Location permission gate, nearby map/list, search, tags, highlighted users, recenter, loading/empty/error. Bot and meeting surfaces remain location-gated under the legacy-GPS contract. The web desktop nearby rail applies All/Friends/Online filtering to its rail list and search; the canvas continues to derive from nearby results | `apps/native/app/(app)/map.tsx` exposes an accessible All/Friends/Online menu. The selected filter and normalized search derive native markers, clusters, cards, highlighted user, and selected-cluster members; filter changes clear stale cluster selection | Same Expo route, with static iOS/Android filter and real Pressability coverage | Runtime-free repository PASS for this bounded filter behavior; device gestures, visual comparison, and live location/provider proof remain pending |
 | `/friends`, `/messages`, `/inbox` — inbox feature files | Chats, friends, received/sent requests, accept/reject/cancel/remove, online/offline grouping, unread badges, empty/error/loading, destructive confirmation | `apps/native/app/(app)/inbox.tsx`; alias routes `friends.tsx` and `messages.tsx` | Same Expo routes | Implemented |
 | `/chat/[threadId]` — chat feature files | Latest bounded history, older cursor pages, send text/media, edit/delete/reply, monotonic read state, typing, unread reconciliation, proximity, call entry, deleted peer, loading/error/retry | `apps/native/app/chat/[threadId].tsx` has top-boundary older-page loading and the shared account/thread-fenced read-receipt lifecycle | Same Expo route; keyboard avoidance/back behavior branches by platform | DM read receipts are `REPOSITORY PASS / RELEASE BLOCKED`; migration promotion, real pgTAP/PostgreSQL, staging, and browser/device proof remain required |
 | `/rooms` and `/room/[roomId]` — additive room feature | Stable physical table QR codes resolve or create their associated room on first use; generated room-share codes remain secondary; room history, text messaging, and durable read state use member-only APIs | `apps/native/app/(app)/rooms.tsx`, `scan.tsx`, and `room/[roomId].tsx` | Same Expo routes | Repository contracts and migration are present; hosted migration, staging, and scanner/runtime proof remain separate gates |
@@ -68,13 +68,13 @@ management and private Realtime Broadcast/signaling.
 | `GET /api/invites` and `POST /api/invites/[inviterId]` | Secure origin-bound link creation and exact token-bound acceptance | Native share/deep-link accept through identical validated, no-store contracts | Shared |
 | `POST/DELETE /api/users/[userId]/block` | Block/unblock backend capability; current profile UI exposes block | Native public-profile block; no extra native-only behavior invented | Parity with current web UI |
 | `POST /api/users/[userId]/report` | Categorized report | Native category/reason alert flow | Shared |
-| `POST /api/location` | Foreground location update | Foreground/map-only coalesced update; acknowledgement freshness is session-bound, retained-coordinate fenced, and expires through bounded clock-safe recovery | REPOSITORY PASS / RELEASE BLOCKED: live permission/location, hosted `user_locations` RLS/security, staging, and device/browser evidence are not claimed |
-| `POST /api/nearby` | Bounded nearby discovery through server-only `nearby_users_for_user` | Focused map query only; shared acknowledgement freshness uses an 8-minute client TTL inside the 10-minute server window | REPOSITORY PASS / RELEASE BLOCKED: `20260807182907_bounded_nearby_discovery.sql` and its RPC are not hosted; staging, live map, and deployment evidence remain required |
+| `POST /api/location` | Foreground client GPS update using the legacy-GPS contract; coordinates are not attested or marked verified | Foreground/map-only coalesced update; acknowledgement freshness is session-bound, retained-coordinate fenced, and expires through bounded clock-safe recovery | REPOSITORY PASS / RELEASE BLOCKED: live permission/location, hosted `user_locations` RLS/security, staging, and device/browser evidence are not claimed; verified-location actions remain gated |
+| `POST /api/nearby` | Bounded nearby discovery through server-only `nearby_users_for_user` using recent legacy-GPS rows | Focused map query only; shared acknowledgement freshness uses an 8-minute client TTL inside the 10-minute server window | REPOSITORY PASS / RELEASE BLOCKED: the ordered location migrations through `20260901130000_legacy_gps_location_discovery.sql` are not hosted; staging, live map, and deployment evidence remain required |
 | `GET /api/search/tags` | Tag suggestions | Native map search suggestions | Shared |
 | `POST /api/search/tags/resolve` | Resolve selected tags | Native filter resolution | Shared |
 | `POST /api/search/users` | Strict body/query/result contract with bounded cursor headers | Native map search with identical request and response validation | Shared |
-| `GET/POST /api/bots` | Strict max-50 unique list and discriminated collection/recovery contract | Native map uses the same validated commit policy for balance/removal/refetch | Shared |
-| `GET /api/coins`, `POST /api/coins/meeting` | Strict balance and discriminated meeting-result DTOs with canonical errors. POST uses the migration-first `record_meeting_idempotent` contract, request hash/key replay, and canonical terminal outcomes | Web meeting consumers use one owned epoch-fenced attempt; native meeting/detection/action consumers use the same terminal/replay, remount, auth, Realtime, initializer, and unauthorized-recovery fences | REPOSITORY PASS / RELEASE BLOCKED after the round-97 critic: `20260807190000_idempotent_coin_meetings.sql`, durable-workflow prerequisites, hosted RPCs, multi-device award behavior, and browser/device runtime proof remain absent |
+| `GET/POST /api/bots` | Strict max-50 unique list and discriminated collection/recovery contract; legacy-GPS locations are not eligible for verified-location bot actions | Native map uses the same validated commit policy for balance/removal/refetch | Repository contract present; verified-location bot actions remain gated until an authorized attestation/device-proof contract is promoted |
+| `GET /api/coins`, `POST /api/coins/meeting` | Strict balance and discriminated meeting-result DTOs with canonical errors. POST uses the migration-first `record_meeting_idempotent` contract, request hash/key replay, and canonical terminal outcomes; legacy-GPS locations are not eligible for verified-location meeting actions | Web meeting consumers use one owned epoch-fenced attempt; native meeting/detection/action consumers use the same terminal/replay, remount, auth, Realtime, initializer, and unauthorized-recovery fences | REPOSITORY PASS / RELEASE BLOCKED after the round-97 critic: `20260807190000_idempotent_coin_meetings.sql`, `20260901120000_server_meeting_eligibility.sql`, durable-workflow prerequisites, hosted RPCs, multi-device award behavior, and browser/device runtime proof remain absent |
 | `GET/POST /api/dm/threads` | Strict viewer-bound inbox/unread pages plus privacy-safe, target-bound create/find | Native inbox/profile/map uses the same validated read and single-flight mutation contracts | Shared |
 | `GET/POST /api/dm/[threadId]` | Newest-first bounded database history with stable older cursor. POST validates owner-bound media, retains one pending client/idempotency key across manual retry until terminal cleanup, and only calls the transactional send RPC; an absent RPC returns retryable `MESSAGE_SEND_UNAVAILABLE` with no legacy fallback | Web and native use the same pending-attempt lifecycle and load older pages from the cursor API | Repository PASS after the round-64 critic; production sending remains FAIL / BLOCKED because hosted `send_message_transactional` is absent and mounted browser/device/authenticated runtime proof is still required |
 | `GET/POST /api/rooms/[roomId]/messages`, `POST /api/rooms/[roomId]/read` | Member-only bounded room text history, idempotent send, and monotonic read state | Native room chat uses the same APIs | Shared room migration; promotion and runtime proof remain separate gates |
@@ -154,16 +154,23 @@ management and private Realtime Broadcast/signaling.
   `20260807145740_enforce_approved_profile_media_references.sql`; it remains
   migration-first and release-blocked pending hosted promotion, staging, and
   browser/device proof.
-- Nearby/location repository evidence depends on
-  `20260807182907_bounded_nearby_discovery.sql`, including the server-only
-  `nearby_users_for_user` RPC. It remains release-blocked pending hosted RPC and
-  migration promotion, location RLS/security, staging, live permission, and
-  browser/device map behavior evidence.
+- Nearby/location repository evidence depends on the ordered location migrations
+  through `20260901130000_legacy_gps_location_discovery.sql`, including the
+  server-only `nearby_users_for_user` RPC.
+  The final client path uses legacy GPS and deliberately leaves `verified_at`
+  null.
+  It remains release-blocked pending hosted migration and RPC promotion,
+  location RLS/security, staging, live permission, and browser/device map
+  behavior evidence.
 - Meeting lifecycle repository evidence depends on
-  `20260807190000_idempotent_coin_meetings.sql` and the durable-workflow
-  prerequisites it checks. It remains release-blocked pending hosted migration
-  and RPC promotion, staging, real multi-device award behavior, and
-  browser/device runtime proof.
+  `20260807190000_idempotent_coin_meetings.sql`,
+  `20260901120000_server_meeting_eligibility.sql`, and the durable-workflow
+  prerequisites it checks.
+  Legacy GPS does not satisfy the verified-location prerequisite for meeting
+  awards.
+  It remains release-blocked pending hosted migration and RPC promotion,
+  authorized verification design, staging, real multi-device award behavior,
+  and browser/device runtime proof.
 - Display-name edit and cross-account convergence repository evidence depends on
   `20260807221500_enforce_display_name_invariant.sql` and
   `20260807193532_durable_profile_update_fanout.sql`. Their parser and
