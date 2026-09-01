@@ -126,6 +126,7 @@ export function useNearbyPresence(userId: string | undefined) {
     if (lastUserRef.current !== userId) {
       lastUserRef.current = userId;
       lastTrackRef.current = 0;
+      return;
     }
 
     const run = () => {

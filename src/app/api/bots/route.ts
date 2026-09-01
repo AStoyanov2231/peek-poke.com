@@ -7,11 +7,34 @@ import { apiError } from "@/lib/api-error";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { coinBotCollectSchema, parseBody } from "@/lib/validators";
 import { createServiceClient } from "@/lib/supabase/server";
+import {
+  adminBotListQuerySchema,
+  adminBotListResponseSchema,
+  normalizeAdminBotListQuery,
+} from "@peekpoke/shared";
 
-export const GET = withAuth(async (_request, { user }) => {
-  const limited = await enforceRateLimit("adminCoins", user.id);
+export const GET = withAuth(async (request, { user }) => {
+  const limited = await enforceRateLimit("coinBot", user.id);
   if (limited) return limited;
-  return apiError("Location verification is unavailable", 503, "LOCATION_VERIFICATION_UNAVAILABLE");
+
+  const query = adminBotListQuerySchema.safeParse(
+    normalizeAdminBotListQuery(new URL(request.url).searchParams),
+  );
+  if (!query.success) return apiError("Invalid bot location", 400, "VALIDATION_ERROR");
+
+  const { data, error } = await createServiceClient().rpc("list_admin_coins_for_user", {
+    p_user_id: user.id,
+  });
+  if (error) {
+    console.error("bots/GET:", error);
+    return apiError("Bot discovery is temporarily unavailable", 503, "BOT_LIST_UNAVAILABLE");
+  }
+  const result = adminBotListResponseSchema.safeParse(data ?? []);
+  if (!result.success) {
+    console.error("bots/GET: invalid response");
+    return apiError("Bot discovery is temporarily unavailable", 503, "BOT_LIST_UNAVAILABLE");
+  }
+  return NextResponse.json(result.data);
 });
 
 export const POST = withAuth(async (request, { user }) => {

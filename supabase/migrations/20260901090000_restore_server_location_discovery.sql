@@ -9,52 +9,6 @@ begin
 end;
 $$;
 
-create or replace function public.upsert_user_location(
-  p_user_id uuid,
-  p_lat double precision,
-  p_lng double precision
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  if p_user_id is null
-     or p_lat is null
-     or p_lng is null
-     or p_lat < -90
-     or p_lat > 90
-     or p_lng < -180
-     or p_lng > 180 then
-    return pg_catalog.jsonb_build_object('error', 'INVALID_LOCATION');
-  end if;
-
-  if not exists (
-    select 1
-    from public.profiles profile
-    where profile.id = p_user_id
-      and profile.deleted_at is null
-  ) then
-    return pg_catalog.jsonb_build_object('error', 'ACCOUNT_DELETED');
-  end if;
-
-  insert into public.user_locations (user_id, lat, lng, updated_at)
-  values (p_user_id, p_lat, p_lng, pg_catalog.now())
-  on conflict (user_id) do update
-  set lat = excluded.lat,
-      lng = excluded.lng,
-      updated_at = excluded.updated_at;
-
-  return pg_catalog.jsonb_build_object('ok', true);
-end;
-$$;
-
-revoke all on function public.upsert_user_location(uuid, double precision, double precision)
-  from public, anon, authenticated;
-grant execute on function public.upsert_user_location(uuid, double precision, double precision)
-  to service_role;
-
 create or replace function public.nearby_users_for_user(
   p_user_id uuid,
   p_radius_km double precision default 2

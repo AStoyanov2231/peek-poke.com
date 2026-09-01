@@ -7,6 +7,7 @@ const DEBOUNCE_MS = 5000;
 
 export function useGeolocation(userId: string | undefined) {
   const setDeviceLocation = useAppStore((s) => s.setDeviceLocation);
+  const setUserLocation = useAppStore((s) => s.setUserLocation);
   const setDeviceLocationError = useAppStore((s) => s.setDeviceLocationError);
   const setLocationDenied = useAppStore((s) => s.setLocationDenied);
   const markLocationStale = useAppStore((s) => s.markLocationStale);
@@ -14,6 +15,7 @@ export function useGeolocation(userId: string | undefined) {
   const lastUpdate = useRef(0);
 
   useEffect(() => {
+    setUserLocation(null);
     if (!userId) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setDeviceLocationError(userId, "Location is unavailable in this browser.");
@@ -46,5 +48,5 @@ export function useGeolocation(userId: string | undefined) {
       active = false;
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [markLocationStale, setDeviceLocation, setDeviceLocationError, setLocationDenied, setLocationStatus, userId]);
+  }, [markLocationStale, setDeviceLocation, setDeviceLocationError, setLocationDenied, setLocationStatus, setUserLocation, userId]);
 }

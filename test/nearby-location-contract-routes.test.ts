@@ -14,7 +14,7 @@ vi.mock("@/lib/supabase/server", () => ({
 import { POST as nearby } from "@/app/api/nearby/route";
 import { POST as location } from "@/app/api/location/route";
 
-describe("unattested location endpoints", () => {
+describe("location attestation boundary", () => {
   it.each([
     ["location", location, "/api/location"],
     ["nearby", nearby, "/api/nearby"],
