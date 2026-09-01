@@ -121,7 +121,10 @@ export default function PublicProfilePage() {
       try {
         const response = await createOrFindThread(userId);
         queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
-        router.push(`/inbox?tab=chats&thread=${response.id}`);
+        const destination = window.matchMedia("(max-width: 767px)").matches
+          ? `/chat/${response.id}`
+          : `/inbox?tab=chats&thread=${response.id}`;
+        router.push(destination);
       } catch (err) {
         console.error("Failed to start DM:", err);
       }

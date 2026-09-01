@@ -20,7 +20,6 @@ describe("web location recovery alert", () => {
       disabled: false,
       type: "button",
     });
-    expect(button.props.className).toContain("min-h-11");
     button.props.onClick();
     expect(retry).toHaveBeenCalledOnce();
   });

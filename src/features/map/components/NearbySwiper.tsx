@@ -21,11 +21,19 @@ export function NearbySwiper() {
   const userLocation = useUserLocation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const clusterIdSet = useMemo(() => clusterIds ? new Set(clusterIds) : null, [clusterIds]);
+  const visibleUserIdSet = useMemo(
+    () => new Set(visibleUsers.map((user) => user.userId)),
+    [visibleUsers],
+  );
 
   const displayed = useMemo(() => {
-    if (clusterIdSet) return nearbyUsers.filter(u => clusterIdSet.has(u.userId));
+    if (clusterIdSet) {
+      return nearbyUsers.filter(
+        (user) => clusterIdSet.has(user.userId) && visibleUserIdSet.has(user.userId),
+      );
+    }
     return visibleUsers;
-  }, [clusterIdSet, nearbyUsers, visibleUsers]);
+  }, [clusterIdSet, nearbyUsers, visibleUserIdSet, visibleUsers]);
 
   if (displayed.length === 0) return null;
 
