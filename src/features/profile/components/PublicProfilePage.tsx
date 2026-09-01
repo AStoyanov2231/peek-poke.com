@@ -295,8 +295,8 @@ export default function PublicProfilePage() {
                   <span className="text-sm font-medium">Add Friend</span>
                 </button>
               )}
+              {actionError ? <p role="alert" className="text-sm text-red-700">{actionError}</p> : null}
             </div>
-            {actionError ? <p role="alert" className="text-sm text-red-700">{actionError}</p> : null}
           )}
         </div>
       </div>

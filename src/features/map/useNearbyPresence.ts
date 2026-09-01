@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  createElement,
   createContext,
   useCallback,
   useContext,
@@ -16,7 +17,6 @@ import { TRACK_DEBOUNCE_MS } from "@/lib/constants";
 import {
   nearbyQueryOptions,
   updateWebLocation,
-  webQueryKeys,
 } from "@/data/web-query";
 import {
   createWebLocationSyncCoordinator,
@@ -35,6 +35,7 @@ export type WebLocationPresence = {
 };
 
 const WebLocationPresenceContext = createContext<WebLocationPresence | null>(null);
+const WebLocationPresenceProviderComponent = WebLocationPresenceContext.Provider;
 
 function locationFailureMessage(error: unknown) {
   return error instanceof Error ? error.message : "Could not recover your location.";
@@ -173,11 +174,7 @@ export function WebLocationPresenceProvider({
 }) {
   useGeolocation(userId);
   const presence = useNearbyPresence(userId);
-  return (
-    <WebLocationPresenceContext.Provider value={presence}>
-      {children}
-    </WebLocationPresenceContext.Provider>
-  );
+  return createElement(WebLocationPresenceProviderComponent, { value: presence }, children);
 }
 
 export function useWebLocationPresence() {
