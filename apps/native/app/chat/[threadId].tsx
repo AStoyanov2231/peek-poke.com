@@ -42,7 +42,6 @@ import {
   createDmMessageMutationCoordinator,
   EDIT_WINDOW_MINUTES,
   isPremium,
-  meetingProximityEligible,
   mergeNewestFirstMessagePages,
   type ChatMessageDraft,
   type ChatMessageSubmissionToken,
@@ -187,18 +186,21 @@ export default function ChatScreen() {
   const isReadOnly = other?.account_deleted === true;
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, profile?.id);
   const isOtherOnline = other?.is_online === true && !isReadOnly;
+  const nearbyOther = useMemo(
+    () => other ? nearbyUsers.find((user) => user.userId === other.id) ?? null : null,
+    [nearbyUsers, other],
+  );
   const distanceMeters = useMemo(() => {
     if (!other || !location) return null;
-    const nearby = nearbyUsers.find((user) => user.userId === other.id);
-    if (!nearby) return null;
-    return Math.round(haversineKm(location.lat, location.lng, nearby.lat, nearby.lng) * 1000);
-  }, [location, nearbyUsers, other]);
+    if (!nearbyOther) return null;
+    return Math.round(haversineKm(location.lat, location.lng, nearbyOther.lat, nearbyOther.lng) * 1000);
+  }, [location, nearbyOther, other]);
   const acceptedFriend = Boolean(profile && other && socialDataQuery.data?.friends.some((friend) =>
     (friend.requester_id === profile.id && friend.addressee_id === other.id)
       || (friend.requester_id === other.id && friend.addressee_id === profile.id)));
   const meetingEligible = locationFresh
     && acceptedFriend
-    && meetingProximityEligible(distanceMeters);
+    && nearbyOther?.meeting_eligible === true;
 
   async function submit() {
     const content = draft.trim();

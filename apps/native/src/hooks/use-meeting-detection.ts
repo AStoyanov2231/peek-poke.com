@@ -97,7 +97,6 @@ export function useMeetingDetection() {
       if (meetingPairCompleted(profileId, friendId)) completedFriendIds.add(friendId);
     }
     const candidateIds = meetingCandidateIds(
-      location,
       nearbyUsers,
       friendIds,
       completedFriendIds,

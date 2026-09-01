@@ -176,25 +176,49 @@ export function expireDeviceLocationIfNeeded(now = Date.now()) {
   return true;
 }
 
-async function getAndroidEmulatorLocation() {
-  const lastKnown = await Location.getLastKnownPositionAsync({
+function withLocationDeadline<T>(promise: Promise<T>, signal?: AbortSignal) {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let onAbort: () => void;
+    const cleanup = () => {
+      if (timeout) clearTimeout(timeout);
+      signal?.removeEventListener("abort", onAbort);
+    };
+    const finish = (callback: (value: T | unknown) => void, value: T | unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback(value);
+    };
+    onAbort = () => finish(
+      reject,
+      signal?.reason ?? Object.assign(new Error("Location request was cancelled."), { name: "AbortError" }),
+    );
+    timeout = setTimeout(() => finish(reject, new Error("Location request timed out.")), LOCATION_TIMEOUT_MS);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    promise.then(
+      (value) => finish(resolve as (value: unknown) => void, value),
+      (error) => finish(reject, error),
+    );
+  });
+}
+
+async function getAndroidEmulatorLocation(signal?: AbortSignal) {
+  const lastKnown = await withLocationDeadline(Location.getLastKnownPositionAsync({
     maxAge: 60 * 60 * 1000,
     requiredAccuracy: 1_000,
-  });
+  }), signal);
 
   if (lastKnown) return lastKnown;
-
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error("Location request timed out.")), LOCATION_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
+  return withLocationDeadline(
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+    signal,
+  );
 }
 
 export async function refreshDeviceLocation(signal?: AbortSignal) {
@@ -203,9 +227,9 @@ export async function refreshDeviceLocation(signal?: AbortSignal) {
   }
 
   try {
-    const existingPermission = await Location.getForegroundPermissionsAsync();
+    const existingPermission = await withLocationDeadline(Location.getForegroundPermissionsAsync(), signal);
     const permission = existingPermission.canAskAgain && existingPermission.status !== "granted"
-      ? await Location.requestForegroundPermissionsAsync()
+      ? await withLocationDeadline(Location.requestForegroundPermissionsAsync(), signal)
       : existingPermission;
     signal?.throwIfAborted();
 
@@ -226,9 +250,13 @@ export async function refreshDeviceLocation(signal?: AbortSignal) {
     let current: Location.LocationObject;
     try {
       current = __DEV__ && Platform.OS === "android" && !Device.isDevice
-        ? await getAndroidEmulatorLocation()
-        : await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        ? await getAndroidEmulatorLocation(signal)
+        : await withLocationDeadline(
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          signal,
+        );
     } catch (error) {
+      if (isAbortError(error)) throw error;
       if (!(__DEV__ && Platform.OS === "android" && !Device.isDevice)) throw error;
 
       current = {

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { NearbyUser } from "@peekpoke/shared";
 import { meetingCandidateIds, shouldDetectMeetings } from "@/data/discovery/meeting";
 
-const origin = { lat: 42.6977, lng: 23.3219 };
 const nearby: NearbyUser[] = [
   {
     userId: "friend-close",
@@ -13,6 +12,7 @@ const nearby: NearbyUser[] = [
     last_seen_at: "2026-08-07T12:00:00.000Z",
     lat: 42.6978,
     lng: 23.3219,
+    meeting_eligible: true,
   },
   {
     userId: "friend-far",
@@ -23,6 +23,7 @@ const nearby: NearbyUser[] = [
     last_seen_at: null,
     lat: 42.7,
     lng: 23.3219,
+    meeting_eligible: false,
   },
 ];
 
@@ -37,9 +38,8 @@ describe("meeting candidates", () => {
     })).toBe(false);
   });
 
-  it("uses the privacy-quantization candidate margin before authoritative server verification", () => {
+  it("uses server-provided meeting eligibility", () => {
     expect(meetingCandidateIds(
-      origin,
       nearby,
       new Set(["friend-close", "friend-far"]),
       new Set(),
@@ -49,14 +49,12 @@ describe("meeting candidates", () => {
 
   it("excludes already-met and currently attempted friends", () => {
     expect(meetingCandidateIds(
-      origin,
       nearby,
       new Set(["friend-close"]),
       new Set(["friend-close"]),
       new Set(),
     )).toEqual([]);
     expect(meetingCandidateIds(
-      origin,
       nearby,
       new Set(["friend-close"]),
       new Set(),

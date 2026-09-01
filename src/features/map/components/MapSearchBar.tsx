@@ -1,36 +1,25 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { Search, Filter } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores/appStore";
-import { useFriends, useNearbyUsers } from "@/stores/selectors";
+import { useNearbyUsers } from "@/stores/selectors";
 import { SearchAutocomplete } from "@/features/search/components/SearchAutocomplete";
-import { filterNearbyUsers, mapFilterOptions } from "@/features/map/filters";
+import { mapFilterOptions } from "@/features/map/filters";
 
 export function MapSearchBar() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [cursorPos, setCursorPos] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const nearbyUsers = useNearbyUsers();
-  const friends = useFriends();
   const filter = useAppStore((s) => s.mapFilter);
   const query = useAppStore((s) => s.mapSearchQuery);
   const setMapFilter = useAppStore((s) => s.setMapFilter);
   const setMapSearchQuery = useAppStore((s) => s.setMapSearchQuery);
-  const setVisibleUsers = useAppStore((s) => s.setVisibleUsers);
   const router = useRouter();
 
-  const nearbyIds = nearbyUsers.map((u) => u.userId);
-  const friendIds = useMemo(() => new Set(friends.map((friend) => friend.id)), [friends]);
-  const filteredUsers = useMemo(
-    () => filterNearbyUsers(nearbyUsers, filter, friendIds, query),
-    [filter, friendIds, nearbyUsers, query],
-  );
-
-  useEffect(() => {
-    setVisibleUsers(filteredUsers);
-  }, [filteredUsers, setVisibleUsers]);
+  const nearbyIds = nearbyUsers.map((user) => user.userId);
 
   const handleSearch = (value: string) => {
     setMapSearchQuery(value);

@@ -2,11 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  MEETING_CANDIDATE_RADIUS_KM,
-  meetingResponseCompletesPair,
-} from "@peekpoke/shared";
-import { haversineKm } from "@/lib/geo";
+import { meetingResponseCompletesPair } from "@peekpoke/shared";
 import {
   useFriends,
   useLocationFreshness,
@@ -87,14 +83,7 @@ export function useMeetingDetection(userId: string | undefined) {
         // Already called this session
         if (called.has(nearby.userId)) continue;
 
-        const dist = haversineKm(
-          userLocation.lat,
-          userLocation.lng,
-          nearby.lat,
-          nearby.lng
-        );
-
-        if (dist <= MEETING_CANDIDATE_RADIUS_KM) {
+        if (nearby.meeting_eligible === true) {
           // Mark as called immediately to prevent duplicate calls
           called.add(nearby.userId);
           inFlight.add(nearby.userId);

@@ -44,6 +44,7 @@ export function MapViewInner() {
   const bots = useBotsHook();
   const setSelectedClusterUserIds = useAppStore((s) => s.setSelectedClusterUserIds);
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
+  const setVisibleUsers = useAppStore((s) => s.setVisibleUsers);
   const selectUser = useAppStore((s) => s.selectUser);
 
   const hasCentered = useRef(false);
@@ -126,6 +127,14 @@ export function MapViewInner() {
     [friendIds, mapFilter, mapSearchQuery, nearbyUsers],
   );
 
+  useEffect(() => {
+    if (!mapBounds) return;
+    const [west, south, east, north] = mapBounds;
+    setVisibleUsers(filteredUsers.filter((user) =>
+      user.lng >= west && user.lng <= east && user.lat >= south && user.lat <= north
+    ));
+  }, [filteredUsers, mapBounds, setVisibleUsers]);
+
   // Supercluster for marker clustering
   const supercluster = useMemo(() => {
     const sc = new Supercluster<UserPointProperties>({ radius: 40, maxZoom: 20 });
@@ -157,11 +166,7 @@ export function MapViewInner() {
     const b = map.getBounds();
     if (!b) return;
     setMapBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
-    useAppStore.getState().setVisibleUsers(
-      filterNearbyUsers(nearbyUsers, mapFilter, friendIds, mapSearchQuery)
-        .filter(u => b.contains([u.lng, u.lat]))
-    );
-  }, [friendIds, mapFilter, mapSearchQuery, nearbyUsers]);
+  }, []);
 
   const handleDragStart = useCallback(() => { isDragging.current = true; }, []);
   const handleDragEnd = useCallback(() => { setTimeout(() => { isDragging.current = false; }, 100); }, []);

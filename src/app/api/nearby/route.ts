@@ -20,6 +20,7 @@ const nearbyRowSchema = z.strictObject({
   last_seen_at: z.string().datetime({ offset: true }).nullable(),
   lat: z.number().finite(),
   lng: z.number().finite(),
+  meeting_eligible: z.boolean().optional().default(false),
 });
 
 export const POST = withNoStore(withAuth(async (request, { user }) => {
@@ -57,6 +58,7 @@ export const POST = withNoStore(withAuth(async (request, { user }) => {
       last_seen_at: row.last_seen_at,
       lat: row.lat,
       lng: row.lng,
+      meeting_eligible: row.meeting_eligible,
     })),
   } satisfies NearbyResponseDto);
   if (!response.success) {

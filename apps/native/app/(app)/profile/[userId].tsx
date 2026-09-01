@@ -74,6 +74,7 @@ export default function PublicProfileScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [noCoinsOpen, setNoCoinsOpen] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [safetyLoading, setSafetyLoading] = useState(false);
   const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
@@ -125,6 +126,7 @@ export default function PublicProfileScreen() {
     }
 
     setActionLoading(true);
+    setActionError(null);
     try {
       await sendFriendRequest(userId, (response) => {
         commitFriendshipBalance(queryClient, response.balance);
@@ -137,6 +139,7 @@ export default function PublicProfileScreen() {
       });
     } catch (error) {
       if (isFriendLimitError(error)) setUpgradeMessage(error.message);
+      else setActionError(error instanceof Error ? error.message : "The friend request could not be sent. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -145,10 +148,13 @@ export default function PublicProfileScreen() {
   async function sendMessage() {
     if (!userId || !isFriend || actionLoading) return;
     setActionLoading(true);
+    setActionError(null);
     try {
       const thread = await createOrFindThread(userId);
       queryClient.setQueryData(nativeQueryKeys.coins, { balance: thread.balance });
       router.push({ pathname: "/chat/[threadId]", params: { threadId: thread.id } } as never);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The message could not be started. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -372,6 +378,7 @@ export default function PublicProfileScreen() {
             </Pressable>
           )}
         </View>
+        {actionError ? <Text accessibilityRole="alert" style={styles.actionError}>{actionError}</Text> : null}
       </View>
     </View>
   );
@@ -816,6 +823,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.ink[5],
     marginTop: spacing[3],
+  },
+  actionError: {
+    ...typography.caption,
+    color: colors.danger[500],
+    marginTop: spacing[2],
+    textAlign: "center",
   },
   disabledAction: {
     opacity: 0.6,

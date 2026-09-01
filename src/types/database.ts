@@ -187,6 +187,7 @@ export type NearbyUser = {
   display_name: string | null;
   lat: number;
   lng: number;
+  meeting_eligible?: boolean;
 };
 
 export type UserCoins = {

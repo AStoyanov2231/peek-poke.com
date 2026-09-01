@@ -1178,6 +1178,7 @@ export const nearbyUserSchema = z.strictObject({
   last_seen_at: utcTimestampSchema.nullable(),
   lat: nearbyLatitudeSchema,
   lng: nearbyLongitudeSchema,
+  meeting_eligible: z.boolean().optional(),
 }).superRefine((user, context) => {
   if (user.avatar_url !== null && isPrivateProfilePhotoMediaUrl(user.avatar_url)) {
     context.addIssue({

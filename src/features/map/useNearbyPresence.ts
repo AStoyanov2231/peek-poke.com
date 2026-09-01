@@ -48,6 +48,7 @@ export function useNearbyPresence(userId: string | undefined) {
   const locationFailureForUserId = useAppStore((state) => state.locationFailureForUserId);
   const locationFreshForUserId = useAppStore((state) => state.locationFreshForUserId);
   const locationAcknowledgedAt = useAppStore((state) => state.locationAcknowledgedAt);
+  const setUserLocation = useAppStore((state) => state.setUserLocation);
   const setDeviceLocation = useAppStore((state) => state.setDeviceLocation);
   const setDeviceLocationError = useAppStore((state) => state.setDeviceLocationError);
   const markLocationSynced = useAppStore((state) => state.markLocationSynced);
@@ -60,7 +61,7 @@ export function useNearbyPresence(userId: string | undefined) {
   const [coordinator] = useState(createWebLocationSyncCoordinator);
   const [pendingForUserId, setPendingForUserId] = useState<string | null>(null);
   const lastTrackRef = useRef(0);
-  const lastUserRef = useRef<string | undefined>(undefined);
+  const lastUserRef = useRef<string | undefined>(userId);
 
   useQuery({
     ...nearbyQueryOptions(userLocation, userId),
@@ -123,9 +124,11 @@ export function useNearbyPresence(userId: string | undefined) {
       locationFresh ||
       pendingForUserId === userId
     ) return;
+    if (useAppStore.getState().userLocation !== userLocation) return;
     if (lastUserRef.current !== userId) {
       lastUserRef.current = userId;
       lastTrackRef.current = 0;
+      setUserLocation(null);
       return;
     }
 
@@ -140,7 +143,7 @@ export function useNearbyPresence(userId: string | undefined) {
     }
     const timer = setTimeout(run, waitMs);
     return () => clearTimeout(timer);
-  }, [locationFresh, locationStatus, pendingForUserId, runLocationSync, userId, userLocation]);
+  }, [locationFresh, locationStatus, pendingForUserId, runLocationSync, setUserLocation, userId, userLocation]);
 
   useEffect(() => () => coordinator.cancel(), [coordinator, userId]);
 

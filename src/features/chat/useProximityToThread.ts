@@ -9,7 +9,6 @@ import {
   useUserLocation,
 } from "@/stores/selectors";
 import { useAuth } from "@/features/auth/useAuth";
-import { meetingProximityEligible } from "@peekpoke/shared";
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -53,7 +52,7 @@ export function useProximityToThread(threadId: string | null): {
     return {
       distanceMeters,
       isNearby: d < 500,
-      meetingEligible: acceptedFriend && meetingProximityEligible(distanceMeters),
+      meetingEligible: acceptedFriend && nearbyUser.meeting_eligible === true,
     };
   }, [threadId, user, threads, friends, nearbyUsers, userLocation, locationFresh]);
 }
