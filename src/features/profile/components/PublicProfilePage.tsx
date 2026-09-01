@@ -46,6 +46,7 @@ export default function PublicProfilePage() {
   const coins = coinsQuery.data?.balance ?? 0;
 
   const [showNoCoins, setShowNoCoins] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reportCategory, setReportCategory] = useState("other");
   const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
   const [safetyLoading, setSafetyLoading] = useState(false);
@@ -97,6 +98,7 @@ export default function PublicProfilePage() {
       return;
     }
     startTransition(async () => {
+      setActionError(null);
       try {
         await sendFriendRequest(userId, (response) => {
           queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
@@ -109,8 +111,9 @@ export default function PublicProfilePage() {
       } catch (err) {
         if (err instanceof ApiTransportError && err.code === "INSUFFICIENT_COINS") {
           setShowNoCoins(true);
+        } else {
+          setActionError(err instanceof Error ? err.message : "The friend request could not be sent. Please try again.");
         }
-        console.error("Failed to send friend request:", err);
       }
     });
   };
@@ -118,6 +121,7 @@ export default function PublicProfilePage() {
   const handleSendMessage = () => {
     if (!isFriend) return;
     startTransition(async () => {
+      setActionError(null);
       try {
         const response = await createOrFindThread(userId);
         queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
@@ -126,7 +130,11 @@ export default function PublicProfilePage() {
           : `/inbox?tab=chats&thread=${response.id}`;
         router.push(destination);
       } catch (err) {
-        console.error("Failed to start DM:", err);
+        if (err instanceof ApiTransportError && err.code === "INSUFFICIENT_COINS") {
+          setShowNoCoins(true);
+        } else {
+          setActionError(err instanceof Error ? err.message : "The message could not be started. Please try again.");
+        }
       }
     });
   };
@@ -288,6 +296,7 @@ export default function PublicProfilePage() {
                 </button>
               )}
             </div>
+            {actionError ? <p role="alert" className="text-sm text-red-700">{actionError}</p> : null}
           )}
         </div>
       </div>

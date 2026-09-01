@@ -13,7 +13,6 @@ import {
   adminBotCollectRequestSchema,
   adminBotCollectResultSchema,
   adminBotListResponseSchema,
-  locationAttestationResponseSchema,
   locationUpdateResponseSchema,
   nearbyResponseSchemaForViewer,
   publicProfileResponseSchemaForTarget,
@@ -39,20 +38,13 @@ export function updateLocation(
   coords: Coordinates,
   signal?: AbortSignal,
 ): Promise<LocationUpdateResponse> {
-  return apiFetch<{ token: string }>("/api/location/attestation", {
+  return apiFetch<LocationUpdateResponse>("/api/location", {
     method: "POST",
     body: jsonBody(coords),
     signal,
     timeoutMs: LOCATION_UPDATE_TIMEOUT_MS,
-    responseSchema: locationAttestationResponseSchema,
-  }).then(({ token }) => apiFetch<LocationUpdateResponse>("/api/location", {
-    method: "POST",
-    body: jsonBody(coords),
-    signal,
-    timeoutMs: LOCATION_UPDATE_TIMEOUT_MS,
-    headers: { "x-location-attestation": token },
     responseSchema: locationUpdateResponseSchema,
-  }));
+  });
 }
 
 export async function fetchNearby(

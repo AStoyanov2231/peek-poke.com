@@ -14,7 +14,12 @@ export function filterNearbyUsers(
   friendIds: ReadonlySet<string>,
   queryText: string,
 ) {
-  const query = queryText.trim().toLowerCase();
+  const query = queryText
+    .trim()
+    .split(/\s+/)
+    .filter((token) => !token.startsWith("@"))
+    .join(" ")
+    .toLowerCase();
   return nearbyUsers.filter((user) => {
     if (filter === "friends" && !friendIds.has(user.userId)) return false;
     if (filter === "online" && user.is_online !== true) return false;

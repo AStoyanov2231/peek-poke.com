@@ -28,6 +28,7 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
   const router = useTransitionRouter();
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -43,13 +44,19 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
 
   const handleSendMessage = useCallback(() => {
     startTransition(async () => {
+      setActionError(null);
       try {
         const response = await createOrFindThread(user.userId);
         queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
         await queryClient.invalidateQueries({ queryKey: webQueryKeys.threads });
         setHighlightedUserId(null);
-        router.push(`/inbox?tab=chats&thread=${response.id}`);
-      } catch (err) { console.error("Failed to start DM:", err); }
+        const destination = window.matchMedia("(max-width: 767px)").matches
+          ? `/chat/${response.id}`
+          : `/inbox?tab=chats&thread=${response.id}`;
+        router.push(destination);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : "The message could not be started. Please try again.");
+      }
     });
   }, [queryClient, router, user.userId, setHighlightedUserId, startTransition]);
 
@@ -122,6 +129,7 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
           Profile
         </button>
       </div>
+      {actionError ? <p role="alert" className="t-caption mt-2.5" style={{ color: "var(--danger-600)" }}>{actionError}</p> : null}
 
       {!isFriend && (
         <p className="t-caption text-center mt-2.5" style={{ color: "var(--ink-5)" }}>

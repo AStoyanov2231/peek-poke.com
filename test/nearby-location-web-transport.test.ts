@@ -74,7 +74,7 @@ describe("web nearby and location transports", () => {
     { ok: false },
     { ok: true, raw: true },
   ])("rejects malformed location acknowledgements %#", async (payload) => {
-    vi.stubGlobal("fetch", response({ token: "signed-location-attestation" }, payload));
+    vi.stubGlobal("fetch", response(payload));
     await expect(updateWebLocation(LOCATION)).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
       status: 502,
@@ -82,14 +82,11 @@ describe("web nearby and location transports", () => {
   });
 
   it("accepts the exact location acknowledgement", async () => {
-    const fetchMock = response({ token: "signed-location-attestation" }, { ok: true });
+    const fetchMock = response({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
     await expect(updateWebLocation(LOCATION)).resolves.toEqual({ ok: true });
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/location/attestation", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith("/api/location", expect.objectContaining({
       body: JSON.stringify(LOCATION),
-    }));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/location", expect.objectContaining({
-      headers: expect.objectContaining({ "x-location-attestation": "signed-location-attestation" }),
     }));
   });
 

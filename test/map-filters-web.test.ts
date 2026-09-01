@@ -32,5 +32,6 @@ describe("web map filters", () => {
     expect(filterNearbyUsers(users, "friends", friendIds, "")).toEqual([users[0]]);
     expect(filterNearbyUsers(users, "online", friendIds, "")).toEqual([users[0]]);
     expect(filterNearbyUsers(users, "all", friendIds, "GRACE")).toEqual([users[1]]);
+    expect(filterNearbyUsers(users, "all", friendIds, "@fitness")).toEqual(users);
   });
 });

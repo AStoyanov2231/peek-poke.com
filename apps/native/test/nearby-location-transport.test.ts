@@ -73,7 +73,7 @@ describe("iOS and Android nearby/location transport barrier", () => {
     ["android", { ok: false }],
     ["ios", { ok: true, raw: true }],
   ])("rejects malformed %s location acknowledgement %#", async (_platform, payload) => {
-    vi.stubGlobal("fetch", response({ token: "signed-location-attestation" }, payload));
+    vi.stubGlobal("fetch", response(payload));
     await expect(updateLocation(LOCATION)).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
       status: 502,
@@ -81,14 +81,11 @@ describe("iOS and Android nearby/location transport barrier", () => {
   });
 
   it.each(["ios", "android"])("accepts the exact %s location acknowledgement", async () => {
-    const fetchMock = response({ token: "signed-location-attestation" }, { ok: true });
+    const fetchMock = response({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
     await expect(updateLocation(LOCATION)).resolves.toEqual({ ok: true });
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://www.peek-poke.com/api/location/attestation", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith("https://www.peek-poke.com/api/location", expect.objectContaining({
       body: JSON.stringify(LOCATION),
-    }));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://www.peek-poke.com/api/location", expect.objectContaining({
-      headers: expect.objectContaining({ "x-location-attestation": "signed-location-attestation" }),
     }));
   });
 

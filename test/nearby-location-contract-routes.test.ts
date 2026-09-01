@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-const upsert = vi.fn();
 const rpc = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
@@ -8,29 +7,40 @@ vi.mock("@/lib/auth", () => ({
     (request: Request) => handler(request, { user: { id: "11111111-1111-4111-8111-111111111111" } }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  createServiceClient: () => ({ from: () => ({ upsert }), rpc }),
+  createServiceClient: () => ({ rpc }),
 }));
 
 import { POST as nearby } from "@/app/api/nearby/route";
 import { POST as location } from "@/app/api/location/route";
 
-describe("location attestation boundary", () => {
-  it.each([
-    ["location", location, "/api/location"],
-    ["nearby", nearby, "/api/nearby"],
-  ])("fails closed for %s without storing or querying client coordinates", async (_name, handler, path) => {
-    const response = await handler(new Request(`https://example.test${path}`, {
+describe("legacy GPS location boundary", () => {
+  it("accepts client GPS without marking it as verified", async () => {
+    rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+    const response = await location(new Request("https://example.test/api/location", {
       method: "POST",
       body: JSON.stringify({ lat: 42.6977, lng: 23.3219 }),
       headers: { "content-type": "application/json" },
     }), {} as never);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    await expect(response.json()).resolves.toMatchObject({
-      code: "LOCATION_VERIFICATION_UNAVAILABLE",
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("upsert_user_location", {
+      p_user_id: "11111111-1111-4111-8111-111111111111",
+      p_lat: 42.6977,
+      p_lng: 23.3219,
     });
-    expect(upsert).not.toHaveBeenCalled();
-    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns nearby users for a fresh legacy GPS location", async () => {
+    rpc.mockResolvedValueOnce({ data: [], error: null });
+    const response = await nearby(new Request("https://example.test/api/nearby", {
+      method: "POST",
+      body: JSON.stringify({ lat: 42.6977, lng: 23.3219 }),
+      headers: { "content-type": "application/json" },
+    }), {} as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ users: [] });
   });
 });
