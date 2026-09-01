@@ -1235,6 +1235,10 @@ export const locationUpdateResponseSchema = z.strictObject({
   ok: z.literal(true),
 });
 
+export const locationAttestationResponseSchema = z.strictObject({
+  token: z.string().min(1).max(4096),
+});
+
 export const moderationReportStatusSchema = z.enum([
   "pending",
   "reviewing",

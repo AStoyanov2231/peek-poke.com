@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -90,6 +90,8 @@ function InlineError({ message, style }: { message: string; style?: StyleProp<Vi
 // This route coordinates onboarding state, animations, and navigation for the screen.
 // react-doctor-disable-next-line no-giant-component
 export default function OnboardingScreen() {
+  const { invite: inviteParam } = useLocalSearchParams<{ invite?: string | string[] }>();
+  const pendingInvite = Array.isArray(inviteParam) ? inviteParam[0] : inviteParam;
   const queryClient = useQueryClient();
   const profileQuery = useQuery({
     queryKey: nativeQueryKeys.profile.current,
@@ -229,11 +231,13 @@ export default function OnboardingScreen() {
   useEffect(() => {
     if (step !== 3) return;
     const timeout = setTimeout(
-      () => router.replace("/(app)/rooms" as never),
+      () => router.replace(
+        pendingInvite ? `/invite/${pendingInvite}` as never : "/(app)/map" as never,
+      ),
       1500
     );
     return () => clearTimeout(timeout);
-  }, [step]);
+  }, [pendingInvite, step]);
 
   const groupedTags = useMemo(() => {
     return allTags.reduce<Record<string, InterestTag[]>>((acc, tag) => {

@@ -11,6 +11,7 @@ import {
   dmInboxResponseSchema,
   friendsReadResponseSchema,
   interestCatalogResponseSchema,
+  locationAttestationResponseSchema,
   locationUpdateResponseSchema,
   messagesResponseSchema,
   meetingResponseSchema,
@@ -429,7 +430,23 @@ export function updateWebLocation(
   location: { lat: number; lng: number },
   signal?: AbortSignal,
 ): Promise<LocationUpdateResponse> {
-  return fetchContract("/api/location", locationUpdateResponseSchema, {
+  return requestWebLocationAttestation(location, signal).then(({ token }) => fetchContract("/api/location", locationUpdateResponseSchema, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-location-attestation": token,
+    },
+    body: JSON.stringify(location),
+    signal,
+    timeoutMs: WEB_LOCATION_UPDATE_TIMEOUT_MS,
+  }));
+}
+
+function requestWebLocationAttestation(
+  location: { lat: number; lng: number },
+  signal?: AbortSignal,
+) {
+  return fetchContract("/api/location/attestation", locationAttestationResponseSchema, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(location),

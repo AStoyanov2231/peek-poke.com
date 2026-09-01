@@ -11,7 +11,7 @@ import { avatarColor } from "@/lib/avatar-color";
 import { SearchAutocomplete } from "@/features/search/components/SearchAutocomplete";
 import { AddFriendButton } from "@/components/ui/AddFriendButton";
 import type { NearbyUser } from "@/types/database";
-import { filterNearbyUsers, mapFilterOptions, type MapFilter } from "@/features/map/filters";
+import { filterNearbyUsers, mapFilterOptions } from "@/features/map/filters";
 
 interface NearbyRailRowProps {
   user: NearbyUser;
@@ -71,8 +71,6 @@ const NearbyRailRow = memo(function NearbyRailRow({ user, isOnline, isSelected, 
 });
 
 export function DesktopNearbyRail() {
-  const [filter, setFilter] = useState<MapFilter>("all");
-  const [query, setQuery] = useState("");
   const [cursorPos, setCursorPos] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -82,6 +80,10 @@ export function DesktopNearbyRail() {
   const userLocation = useUserLocation();
   const highlightedUserId = useHighlightedUserId();
   const selectUser = useAppStore((s) => s.selectUser);
+  const filter = useAppStore((s) => s.mapFilter);
+  const query = useAppStore((s) => s.mapSearchQuery);
+  const setMapFilter = useAppStore((s) => s.setMapFilter);
+  const setMapSearchQuery = useAppStore((s) => s.setMapSearchQuery);
 
   const nearbyIds = useMemo(() => nearbyUsers.map((u) => u.userId), [nearbyUsers]);
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
@@ -99,9 +101,9 @@ export function DesktopNearbyRail() {
     const spaceIndex = afterAt.indexOf(' ');
     const tokenEnd = spaceIndex === -1 ? query.length : atIndex + spaceIndex + 1;
     const newQuery = query.slice(0, atIndex) + `@${name} ` + query.slice(tokenEnd);
-    setQuery(newQuery);
+    setMapSearchQuery(newQuery);
     setCursorPos(atIndex + name.length + 2);
-  }, [query, cursorPos]);
+  }, [cursorPos, query, setMapSearchQuery]);
 
   return (
     <div
@@ -124,7 +126,7 @@ export function DesktopNearbyRail() {
             type="text"
             placeholder="Search people nearby"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setMapSearchQuery(e.target.value)}
             onKeyUp={(e) => setCursorPos((e.target as HTMLInputElement).selectionStart ?? query.length)}
             onMouseUp={(e) => setCursorPos((e.target as HTMLInputElement).selectionStart ?? query.length)}
             onSelect={(e) => setCursorPos((e.target as HTMLInputElement).selectionStart ?? query.length)}
@@ -139,7 +141,7 @@ export function DesktopNearbyRail() {
               nearbyIds={nearbyIds}
               onSelectUser={(userId) => router.push(`/profile/${userId}`)}
               onReplaceActiveTag={handleReplaceActiveTag}
-              onClose={() => setQuery('')}
+              onClose={() => setMapSearchQuery('')}
               className="absolute left-0 right-0 top-full mt-1 z-50"
             />
           )}
@@ -150,7 +152,7 @@ export function DesktopNearbyRail() {
           {mapFilterOptions.map(({ value: f, label }) => (
             <button type="button"
               key={f}
-              onClick={() => setFilter(f)}
+              onClick={() => setMapFilter(f)}
               className={filter === f ? "chip chip-active" : "chip"}
             >
               {label}

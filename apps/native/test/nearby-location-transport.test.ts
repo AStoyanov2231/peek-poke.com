@@ -73,7 +73,7 @@ describe("iOS and Android nearby/location transport barrier", () => {
     ["android", { ok: false }],
     ["ios", { ok: true, raw: true }],
   ])("rejects malformed %s location acknowledgement %#", async (_platform, payload) => {
-    vi.stubGlobal("fetch", response(payload));
+    vi.stubGlobal("fetch", response({ token: "signed-location-attestation" }, payload));
     await expect(updateLocation(LOCATION)).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
       status: 502,
@@ -81,8 +81,15 @@ describe("iOS and Android nearby/location transport barrier", () => {
   });
 
   it.each(["ios", "android"])("accepts the exact %s location acknowledgement", async () => {
-    vi.stubGlobal("fetch", response({ ok: true }));
+    const fetchMock = response({ token: "signed-location-attestation" }, { ok: true });
+    vi.stubGlobal("fetch", fetchMock);
     await expect(updateLocation(LOCATION)).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://www.peek-poke.com/api/location/attestation", expect.objectContaining({
+      body: JSON.stringify(LOCATION),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://www.peek-poke.com/api/location", expect.objectContaining({
+      headers: expect.objectContaining({ "x-location-attestation": "signed-location-attestation" }),
+    }));
   });
 
   it("turns a bounded location transport deadline into a canonical retryable failure", async () => {
@@ -103,8 +110,9 @@ describe("iOS and Android nearby/location transport barrier", () => {
   });
 });
 
-function response(payload: unknown) {
-  return vi.fn(async () => new Response(JSON.stringify(payload), {
+function response(...payloads: unknown[]) {
+  let index = 0;
+  return vi.fn(async () => new Response(JSON.stringify(payloads[Math.min(index++, payloads.length - 1)]), {
     headers: { "x-request-id": "nearby-native-request" },
   }));
 }

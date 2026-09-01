@@ -28,8 +28,11 @@ export const BotPin = memo(function BotPin({ bot, viewerId, location, collectabl
     }
     if (collecting) return;
     setCollecting(true);
-    await collectAndApplyWebBot(queryClient, bot.id, viewerId, location!);
-    setCollecting(false);
+    try {
+      await collectAndApplyWebBot(queryClient, bot.id, viewerId, location!);
+    } finally {
+      setCollecting(false);
+    }
   };
 
   return (
