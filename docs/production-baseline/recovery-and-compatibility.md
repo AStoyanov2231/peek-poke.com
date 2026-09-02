@@ -29,10 +29,10 @@ activation time, and rollback procedure. Secret values are never recorded.
 2. Verify sequence backfill, membership cursors, RLS, UUID replay, outbox
    lease ownership, retry/dead-letter transitions, and account cleanup using
    synthetic users only.
-3. Promote the additive migration before the API/Cron deployment. Old clients
+3. Promote the additive migration before the API deployment. Old clients
    remain compatible through the legacy RPC and push-token fallbacks.
-4. During rollback, stop the Cron first and drain or retain pending outbox
-   rows, then restore the previous Vercel deployment. Leave additive tables,
+4. During rollback, stop any outbox invoker first and drain or retain pending
+   outbox rows, then restore the previous Vercel deployment. Leave additive tables,
    columns, triggers, and indexes in place while any released client or queued
    event can reference them.
 5. Contract/drop schema only after the mobile compatibility window and a

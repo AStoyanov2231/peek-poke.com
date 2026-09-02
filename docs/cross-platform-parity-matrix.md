@@ -85,7 +85,7 @@ management and private Realtime Broadcast/signaling.
 | `POST /api/stripe/checkout` | Web checkout | Not called by native | Web-only by policy |
 | `POST /api/stripe/portal` | Web billing portal | Not called by native | Web-only by policy |
 | `POST /api/stripe/webhook` | Stripe receipt/projection | No client caller | Backend-only |
-| `GET /api/internal/outbox` | Secret-authenticated bounded worker for message/push, call push, billing audit, and deletion cleanup events | No client caller | Backend-only; Vercel Cron |
+| `GET /api/internal/outbox` | Secret-authenticated bounded worker for message/push, call push, billing audit, and deletion cleanup events | No client caller | Backend-only; no scheduler configured in source control |
 | `GET/POST/DELETE /api/admin/coins/**` | Admin coin management | Native admin role equivalent | Shared role-gated |
 | `GET/PATCH /api/moderation/photos/**` | Photo moderation, including atomic featured-media clearing on rejection | Native admin photo moderation through the same strict media DTO | REPOSITORY PASS / RELEASE BLOCKED: approved-media migration promotion, staging, and runtime proof are required |
 | `GET/PATCH /api/moderation/reports/**` | Role-gated report moderation; raw database rows, including nullable profile relations, are parsed fail-closed before strict list/mutation DTOs are returned | Native admin report moderation uses the same request-correlated mutation contract and queue invalidation only after valid success | REPOSITORY PASS / RELEASE BLOCKED: raw DB parser/contract evidence only; no hosted write, moderator session, staging, browser, or device runtime proof |
@@ -131,8 +131,8 @@ management and private Realtime Broadcast/signaling.
   projects verify iOS/Android Pressability and 44pt/48dp geometry; approved-device
   VoiceOver/TalkBack traversal and OS gesture dispatch remain unverified.
 - `supabase/migrations/20260729235452_durable_workflows.sql` and the
-  `/api/internal/outbox` Cron must be rehearsed against an isolated full schema
-  baseline and promoted migration-first. In particular, production does not
+  `/api/internal/outbox` worker must be rehearsed against an isolated full
+  schema baseline and promoted migration-first. In particular, production does not
   expose `send_message_transactional`, so production DM sending correctly
   fails closed until that migration exists. Production was not mutated.
 - The authenticated-profile repository/migration path needs hosted promotion
