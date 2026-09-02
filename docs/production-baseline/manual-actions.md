@@ -2,7 +2,7 @@
 
 - Pull the complete 134-migration schema-only baseline into an isolated project, reconcile the hosted/local migration-history name drift, apply `20260729235452_durable_workflows.sql` followed by the cursor indexes, and pass migration/RLS/rollback checks. The current checkout cannot recreate the hosted schema from its two additive migrations alone.
 - Configure separate development, preview/staging, and production Supabase/Vercel/EAS variables and project references. Do not reuse production values in preview.
-- Configure a per-environment `CRON_SECRET`, promote the migration first, then deploy the `dub1` Vercel region and outbox Cron. Verify the function region from `x-vercel-id`, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency.
+- Configure a per-environment `CRON_SECRET` for authorized outbox invocations, promote the migration first, then deploy the `dub1` Vercel region. Verify the function region from `x-vercel-id`, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency.
 - Enable Supabase leaked-password protection and rerun security advisors. Record the previous setting and rollback action before changing it.
 - Promote the committed server-only `public.user_locations` RLS policy after isolated verification; the live advisor currently reports RLS enabled with no policy.
 - Configure Vercel WAF/rate-limit rules for authentication-related traffic. Supabase Auth is a direct client integration and needs provider/edge coverage.

@@ -37,7 +37,7 @@ additive and reversible with drop index concurrently if exists statements
 after verifying the corresponding tables and columns in the environment
 baseline.
 
-For incident rollback, disable the outbox Cron and restore the compatible API
+For incident rollback, stop any outbox invoker and restore the compatible API
 deployment while retaining additive schema and queued rows. Do not drop
 sequence, membership, device, deletion-job, idempotency, or outbox data until
 the released-client compatibility window has closed and the queue is drained.
