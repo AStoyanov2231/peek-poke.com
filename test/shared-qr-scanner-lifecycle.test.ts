@@ -71,8 +71,11 @@ afterEach(async () => {
 });
 
 describe("web QR scanner lifecycle", () => {
-  it("submits exact manual fallback text without interpreting it", async () => {
+  it("preserves opaque manual fallback input settings and text", async () => {
     await mount();
+    expect(input().props.autoCapitalize).toBe("none");
+    expect(input().props.autoCorrect).toBe("off");
+    expect(input().props.spellCheck).toBe(false);
     const content = "  https://example.invalid/qr?id=7  ";
     await act(async () => {
       input().props.onChange({ target: { value: content } });

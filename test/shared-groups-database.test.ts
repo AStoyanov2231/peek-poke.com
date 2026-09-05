@@ -77,9 +77,9 @@ describeDatabase("shared group database boundary", () => {
     expect(first.error).toBeNull();
     expect(second.error).toBeNull();
     expect(different.error).toBeNull();
-    expect(first.data.group.id).toBe(second.data.group.id);
-    expect(first.data.group.id).not.toBe(different.data.group.id);
-    expect([first.data.group.member_count, second.data.group.member_count].sort()).toEqual([1, 2]);
+    const sharedGroupId = first.data.group.id;
+    expect(sharedGroupId).toBe(second.data.group.id);
+    expect(sharedGroupId).not.toBe(different.data.group.id);
 
     const { data: memberships, error } = await supabase
       .from("shared_group_members")
@@ -87,10 +87,27 @@ describeDatabase("shared group database boundary", () => {
       .in("user_id", userIds);
     expect(error).toBeNull();
     expect(memberships).toHaveLength(3);
+    expect(memberships?.filter((membership) => membership.group_id === sharedGroupId)).toHaveLength(2);
+    expect(memberships?.filter((membership) => membership.group_id === different.data.group.id)).toHaveLength(1);
 
-    const directRead = await authenticatedSessions[0].from("shared_groups").select("id");
-    expect(directRead.error).toBeNull();
-    expect(directRead.data).toEqual([]);
+    const memberRead = await authenticatedSessions[0].from("shared_groups").select("id");
+    const nonmemberRead = await authenticatedSessions[2].from("shared_groups").select("id");
+    expect(memberRead.error).not.toBeNull();
+    expect(nonmemberRead.error).not.toBeNull();
+    const memberSend = await authenticatedSessions[1].rpc("send_shared_group_message_transactional", {
+      p_group_id: sharedGroupId,
+      p_sender_id: userIds[1],
+      p_client_id: randomUUID(),
+      p_content: "member message",
+    });
+    const nonmemberSend = await authenticatedSessions[2].rpc("send_shared_group_message_transactional", {
+      p_group_id: sharedGroupId,
+      p_sender_id: userIds[2],
+      p_client_id: randomUUID(),
+      p_content: "outsider message",
+    });
+    expect(memberSend.error).not.toBeNull();
+    expect(nonmemberSend.error).not.toBeNull();
     const deniedRpc = await authenticatedSessions[0].rpc("create_or_join_shared_group", {
       p_user_id: userIds[0],
       p_qr_content: `${qrContent}-direct-call`,

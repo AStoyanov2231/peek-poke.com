@@ -1,6 +1,6 @@
 import React from "react";
 import { AppState } from "react-native";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockRequestPermission = jest.fn();
 const mockCameraProps: { current: Record<string, unknown> | null } = { current: null };
@@ -50,6 +50,26 @@ describe("native QR scanner lifecycle", () => {
     fireEvent.changeText(result.getByLabelText("QR text"), "plain QR text");
     fireEvent.press(result.getByRole("button", { name: "Join" }));
     await waitFor(() => expect(onDecoded).toHaveBeenCalledWith("plain QR text"));
+  });
+
+  it("shows the camera fallback when the preview cannot mount", async () => {
+    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
+
+    await waitFor(() => expect(mockCameraProps.current?.active).toBe(true));
+    await act(async () => {
+      (mockCameraProps.current?.onMountError as () => void)();
+    });
+    expect(result.getByRole("alert")).toBeTruthy();
+    expect(result.getByText("No camera is available in this environment. Enter the QR text below instead.")).toBeTruthy();
+  });
+
+  it("shows the camera fallback when permission request is rejected", async () => {
+    mockPermissionState = null;
+    mockRequestPermission.mockRejectedValueOnce(new Error("permission unavailable"));
+    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
+
+    await waitFor(() => expect(result.getByRole("alert")).toBeTruthy());
+    expect(result.getByText("The camera could not start. Try again or enter the QR text below.")).toBeTruthy();
   });
 
   it("offers retry after a failed join", async () => {

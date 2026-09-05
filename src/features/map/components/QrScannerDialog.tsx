@@ -227,8 +227,11 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
               <input
                 id="qr-manual-content"
                 className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline bg-ink-1 px-3 text-sm text-ink-9 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                autoCapitalize="none"
+                autoCorrect="off"
                 onChange={(event) => setManualContent(event.target.value)}
                 placeholder="Paste QR text"
+                spellCheck={false}
                 type="text"
                 value={manualContent}
               />

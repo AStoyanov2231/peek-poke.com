@@ -364,6 +364,28 @@ begin
         updated_at = pg_catalog.clock_timestamp()
     where member.group_id = p_group_id and member.user_id = p_user_id;
 
+    insert into public.outbox_events (
+      event_type, aggregate_type, aggregate_id, payload
+    )
+    values (
+      'shared_group.message.changed',
+      'shared_group',
+      p_group_id::text,
+      pg_catalog.jsonb_build_object(
+        'group_id', p_group_id,
+        'recipient_ids', (
+          select pg_catalog.coalesce(
+            pg_catalog.jsonb_agg(member.user_id order by member.user_id),
+            '[]'::jsonb
+          )
+          from public.shared_group_members member
+          where member.group_id = p_group_id
+        ),
+        'actor_id', p_user_id,
+        'sequence', v_sequence,
+        'action', 'read'
+      )
+    );
   end if;
 
   return pg_catalog.jsonb_build_object(
