@@ -257,15 +257,15 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
           <div className="space-y-2 border-t border-hairline pt-3">
             <label className="t-caption text-ink-7" htmlFor="qr-manual-content">Can’t scan? Enter the QR text</label>
             <div className="flex gap-2">
-              <input
+              <textarea
                 id="qr-manual-content"
-                className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline bg-ink-1 px-3 text-sm text-ink-9 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                className="min-h-11 min-w-0 flex-1 resize-y rounded-xl border border-hairline bg-ink-1 px-3 py-2 text-sm text-ink-9 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
                 autoCapitalize="none"
                 autoCorrect="off"
                 onChange={(event) => setManualContent(event.target.value)}
                 placeholder="Paste QR text"
+                rows={3}
                 spellCheck={false}
-                type="text"
                 value={manualContent}
               />
               <button

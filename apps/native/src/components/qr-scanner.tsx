@@ -174,10 +174,13 @@ export function QrScanner({
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={state !== "submitting"}
+                multiline
+                numberOfLines={3}
                 onChangeText={setManualContent}
                 placeholder="Paste QR text"
                 placeholderTextColor={colors.ink[5]}
                 style={styles.input}
+                textAlignVertical="top"
                 value={manualContent}
               />
               <Button

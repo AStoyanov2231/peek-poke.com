@@ -76,7 +76,7 @@ describe("web QR scanner lifecycle", () => {
     expect(input().props.autoCapitalize).toBe("none");
     expect(input().props.autoCorrect).toBe("off");
     expect(input().props.spellCheck).toBe(false);
-    const content = "  https://example.invalid/qr?id=7  ";
+    const content = "  https://example.invalid/qr?id=7  \nnext line";
     await act(async () => {
       input().props.onChange({ target: { value: content } });
     });

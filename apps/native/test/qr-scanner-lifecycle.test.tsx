@@ -47,9 +47,10 @@ describe("native QR scanner lifecycle", () => {
     const result = render(<QrScanner open onClose={jest.fn()} onDecoded={onDecoded} />);
 
     expect(result.getByRole("alert")).toBeTruthy();
-    fireEvent.changeText(result.getByLabelText("QR text"), "plain QR text");
+    const content = "plain\nQR text";
+    fireEvent.changeText(result.getByLabelText("QR text"), content);
     fireEvent.press(result.getByRole("button", { name: "Join" }));
-    await waitFor(() => expect(onDecoded).toHaveBeenCalledWith("plain QR text"));
+    await waitFor(() => expect(onDecoded).toHaveBeenCalledWith(content));
   });
 
   it("shows the camera fallback when the preview cannot mount", async () => {
