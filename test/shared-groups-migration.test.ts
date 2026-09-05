@@ -28,7 +28,11 @@ const databaseTestRequested = Boolean(process.env.SUPABASE_TEST_TARGET || url ||
 if (databaseTestRequested && (!url || !serviceRoleKey || !anonKey || !databaseTargetAllowed)) {
   throw new Error(`Shared-group migration tests require the approved target ${APPROVED_PROJECT_REF} with complete credentials and SUPABASE_TEST_TARGET opt-in.`);
 }
-const describeDatabase = url && serviceRoleKey && anonKey && databaseTargetAllowed ? describe : describe.skip;
+function requireDatabaseTestConfig() {
+  if (!url || !serviceRoleKey || !anonKey || !databaseTargetAllowed) {
+    throw new Error(`Shared-group migration tests require SUPABASE_TEST_URL, SUPABASE_TEST_SERVICE_ROLE_KEY, SUPABASE_TEST_ANON_KEY, and approved target ${APPROVED_PROJECT_REF}.`);
+  }
+}
 
 let supabase: SupabaseClient;
 let authenticated: SupabaseClient;
@@ -56,8 +60,9 @@ async function createTestUser() {
   if (error) throw error;
 }
 
-describeDatabase("shared QR group migration semantics", () => {
+describe("shared QR group migration semantics", () => {
   beforeAll(async () => {
+    requireDatabaseTestConfig();
     supabase = createClient(url!, serviceRoleKey!);
     authenticated = createClient(url!, anonKey!);
     await createTestUser();

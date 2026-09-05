@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(38);
 
 insert into auth.users (id, email)
 values
@@ -270,6 +270,18 @@ select is(
     '57000000-0000-4000-8000-000000000004'
   ),
   'account erasure scrubs the deleted recipient from pending hints'
+);
+select is(
+  (select payload -> 'recipient_ids'
+   from public.outbox_events
+   where event_type = 'shared_group.message.changed'
+     and aggregate_id = (select result -> 'group' ->> 'id' from shared_qr_test_state where name = 'first')
+     and payload ->> 'action' = 'deleted'),
+  pg_catalog.jsonb_build_array(
+    '57000000-0000-4000-8000-000000000002',
+    '57000000-0000-4000-8000-000000000004'
+  ),
+  'account erasure emits a sanitized shared-group deletion hint'
 );
 select is(
   (select result ->> 'error' from public.send_shared_group_message_transactional(

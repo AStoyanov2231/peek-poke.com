@@ -421,10 +421,17 @@ as $$
 declare
   v_group_ids uuid[];
 begin
-  select pg_catalog.array_agg(distinct message.group_id)
+  select pg_catalog.array_agg(affected.group_id)
   into v_group_ids
-  from public.shared_group_messages message
-  where message.sender_id = new.id;
+  from (
+    select member.group_id
+    from public.shared_group_members member
+    where member.user_id = new.id
+    union
+    select message.group_id
+    from public.shared_group_messages message
+    where message.sender_id = new.id
+  ) affected;
 
   delete from public.outbox_events outbox_event
   where outbox_event.event_type = 'shared_group.message.changed'
@@ -474,6 +481,33 @@ begin
           limit 1
         )
     where group_row.id = any(v_group_ids);
+
+    insert into public.outbox_events (
+      event_type, aggregate_type, aggregate_id, payload
+    )
+    select
+      'shared_group.message.changed',
+      'shared_group',
+      group_row.id::text,
+      pg_catalog.jsonb_build_object(
+        'group_id', group_row.id,
+        'recipient_ids', pg_catalog.coalesce(
+          pg_catalog.jsonb_agg(member.user_id order by member.user_id)
+            filter (where member.user_id is not null),
+          '[]'::jsonb
+        ),
+        'actor_id', new.id,
+        'action', 'deleted'
+      ) || case
+        when group_row.next_message_sequence > 0 then
+          pg_catalog.jsonb_build_object('sequence', group_row.next_message_sequence)
+        else '{}'::jsonb
+      end
+    from public.shared_groups group_row
+    left join public.shared_group_members member
+      on member.group_id = group_row.id
+    where group_row.id = any(v_group_ids)
+    group by group_row.id, group_row.next_message_sequence;
   end if;
 
   return new;

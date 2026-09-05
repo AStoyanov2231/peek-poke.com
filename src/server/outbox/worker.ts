@@ -115,7 +115,7 @@ async function handleSharedGroupMessageEvent(
 ) {
   const groupId = uuidField(event.payload, "group_id");
   const action = event.payload.action;
-  if (action !== "sent" && action !== "read") {
+  if (action !== "sent" && action !== "read" && action !== "deleted") {
     throw new Error("Shared group message action is invalid");
   }
   const actorId = event.payload.actor_id ?? event.payload.sender_id;
@@ -123,7 +123,10 @@ async function handleSharedGroupMessageEvent(
     throw new Error("Shared group message actor is invalid");
   }
   const sequence = event.payload.sequence;
-  if (typeof sequence !== "number" || !Number.isSafeInteger(sequence) || sequence < 1) {
+  if (action !== "deleted" && (typeof sequence !== "number" || !Number.isSafeInteger(sequence) || sequence < 1)) {
+    throw new Error("Shared group message sequence is invalid");
+  }
+  if (sequence !== undefined && (typeof sequence !== "number" || !Number.isSafeInteger(sequence) || sequence < 1)) {
     throw new Error("Shared group message sequence is invalid");
   }
 
@@ -162,7 +165,7 @@ async function handleSharedGroupMessageEvent(
         thread_type: "shared_group",
         action,
         actor_id: actorId,
-        sequence,
+        ...(sequence === undefined ? {} : { sequence }),
       },
     )));
   if (delivered.some((value) => !value)) {

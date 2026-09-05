@@ -96,4 +96,36 @@ describe("shared group outbox recipient snapshots", () => {
     expect(sendPushToUser).toHaveBeenCalledTimes(1);
     expect(sendPushToUser).toHaveBeenCalledWith(MEMBER_ID, expect.anything());
   });
+
+  it("broadcasts an erasure invalidation without loading a deleted message", async () => {
+    database.rpc.mockImplementation(async (name: string) => {
+      if (name === "claim_outbox_events") {
+        return {
+          data: [{
+            id: EVENT_ID,
+            event_type: "shared_group.message.changed",
+            aggregate_id: GROUP_ID,
+            attempts: 1,
+            payload: {
+              group_id: GROUP_ID,
+              actor_id: SENDER_ID,
+              recipient_ids: [MEMBER_ID],
+              action: "deleted",
+            },
+          }],
+          error: null,
+        };
+      }
+      if (name === "complete_outbox_event") return { data: true, error: null };
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+
+    await expect(processOutboxBatch()).resolves.toMatchObject({ claimed: 1, completed: 1 });
+    expect(broadcastPrivateRealtimeEvent).toHaveBeenCalledWith(
+      `sync:user:${MEMBER_ID}`,
+      "messages-changed",
+      expect.objectContaining({ action: "deleted", thread_type: "shared_group" }),
+    );
+    expect(sendPushToUser).not.toHaveBeenCalled();
+  });
 });
