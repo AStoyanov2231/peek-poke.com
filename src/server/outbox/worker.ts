@@ -74,6 +74,7 @@ async function handleMessageEvent(
       "messages-changed",
       {
         thread_id: threadId,
+        thread_type: "dm",
         action,
         actor_id: actorId,
         ...(sequence === undefined ? {} : { sequence }),
@@ -158,6 +159,7 @@ async function handleSharedGroupMessageEvent(
       "messages-changed",
       {
         thread_id: groupId,
+        thread_type: "shared_group",
         action,
         actor_id: actorId,
         sequence,

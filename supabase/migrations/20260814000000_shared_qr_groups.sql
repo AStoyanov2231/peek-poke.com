@@ -82,6 +82,7 @@ set search_path = ''
 as $$
 declare
   v_group public.shared_groups%rowtype;
+  v_profile public.profiles%rowtype;
   v_hash text;
   v_new_group boolean := false;
   v_new_member boolean := false;
@@ -91,10 +92,12 @@ begin
     return pg_catalog.jsonb_build_object('error', 'INVALID_QR_CONTENT');
   end if;
 
-  if not exists (
-    select 1 from public.profiles profile
-    where profile.id = p_user_id and profile.deleted_at is null
-  ) then
+  select * into v_profile
+  from public.profiles profile
+  where profile.id = p_user_id
+  for update;
+
+  if not found or v_profile.deleted_at is not null then
     return pg_catalog.jsonb_build_object('error', 'ACCOUNT_NOT_ACTIVE');
   end if;
 
@@ -231,11 +234,21 @@ set search_path = ''
 as $$
 declare
   v_group public.shared_groups%rowtype;
+  v_profile public.profiles%rowtype;
   v_existing public.shared_group_messages%rowtype;
   v_message public.shared_group_messages%rowtype;
   v_sequence bigint;
   v_message_json jsonb;
 begin
+  select * into v_profile
+  from public.profiles profile
+  where profile.id = p_sender_id
+  for update;
+
+  if not found or v_profile.deleted_at is not null then
+    return pg_catalog.jsonb_build_object('error', 'ACCOUNT_NOT_ACTIVE');
+  end if;
+
   if p_content is null
      or p_content is distinct from pg_catalog.btrim(p_content)
      or pg_catalog.char_length(p_content) not between 1 and 4000 then
@@ -256,13 +269,6 @@ begin
   ) then
     return pg_catalog.jsonb_build_object('error', 'GROUP_NOT_FOUND');
   end if;
-  if not exists (
-    select 1 from public.profiles profile
-    where profile.id = p_sender_id and profile.deleted_at is null
-  ) then
-    return pg_catalog.jsonb_build_object('error', 'ACCOUNT_NOT_ACTIVE');
-  end if;
-
   select * into v_existing
   from public.shared_group_messages message
   where message.group_id = p_group_id and message.client_id = p_client_id;

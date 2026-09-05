@@ -41,7 +41,7 @@ export function QrScanButton() {
         aria-label="Scan a QR code to join a shared group"
         className="map-qr-scan iconbtn absolute right-4 z-40 pointer-events-auto"
         style={{
-          top: "calc(var(--safe-area-top) + 112px)",
+          top: "calc(var(--safe-area-top) + 160px)",
           width: 44,
           height: 44,
           background: "rgba(255,255,255,0.92)",

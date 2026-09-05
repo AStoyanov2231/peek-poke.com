@@ -83,6 +83,11 @@ describe("shared group outbox recipient snapshots", () => {
   it("does not notify a member who joined after the message was sent", async () => {
     await expect(processOutboxBatch()).resolves.toMatchObject({ claimed: 1, completed: 1 });
     expect(broadcastPrivateRealtimeEvent).toHaveBeenCalledTimes(2);
+    expect(broadcastPrivateRealtimeEvent).toHaveBeenCalledWith(
+      `sync:user:${SENDER_ID}`,
+      "messages-changed",
+      expect.objectContaining({ thread_type: "shared_group" }),
+    );
     expect(broadcastPrivateRealtimeEvent).not.toHaveBeenCalledWith(
       `sync:user:${LATE_JOINER_ID}`,
       expect.anything(),

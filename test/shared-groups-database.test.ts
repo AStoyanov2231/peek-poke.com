@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+const APPROVED_PROJECT_REF = "ttojvnwpnpuhkyjncwxn";
 const url = process.env.SUPABASE_TEST_URL;
 const serviceRoleKey = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY;
 const anonKey = process.env.SUPABASE_TEST_ANON_KEY;
@@ -13,7 +14,17 @@ const isLocalUrl = (() => {
     return false;
   }
 })();
-const describeDatabase = url && serviceRoleKey && anonKey && isLocalUrl ? describe : describe.skip;
+const isApprovedRemoteUrl = (() => {
+  if (!url) return false;
+  try {
+    return new URL(url).origin === `https://${APPROVED_PROJECT_REF}.supabase.co`;
+  } catch {
+    return false;
+  }
+})();
+const remoteTargetOptedIn = process.env.SUPABASE_TEST_TARGET === APPROVED_PROJECT_REF;
+const databaseTargetAllowed = isLocalUrl || (isApprovedRemoteUrl && remoteTargetOptedIn);
+const describeDatabase = url && serviceRoleKey && anonKey && databaseTargetAllowed ? describe : describe.skip;
 
 let supabase: SupabaseClient;
 let sessions: SupabaseClient[] = [];
@@ -61,6 +72,18 @@ describeDatabase("shared group database boundary", () => {
 
   afterAll(async () => {
     if (!supabase || userIds.length === 0) return;
+    const { data: groups } = await supabase
+      .from("shared_groups")
+      .select("id")
+      .in("created_by", userIds);
+    const groupIds = (groups ?? []).map((group) => group.id);
+    if (groupIds.length > 0) {
+      await supabase
+        .from("outbox_events")
+        .delete()
+        .eq("aggregate_type", "shared_group")
+        .in("aggregate_id", groupIds);
+    }
     await supabase.from("shared_group_messages").delete().in("sender_id", userIds);
     await supabase.from("shared_group_members").delete().in("user_id", userIds);
     await supabase.from("shared_groups").delete().in("created_by", userIds);
@@ -138,6 +161,31 @@ describeDatabase("shared group database boundary", () => {
     expect(replay.data.deduplicated).toBe(true);
     expect(outsider.error).toBeNull();
     expect(outsider.data).toEqual({ error: "GROUP_NOT_FOUND" });
+
+    const [raceErasure, raceSend] = await Promise.all([
+      supabase.rpc("erase_account_data", { p_user_id: userIds[0] }),
+      supabase.rpc("send_shared_group_message_transactional", {
+        p_group_id: sharedGroupId,
+        p_sender_id: userIds[0],
+        p_client_id: randomUUID(),
+        p_content: "race message",
+      }),
+    ]);
+    expect(raceErasure.error).toBeNull();
+    expect(raceErasure.data.success).toBe(true);
+    expect(raceSend.error).toBeNull();
+    const { data: racedMessages, error: racedMessagesError } = await supabase
+      .from("shared_group_messages")
+      .select("id")
+      .eq("sender_id", userIds[0]);
+    expect(racedMessagesError).toBeNull();
+    expect(racedMessages).toEqual([]);
+    const { data: racedMemberships, error: racedMembershipsError } = await supabase
+      .from("shared_group_members")
+      .select("user_id")
+      .eq("user_id", userIds[0]);
+    expect(racedMembershipsError).toBeNull();
+    expect(racedMemberships).toEqual([]);
 
     const erasure = await supabase.rpc("erase_account_data", { p_user_id: userIds[0] });
     expect(erasure.error).toBeNull();

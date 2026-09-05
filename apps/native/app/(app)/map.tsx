@@ -1034,7 +1034,7 @@ export default function MapScreen() {
         icon="qr"
         label="Scan a QR code to join a shared group"
         size={44}
-        style={[styles.qrButton, { top: insets.top + 108 }]}
+        style={[styles.qrButton, { top: insets.top + 160 }]}
         onPress={openQrScanner}
       />
 

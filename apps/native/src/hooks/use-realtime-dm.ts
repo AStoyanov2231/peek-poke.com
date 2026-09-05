@@ -284,7 +284,7 @@ export function useRealtimeUserSync(userId: string | undefined) {
       },
       onMessagesChanged: (payload) => {
         const hint = parseMessageHint(payload);
-        if (hint && !(hint.action === "read" && hint.actor_id === userId)) {
+        if (hint && !(hint.action === "read" && hint.actor_id === userId && hint.thread_type !== "shared_group")) {
           convergence.hint(hint.thread_id);
         }
       },
