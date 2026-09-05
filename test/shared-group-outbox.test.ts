@@ -76,7 +76,6 @@ describe("shared group outbox recipient snapshots", () => {
         };
       }
       if (name === "claim_shared_group_message_recipients") return { data: { status: "claimed", recipient_ids: [SENDER_ID, MEMBER_ID] }, error: null };
-      if (name === "heartbeat_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "release_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "complete_outbox_event") return { data: true, error: null };
       if (name === "cleanup_completed_workflow_rows") return { data: 0, error: null };
@@ -153,7 +152,6 @@ describe("shared group outbox recipient snapshots", () => {
         };
       }
       if (name === "claim_shared_group_message_recipients") return { data: { status: "claimed", recipient_ids: [MEMBER_ID] }, error: null };
-      if (name === "heartbeat_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "release_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "complete_outbox_event") return { data: true, error: null };
       if (name === "cleanup_completed_workflow_rows") return { data: 0, error: null };

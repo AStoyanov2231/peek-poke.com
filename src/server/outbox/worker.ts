@@ -172,25 +172,7 @@ async function handleSharedGroupMessageEvent(
       (userId): userId is string => typeof userId === "string" && memberIds.has(userId),
     );
   }
-  let heartbeatFailure: unknown = null;
-  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  const heartbeat = async () => {
-    const { data, error } = await supabase.rpc("heartbeat_shared_group_message_delivery_leases", {
-      p_event_id: event.id,
-      p_worker_id: workerId,
-    });
-    if (error) throw error;
-    if (data !== true) throw new Error("Shared group delivery lease was lost");
-  };
   try {
-    if (memberList.length > 0) {
-      await heartbeat();
-      heartbeatTimer = setInterval(() => {
-        void heartbeat().catch((failure: unknown) => {
-          heartbeatFailure = failure;
-        });
-      }, 20_000);
-    }
     const delivered = await Promise.all(memberList.map((userId) =>
       broadcastPrivateRealtimeEvent(
         `sync:user:${userId}`,
@@ -206,8 +188,6 @@ async function handleSharedGroupMessageEvent(
     if (delivered.some((value) => !value)) {
       throw new Error("Shared group realtime delivery failed");
     }
-    if (heartbeatFailure) throw heartbeatFailure;
-
     if (action !== "sent") return;
     const messageId = uuidField(event.payload, "message_id");
     const { data: message, error: messageError } = await supabase
@@ -230,9 +210,7 @@ async function handleSharedGroupMessageEvent(
       }));
     }
     await Promise.all(pushDeliveries);
-    if (heartbeatFailure) throw heartbeatFailure;
   } finally {
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
     const { error: releaseError } = await supabase.rpc("release_shared_group_message_delivery_leases", {
       p_event_id: event.id,
       p_worker_id: workerId,
