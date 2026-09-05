@@ -62,6 +62,7 @@ export const RATE_LIMITS = {
   messageMutation: { limit: 60, window: 60 },
   realtimeSignal: { limit: 120, window: 60 },
   threadCreate:  { limit: 20, window: 60 },
+  groupJoin:     { limit: 30, window: 60 },
   friendMutation: { limit: 60, window: 60 },
   profileMutation: { limit: 60, window: 60 },
   pushToken:     { limit: 20, window: 86_400 },

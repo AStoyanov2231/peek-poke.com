@@ -53,6 +53,13 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
 
   if (queueError) {
     console.error("account/delete durable queue:", queueError);
+    if (queueError.message.includes("SHARED_GROUP_DELIVERY_IN_FLIGHT")) {
+      return apiError(
+        "Account deletion is blocked while a notification is being delivered. Please retry later.",
+        409,
+        "ACCOUNT_DELETE_BLOCKED",
+      );
+    }
     if (queueError.code === "PGRST202") {
       return apiError(
         "Account deletion is temporarily unavailable. Please try again.",

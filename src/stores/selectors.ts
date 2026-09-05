@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppStore } from "./appStore";
 import { useShallow } from "zustand/react/shallow";
-import type { OwnerProfilePhoto } from "@peekpoke/shared";
+import type { OwnerProfilePhoto, SharedGroupSummary } from "@peekpoke/shared";
 import type {
   InterestTag,
   NearbyUser,
@@ -28,6 +28,7 @@ import {
   photosQueryOptions,
   profileQueryOptions,
   publicProfileQueryOptions,
+  sharedGroupsQueryOptions,
   threadsQueryOptions,
 } from "@/data/web-query";
 import { locationIsFreshForViewer } from "@/features/map/location-sync";
@@ -39,6 +40,7 @@ const EMPTY_FRIENDS: FriendWithFriendshipId[] = [];
 const EMPTY_REQUESTS: FriendshipWithRequester[] = [];
 const EMPTY_SENT_REQUESTS: FriendshipWithAddressee[] = [];
 const EMPTY_THREADS: Thread[] = [];
+const EMPTY_GROUPS: SharedGroupSummary[] = [];
 const EMPTY_NEARBY: NearbyUser[] = [];
 const EMPTY_BOTS: Bot[] = [];
 
@@ -71,8 +73,17 @@ export const useIsFriendsLoaded = () => useQuery(friendsQueryOptions).isSuccess;
 
 // Messages selectors
 export const useThreads = () => useQuery(threadsQueryOptions).data?.threads ?? EMPTY_THREADS;
-export const useTotalUnread = () => useQuery(threadsQueryOptions).data?.totalUnread ?? 0;
+export const useGroups = () => useQuery(sharedGroupsQueryOptions).data?.groups ?? EMPTY_GROUPS;
+export const useTotalUnread = () => {
+  const dmUnread = useQuery(threadsQueryOptions).data?.totalUnread ?? 0;
+  const groupUnread = useQuery(sharedGroupsQueryOptions).data?.totalUnread ?? 0;
+  return dmUnread + groupUnread;
+};
 export const useIsMessagesLoaded = () => useQuery(threadsQueryOptions).isSuccess;
+export const useIsGroupsLoaded = () => {
+  const query = useQuery(sharedGroupsQueryOptions);
+  return query.isSuccess || query.isError;
+};
 
 // Coins selectors
 export const useCoins = () => useQuery(coinsQueryOptions).data?.balance ?? 0;

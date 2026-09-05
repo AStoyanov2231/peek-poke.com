@@ -28,6 +28,7 @@ import Navigation2 from "lucide-react-native/icons/navigation-2";
 import MessageCircle from "lucide-react-native/icons/message-circle";
 import Pencil from "lucide-react-native/icons/pencil";
 import Search from "lucide-react-native/icons/search";
+import ScanQrCode from "lucide-react-native/icons/scan-qr-code";
 import Settings from "lucide-react-native/icons/settings";
 import Share2 from "lucide-react-native/icons/share-2";
 import Shield from "lucide-react-native/icons/shield";
@@ -87,6 +88,7 @@ export type IconName =
   | "message"
   | "premium"
   | "profile"
+  | "qr"
   | "recenter"
   | "search"
   | "send"
@@ -119,6 +121,7 @@ const iconGlyphs: Record<IconName, LucideIcon> = {
   message: MessageCircle,
   premium: Sparkles,
   profile: User,
+  qr: ScanQrCode,
   recenter: Navigation2,
   search: Search,
   send: ArrowUp,

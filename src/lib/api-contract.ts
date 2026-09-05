@@ -5,6 +5,7 @@ import {
   decodeCursor,
   idempotencyKeySchema,
   moderationReportSchema,
+  encodeCursor,
   paginateCursor,
   profileCardSchema,
   type Friend,
@@ -335,19 +336,49 @@ export function parseContractPagination(request: Request, max = MAX_PAGE_SIZE) {
   return { data: { limit, cursor }, error: null };
 }
 
+function paginateDescendingCursor<T extends { id: string; sort_value: string }>(
+  items: T[],
+  limit: number,
+  cursorValue?: string | null,
+) {
+  const cursor = decodeCursor(cursorValue);
+  const start = cursor
+    ? items.findIndex((item) => {
+      const sortComparison = item.sort_value.localeCompare(cursor.sort_value);
+      return sortComparison < 0
+        || (sortComparison === 0 && item.id.localeCompare(cursor.id) < 0);
+    })
+    : 0;
+  const offset = start < 0 ? items.length : start;
+  const page = items.slice(offset, offset + limit);
+  return {
+    items: page,
+    next_cursor: offset + limit < items.length && page.length > 0
+      ? encodeCursor({ sort_value: page[page.length - 1].sort_value, id: page[page.length - 1].id })
+      : null,
+    has_more: offset + limit < items.length,
+  };
+}
+
 export function cursorPage<T>(
   request: Request,
   values: T[],
   getId: (value: T) => string,
   getSortValue: (value: T) => string,
   max = MAX_PAGE_SIZE,
+  direction: "ascending" | "descending" = "ascending",
 ) {
   const pagination = parseContractPagination(request, max);
   if (pagination.error) return { data: null, error: pagination.error };
   const sorted = values
     .map((value) => ({ value, id: getId(value), sort_value: getSortValue(value) }))
-    .sort((left, right) => left.sort_value.localeCompare(right.sort_value) || left.id.localeCompare(right.id));
-  const page = paginateCursor(sorted, pagination.data.limit, pagination.data.cursor);
+    .sort((left, right) => {
+      const result = left.sort_value.localeCompare(right.sort_value) || left.id.localeCompare(right.id);
+      return direction === "descending" ? -result : result;
+    });
+  const page = direction === "descending"
+    ? paginateDescendingCursor(sorted, pagination.data.limit, pagination.data.cursor)
+    : paginateCursor(sorted, pagination.data.limit, pagination.data.cursor);
   return {
     data: {
       items: page.items.map((item) => item.value),

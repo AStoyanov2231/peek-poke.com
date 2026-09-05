@@ -96,6 +96,24 @@ describe("atomic account deletion route", () => {
     expect(harness.localSignOut).not.toHaveBeenCalled();
   });
 
+  it("reports delivery-blocked deletion without signing out", async () => {
+    harness.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "P0001", message: "SHARED_GROUP_DELIVERY_IN_FLIGHT" },
+    });
+
+    const response = await POST(request("account-delete-delivery-blocked"));
+    const payload = apiErrorEnvelopeSchema.parse(await response.json());
+
+    expect(response.status).toBe(409);
+    expect(payload).toMatchObject({
+      code: "ACCOUNT_DELETE_BLOCKED",
+      message: "Account deletion is blocked while a notification is being delivered. Please retry later.",
+    });
+    expect(harness.globalSignOut).not.toHaveBeenCalled();
+    expect(harness.localSignOut).not.toHaveBeenCalled();
+  });
+
   it("does not report success for a wrong-account or invalid snapshot response", async () => {
     harness.rpc.mockResolvedValue({
       data: { error: "PROFILE_ACCOUNT_MISMATCH" },

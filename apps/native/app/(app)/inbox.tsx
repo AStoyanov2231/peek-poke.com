@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Clock3 from "lucide-react-native/icons/clock-3";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import X from "lucide-react-native/icons/x";
+import Users from "lucide-react-native/icons/users";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -17,7 +18,7 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ProfileCard, ThreadSummary } from "@peekpoke/shared";
+import type { ProfileCard, SharedGroupSummary, ThreadSummary } from "@peekpoke/shared";
 import { isPremium } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import {
@@ -54,6 +55,7 @@ import {
   commitFriendshipRemoval,
   commitThread,
   inboxQuery,
+  sharedGroupsQuery,
   socialQuery,
 } from "@/data/social/queries";
 
@@ -68,6 +70,9 @@ type SentRequest = SocialFriend & { addressee: SocialProfileCard };
 type Confirmation =
   | { kind: "unfriend"; friend: FriendRowData }
   | { kind: "cancel"; request: SentRequest };
+type InboxConversation =
+  | { kind: "dm"; item: ThreadSummary; sortAt: string }
+  | { kind: "group"; item: SharedGroupSummary; sortAt: string };
 
 function normalizeTab(value: string | string[] | undefined): Tab {
   const tab = Array.isArray(value) ? value[0] : value;
@@ -108,11 +113,25 @@ export default function InboxScreen() {
 
   const identityQuery = useQuery(bootstrapIdentityQuery());
   const threadsQuery = useQuery(inboxQuery());
+  const groupsQuery = useQuery(sharedGroupsQuery());
   const socialDataQuery = useQuery(socialQuery());
-  const threads = threadsQuery.data?.threads ?? [];
-  const unread = threadsQuery.data?.total_unread ?? 0;
-  const inboxLoading = threadsQuery.isLoading || identityQuery.isLoading;
-  const inboxError = threadsQuery.error ?? identityQuery.error;
+  const threads = useMemo(() => threadsQuery.data?.threads ?? [], [threadsQuery.data?.threads]);
+  const groups = useMemo(() => groupsQuery.data?.groups ?? [], [groupsQuery.data?.groups]);
+  const conversations = useMemo<InboxConversation[]>(() => [
+    ...threads.map((thread) => ({
+      kind: "dm" as const,
+      item: thread,
+      sortAt: thread.last_message_at ?? thread.created_at,
+    })),
+    ...groups.map((group) => ({
+      kind: "group" as const,
+      item: group,
+      sortAt: group.last_message_at ?? group.created_at,
+    })),
+  ].sort((left, right) => right.sortAt.localeCompare(left.sortAt)), [groups, threads]);
+  const unread = (threadsQuery.data?.total_unread ?? 0) + (groupsQuery.data?.total_unread ?? 0);
+  const inboxLoading = threadsQuery.isLoading || groupsQuery.isLoading || identityQuery.isLoading;
+  const inboxError = threadsQuery.error ?? groupsQuery.error ?? identityQuery.error;
   const socialLoading = socialDataQuery.isLoading || identityQuery.isLoading;
   const socialError = socialDataQuery.error ?? identityQuery.error;
   const socialData = socialDataQuery.data;
@@ -170,7 +189,7 @@ export default function InboxScreen() {
   }
 
   function retryInbox() {
-    void Promise.all([threadsQuery.refetch(), identityQuery.refetch()]);
+    void Promise.all([threadsQuery.refetch(), groupsQuery.refetch(), identityQuery.refetch()]);
   }
 
   function retrySocial() {
@@ -305,28 +324,31 @@ export default function InboxScreen() {
         />
       </View>
 
-      {threadsQuery.error && threadsQuery.data ? (
+      {(threadsQuery.error && threadsQuery.data) || (groupsQuery.error && groupsQuery.data) ? (
         <InboxDataRecovery
-          pending={threadsQuery.isFetching}
+          pending={threadsQuery.isFetching || groupsQuery.isFetching}
           onRetry={retryInbox}
         />
       ) : null}
 
       {tab === "chats" ? (
         <View style={styles.list}>
-          {inboxLoading && threads.length === 0 ? (
+          {inboxLoading && conversations.length === 0 ? (
             <InboxSkeleton />
-          ) : inboxError && threads.length === 0 ? (
+          ) : inboxError && conversations.length === 0 ? (
             <ErrorRecovery
               error={inboxError instanceof Error ? inboxError : new Error("Inbox load failed")}
               fill={false}
               onRetry={retryInbox}
               title="Couldn't load inbox"
             />
-          ) : threads.length === 0 ? (
-            <InboxEmpty title="No conversations yet" description="Find friends on the map to start chatting" />
+          ) : conversations.length === 0 ? (
+            <InboxEmpty title="No conversations yet" description="Find friends on the map or scan a QR code to start chatting" />
           ) : (
-            threads.map((thread) => {
+            conversations.map((conversation) => conversation.kind === "group" ? (
+              <GroupChatRow key={conversation.item.id} group={conversation.item} />
+            ) : (() => {
+              const thread = conversation.item;
               const other = thread.participant_1_id === identityQuery.data?.identity.id
                 ? thread.participant_2
                 : thread.participant_1;
@@ -338,7 +360,7 @@ export default function InboxScreen() {
                   online={other?.is_online ?? false}
                 />
               );
-            })
+            })())
           )}
         </View>
       ) : null}
@@ -484,6 +506,34 @@ function ChatRow({ thread, other, online }: { thread: ThreadSummary; other?: Pro
               {thread.last_message_preview}
             </Text>
           ) : null}
+          {unread > 0 ? <Badge>{unread > 9 ? "9+" : unread}</Badge> : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function GroupChatRow({ group }: { group: SharedGroupSummary }) {
+  const unread = group.unread_count;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open shared group, ${group.member_count} members`}
+      onPress={() => router.push(`/group/${group.id}` as never)}
+      style={({ pressed }) => [styles.row, styles.chatRow, pressed && styles.rowPressed]}
+    >
+      <View style={styles.groupAvatar}>
+        <Users color={colors.primary[700]} size={23} strokeWidth={2} />
+      </View>
+      <View style={styles.rowMain}>
+        <View style={styles.rowTop}>
+          <BodyBold numberOfLines={1} style={[styles.rowName, unread === 0 && styles.readName]}>{group.name}</BodyBold>
+          {group.last_message_at ? <Caption>{formatRelativeTime(group.last_message_at)}</Caption> : null}
+        </View>
+        <View style={styles.rowBottom}>
+          <Text numberOfLines={1} style={[styles.preview, unread > 0 && styles.previewUnread]}>
+            {group.last_message_preview ?? `${group.member_count} ${group.member_count === 1 ? "member" : "members"}`}
+          </Text>
           {unread > 0 ? <Badge>{unread > 9 ? "9+" : unread}</Badge> : null}
         </View>
       </View>
@@ -730,6 +780,14 @@ const styles = StyleSheet.create({
   },
   chatRow: {
     minHeight: 76,
+  },
+  groupAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary[100],
   },
   friendRow: {
     minHeight: 68,

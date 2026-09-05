@@ -9,6 +9,7 @@ import { useMeetingDetection } from "@/hooks/use-meeting-detection";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useLocationFreshnessLifecycle } from "@/hooks/use-location-freshness-lifecycle";
 import { fetchCurrentProfile, fetchFriends, fetchThreads } from "@/data/api";
+import { sharedGroupsQuery } from "@/data/social/queries";
 import { nativeQueryKeys } from "@/data/query-keys";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
@@ -39,10 +40,14 @@ export default function AppLayout() {
     queryFn: fetchThreads,
     enabled: Boolean(profileQuery.data?.id),
   });
+  const groupsQuery = useQuery({
+    ...sharedGroupsQuery(),
+    enabled: Boolean(profileQuery.data?.id),
+  });
   const profileId = profileQuery.data?.id;
   useLocationFreshnessLifecycle(profileId);
   const roles = profileQuery.data?.roles ?? [];
-  const unread = threadsQuery.data?.total_unread ?? 0;
+  const unread = (threadsQuery.data?.total_unread ?? 0) + (groupsQuery.data?.total_unread ?? 0);
   const requests = friendsQuery.data?.requests.length ?? 0;
   const isAdmin = roles.includes("admin");
   const badgeCount = requests > 0 ? requests : unread;

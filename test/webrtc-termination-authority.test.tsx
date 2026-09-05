@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, useLayoutEffect } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -62,11 +62,17 @@ const activeCall: ActiveCall = {
 };
 
 let renderer: ReactTestRenderer | null = null;
-let hook: ReturnType<typeof useWebRTCCall> | null = null;
+const hookRef = { current: null as ReturnType<typeof useWebRTCCall> | null };
 let consoleError: ReturnType<typeof vi.spyOn>;
 
 function Harness() {
-  hook = useWebRTCCall(activeCall);
+  const currentHook = useWebRTCCall(activeCall);
+  useLayoutEffect(() => {
+    hookRef.current = currentHook;
+    return () => {
+      if (hookRef.current === currentHook) hookRef.current = null;
+    };
+  }, [currentHook]);
   return null;
 }
 
@@ -78,8 +84,8 @@ async function flushMicrotasks() {
 
 function requestDuplicateTermination() {
   act(() => {
-    hook?.endCall();
-    hook?.endCall();
+    hookRef.current?.endCall();
+    hookRef.current?.endCall();
   });
 }
 
@@ -135,7 +141,7 @@ beforeEach(async () => {
 afterEach(async () => {
   if (renderer) await act(async () => renderer?.unmount());
   renderer = null;
-  hook = null;
+  hookRef.current = null;
   useCallStore.setState({ synchronizeTerminalCallFences: originalSynchronize });
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -148,15 +154,15 @@ describe("web WebRTC terminal authority integration", () => {
     mocks.synchronize.mockImplementation(() => new Promise(() => undefined));
 
     requestDuplicateTermination();
-    expect(hook?.isEnding).toBe(true);
+    expect(hookRef.current?.isEnding).toBe(true);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(CALL_TERMINAL_AUTHORITY_TIMEOUT_MS + 25);
     });
 
     expect(mocks.synchronize).toHaveBeenCalledOnce();
     expect(mocks.postCallSignal).not.toHaveBeenCalled();
-    expect(hook?.isEnding).toBe(false);
-    expect(hook?.permissionError).toBe("Could not end the call session. Check your connection and retry.");
+    expect(hookRef.current?.isEnding).toBe(false);
+    expect(hookRef.current?.permissionError).toBe("Could not end the call session. Check your connection and retry.");
     expect(useCallStore.getState().activeCall?.status).toBe("failed");
     expect(consoleError).toHaveBeenCalledOnce();
   });
@@ -169,8 +175,8 @@ describe("web WebRTC terminal authority integration", () => {
 
     expect(mocks.synchronize).toHaveBeenCalledOnce();
     expect(mocks.postCallSignal).not.toHaveBeenCalled();
-    expect(hook?.isEnding).toBe(false);
-    expect(hook?.permissionError).toBeNull();
+    expect(hookRef.current?.isEnding).toBe(false);
+    expect(hookRef.current?.permissionError).toBeNull();
     expect(useCallStore.getState().activeCall).toBeNull();
     expect(consoleError).not.toHaveBeenCalled();
   });
@@ -184,7 +190,7 @@ describe("web WebRTC terminal authority integration", () => {
 
     expect(mocks.synchronize).toHaveBeenCalledOnce();
     expect(mocks.postCallSignal).not.toHaveBeenCalled();
-    expect(hook?.permissionError).toBe("Could not end the call session. Check your connection and retry.");
+    expect(hookRef.current?.permissionError).toBe("Could not end the call session. Check your connection and retry.");
     expect(useCallStore.getState().activeCall?.status).toBe("failed");
     expect(consoleError).toHaveBeenCalledOnce();
   });
@@ -203,8 +209,8 @@ describe("web WebRTC terminal authority integration", () => {
 
     expect(mocks.synchronize).toHaveBeenCalledOnce();
     expect(mocks.postCallSignal).not.toHaveBeenCalled();
-    expect(hook?.isEnding).toBe(false);
-    expect(hook?.permissionError).toBeNull();
+    expect(hookRef.current?.isEnding).toBe(false);
+    expect(hookRef.current?.permissionError).toBeNull();
     expect(consoleError).not.toHaveBeenCalled();
   });
 
@@ -222,8 +228,8 @@ describe("web WebRTC terminal authority integration", () => {
     });
 
     expect(mocks.postCallSignal).toHaveBeenCalledOnce();
-    expect(hook?.isEnding).toBe(false);
-    expect(hook?.permissionError).toBe("Could not end the call session. Check your connection and retry.");
+    expect(hookRef.current?.isEnding).toBe(false);
+    expect(hookRef.current?.permissionError).toBe("Could not end the call session. Check your connection and retry.");
     expect(consoleError).toHaveBeenCalledOnce();
   });
 });

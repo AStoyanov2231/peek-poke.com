@@ -8,9 +8,11 @@ import {
   PROFILE_REFERENCE_RECOVERY_INTERVAL_MS,
   profileUpdatedHintSchema,
   type RealtimeSubscriptionStatus,
+  type SharedGroupMessagesResponse,
 } from "@peekpoke/shared";
 import { AppState } from "react-native";
 import { fetchMessages, type MessagesData } from "@/data/api";
+import { fetchSharedGroupMessages, markSharedGroupRead } from "@/data/shared-groups";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/state/app-store";
@@ -67,22 +69,38 @@ export function useRealtimeUserSync(userId: string | undefined) {
       delayMs: THREAD_REFRESH_DEBOUNCE_MS,
       onError: (error) => console.warn("Message realtime recovery failed", error),
       onFlush: async ({ recovery, threadIds }, signal) => {
-        await queryClient.invalidateQueries({
-          queryKey: nativeQueryKeys.inbox.threads,
-          exact: true,
-          refetchType: "none",
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: nativeQueryKeys.inbox.threads,
+            exact: true,
+            refetchType: "none",
+          }),
+          queryClient.invalidateQueries({
+            queryKey: nativeQueryKeys.inbox.groups,
+            exact: true,
+            refetchType: "none",
+          }),
+        ]);
         if (signal.aborted) return;
-        const activeThreadId = useAppStore.getState().activeThreadId;
+        const { activeThreadId, activeGroupId } = useAppStore.getState();
+        const hintedActiveGroup = activeGroupId && threadIds.includes(activeGroupId)
+          ? activeGroupId
+          : null;
         const hintedActiveThread = activeThreadId && threadIds.includes(activeThreadId)
           ? activeThreadId
           : null;
-        const threadToBackfill = hintedActiveThread ?? (recovery ? activeThreadId : null);
+        const groupToBackfill = hintedActiveGroup ?? (recovery ? activeGroupId : null);
+        const threadToBackfill = groupToBackfill ? null : hintedActiveThread ?? (recovery ? activeThreadId : null);
 
         for (const threadId of threadIds) {
-          if (threadId === threadToBackfill) continue;
+          if (threadId === threadToBackfill || threadId === groupToBackfill) continue;
           queryClient.removeQueries({
             queryKey: nativeQueryKeys.chat.messages(threadId),
+            exact: true,
+            type: "inactive",
+          });
+          queryClient.removeQueries({
+            queryKey: nativeQueryKeys.chat.groupMessages(threadId),
             exact: true,
             type: "inactive",
           });
@@ -101,19 +119,48 @@ export function useRealtimeUserSync(userId: string | undefined) {
             exact: true,
             type: "active",
           }),
+          queryClient.refetchQueries({
+            queryKey: nativeQueryKeys.inbox.groups,
+            exact: true,
+            type: "active",
+          }),
         ];
 
-        if (threadToBackfill) {
+        if (groupToBackfill) {
+          const groupId = groupToBackfill;
+          await queryClient.invalidateQueries({
+            queryKey: nativeQueryKeys.chat.groupMessages(groupId),
+            exact: true,
+            refetchType: "none",
+          });
+          if (signal.aborted) return;
+          await queryClient.cancelQueries({ queryKey: nativeQueryKeys.chat.groupMessages(groupId), exact: true });
+          if (signal.aborted) return;
+          try {
+            await markSharedGroupRead(groupId, signal);
+          } catch (error) {
+            if (!signal.aborted && (!(error instanceof Error) || error.name !== "AbortError")) {
+              console.warn("Shared group read receipt recovery failed", error);
+            }
+          }
+          if (signal.aborted) return;
+          durableReads.push(
+            fetchSharedGroupMessages(groupId, null, signal).then((latestPage) => {
+              if (signal.aborted) return;
+              queryClient.setQueryData<InfiniteData<SharedGroupMessagesResponse>>(
+                nativeQueryKeys.chat.groupMessages(groupId),
+                { pages: [latestPage], pageParams: [null] },
+              );
+            }),
+          );
+        } else if (threadToBackfill) {
           await queryClient.invalidateQueries({
             queryKey: nativeQueryKeys.chat.messages(threadToBackfill),
             exact: true,
             refetchType: "none",
           });
           if (signal.aborted) return;
-          await queryClient.cancelQueries({
-            queryKey: nativeQueryKeys.chat.messages(threadToBackfill),
-            exact: true,
-          });
+          await queryClient.cancelQueries({ queryKey: nativeQueryKeys.chat.messages(threadToBackfill), exact: true });
           if (signal.aborted) return;
           if (hintedActiveThread || recovery) {
             try {
@@ -237,7 +284,7 @@ export function useRealtimeUserSync(userId: string | undefined) {
       },
       onMessagesChanged: (payload) => {
         const hint = parseMessageHint(payload);
-        if (hint && !(hint.action === "read" && hint.actor_id === userId)) {
+        if (hint && !(hint.action === "read" && hint.actor_id === userId && hint.thread_type !== "shared_group")) {
           convergence.hint(hint.thread_id);
         }
       },
@@ -281,6 +328,7 @@ export function useRealtimeUserSync(userId: string | undefined) {
       stopProfileOnlineObservation();
       appStateSubscription.remove();
       void queryClient.cancelQueries({ queryKey: nativeQueryKeys.inbox.threads, exact: true });
+      void queryClient.cancelQueries({ queryKey: nativeQueryKeys.inbox.groups, exact: true });
       void queryClient.cancelQueries({ queryKey: nativeQueryKeys.chat.all, exact: false });
       void queryClient.cancelQueries({ queryKey: nativeQueryKeys.social.friends, exact: true });
       void queryClient.cancelQueries({ queryKey: nativeQueryKeys.social.requests, exact: true });

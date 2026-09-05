@@ -114,6 +114,7 @@ export default function ChatScreen() {
   const draft = useAppStore((state) => state.drafts[threadId] ?? "");
   const setDraft = useAppStore((state) => state.setDraft);
   const setActiveThreadId = useAppStore((state) => state.setActiveThreadId);
+  const setActiveGroupId = useAppStore((state) => state.setActiveGroupId);
   const readReceipt = useReadReceipt(profileQuery.data?.id, threadId);
   const thread = conversationQuery.data?.pages[0]?.thread ?? null;
   const nearbyUsers = useMemo(
@@ -165,12 +166,13 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!threadId) return;
     setActiveThreadId(threadId);
+    setActiveGroupId(null);
     return () => {
       if (useAppStore.getState().activeThreadId === threadId) {
         useAppStore.getState().setActiveThreadId(null);
       }
     };
-  }, [queryClient, setActiveThreadId, threadId]);
+  }, [queryClient, setActiveGroupId, setActiveThreadId, threadId]);
 
   useEffect(() => {
     if (!conversationQuery.error) return;

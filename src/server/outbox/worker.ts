@@ -74,6 +74,7 @@ async function handleMessageEvent(
       "messages-changed",
       {
         thread_id: threadId,
+        thread_type: "dm",
         action,
         actor_id: actorId,
         ...(sequence === undefined ? {} : { sequence }),
@@ -106,6 +107,116 @@ async function handleMessageEvent(
     threadId,
     data: { kind: "dm", threadId, senderId: message.sender_id },
   });
+}
+
+async function handleSharedGroupMessageEvent(
+  supabase: SupabaseClient,
+  event: OutboxEvent,
+  workerId: string,
+) {
+  const groupId = uuidField(event.payload, "group_id");
+  const action = event.payload.action;
+  if (action !== "sent" && action !== "read" && action !== "deleted" && action !== "membership") {
+    throw new Error("Shared group message action is invalid");
+  }
+  const actorId = event.payload.actor_id ?? event.payload.sender_id;
+  if (typeof actorId !== "string" || !UUID_VALUE.test(actorId)) {
+    throw new Error("Shared group message actor is invalid");
+  }
+  const sequence = event.payload.sequence;
+  if (action !== "deleted" && action !== "membership" && (typeof sequence !== "number" || !Number.isSafeInteger(sequence) || sequence < 1)) {
+    throw new Error("Shared group message sequence is invalid");
+  }
+  if (sequence !== undefined && (typeof sequence !== "number" || !Number.isSafeInteger(sequence) || sequence < 1)) {
+    throw new Error("Shared group message sequence is invalid");
+  }
+
+  const recipientIds = event.payload.recipient_ids;
+  if (!Array.isArray(recipientIds)) {
+    throw new Error("Shared group message recipients are invalid");
+  }
+  const memberIds = new Set<string>();
+  for (const recipientId of recipientIds) {
+    if (typeof recipientId !== "string" || !UUID_VALUE.test(recipientId)) {
+      throw new Error("Shared group message recipient is invalid");
+    }
+    memberIds.add(recipientId);
+  }
+  let memberList: string[] = [];
+  if (memberIds.size > 0) {
+    const { data: claim, error: recipientError } = await supabase.rpc(
+      "claim_shared_group_message_recipients",
+      {
+        p_group_id: groupId,
+        p_recipient_ids: [...memberIds],
+        p_event_id: event.id,
+        p_worker_id: workerId,
+      },
+    );
+    if (recipientError) throw recipientError;
+    if (!claim || typeof claim !== "object" || Array.isArray(claim)) {
+      throw new Error("Shared group recipient claim returned an invalid result");
+    }
+    const claimStatus = claim.status;
+    if (claimStatus === "busy") {
+      throw new Error("Shared group recipient claim is busy");
+    }
+    if (claimStatus !== "claimed" && claimStatus !== "empty") {
+      throw new Error("Shared group recipient claim returned an invalid status");
+    }
+    const claimedRecipients = claim.recipient_ids;
+    if (!Array.isArray(claimedRecipients)) {
+      throw new Error("Shared group recipient claim returned invalid recipients");
+    }
+    memberList = claimedRecipients.filter(
+      (userId): userId is string => typeof userId === "string" && memberIds.has(userId),
+    );
+  }
+  try {
+    const delivered = await Promise.all(memberList.map((userId) =>
+      broadcastPrivateRealtimeEvent(
+        `sync:user:${userId}`,
+        "messages-changed",
+        {
+          thread_id: groupId,
+          thread_type: "shared_group",
+          action,
+          actor_id: actorId,
+          ...(sequence === undefined ? {} : { sequence }),
+        },
+      )));
+    if (delivered.some((value) => !value)) {
+      throw new Error("Shared group realtime delivery failed");
+    }
+    if (action !== "sent") return;
+    const messageId = uuidField(event.payload, "message_id");
+    const { data: message, error: messageError } = await supabase
+      .from("shared_group_messages")
+      .select("content, message_type, sender_id")
+      .eq("id", messageId)
+      .eq("group_id", groupId)
+      .maybeSingle();
+    if (messageError || !message) throw messageError ?? new Error("Shared group message no longer exists");
+
+    const pushDeliveries: Promise<void>[] = [];
+    for (const userId of memberList) {
+      if (userId === message.sender_id) continue;
+      pushDeliveries.push(sendPushToUser(userId, {
+        title: "New shared group message",
+        body: message.message_type === "text" ? (message.content ?? "").slice(0, 140) : "Sent a message",
+        route: `/group/${groupId}`,
+        threadId: groupId,
+        data: { kind: "shared-group", groupId, senderId: message.sender_id },
+      }));
+    }
+    await Promise.all(pushDeliveries);
+  } finally {
+    const { error: releaseError } = await supabase.rpc("release_shared_group_message_delivery_leases", {
+      p_event_id: event.id,
+      p_worker_id: workerId,
+    });
+    if (releaseError) throw releaseError;
+  }
 }
 
 async function handleFriendshipChanged(event: OutboxEvent) {
@@ -412,6 +523,10 @@ async function dispatchOutboxEvent(
 ) {
   if (event.event_type === "message.changed") {
     await handleMessageEvent(supabase, event);
+    return;
+  }
+  if (event.event_type === "shared_group.message.changed") {
+    await handleSharedGroupMessageEvent(supabase, event, workerId);
     return;
   }
   if (

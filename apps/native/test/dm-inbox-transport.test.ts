@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
 import { QueryClient } from "@tanstack/react-query";
 import { nativeQueryKeys } from "@/data/query-keys";
-import { inboxQuery } from "@/data/social/queries";
+import { inboxQuery, sharedGroupsQuery } from "@/data/social/queries";
 
 const VIEWER_ID = "11111111-1111-4111-8111-111111111111";
 const PEER_ID = "22222222-2222-4222-8222-222222222222";
@@ -36,6 +35,20 @@ const payload = {
   pagination: { version: "v1", next_cursor: null, has_more: false, limit: 100 },
 };
 
+const groupsPayload = {
+  groups: [{
+    id: "44444444-4444-4444-8444-444444444444",
+    name: "Shared group" as const,
+    member_count: 2,
+    last_message_at: null,
+    last_message_preview: null,
+    created_at: "2026-08-08T10:00:00.000Z",
+    unread_count: 2,
+  }],
+  total_unread: 2,
+  pagination: { version: "v1" as const, next_cursor: null, has_more: false, limit: 100 },
+};
+
 vi.mock("@/lib/supabase", () => ({
   supabase: { auth: { getSession: vi.fn(async () => ({ data: { session: null } })) } },
 }));
@@ -49,11 +62,24 @@ vi.mock("expo-crypto", () => ({ randomUUID: () => "native-inbox-key-000001" }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe("native DM inbox transport", () => {
-  it("never substitutes bootstrap thread counts for validated unread cursors", () => {
-    const source = readFileSync("app/(app)/inbox.tsx", "utf8");
-    expect(source).toContain("const unread = threadsQuery.data?.total_unread ?? 0");
-    expect(source).not.toContain("unread_summary.threads");
-    expect(source).toContain("threadsQuery.error && threadsQuery.data");
+  it("keeps DM and shared-group unread counts in separate validated caches", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/groups?limit=100")) {
+        return new Response(JSON.stringify(groupsPayload));
+      }
+      return new Response(JSON.stringify(payload));
+    }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    const [inbox, groups] = await Promise.all([
+      client.fetchQuery(inboxQuery()),
+      client.fetchQuery(sharedGroupsQuery()),
+    ]);
+
+    expect(inbox.total_unread + groups.total_unread).toBe(3);
+    expect(client.getQueryData(nativeQueryKeys.inbox.threads)).toEqual(payload);
+    expect(client.getQueryData(nativeQueryKeys.inbox.groups)).toEqual(groupsPayload);
   });
 
   it("validates the exact shared response before caching", async () => {

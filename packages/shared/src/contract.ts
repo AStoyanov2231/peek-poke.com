@@ -874,6 +874,53 @@ export const threadSummarySchema = z.object({
   participant_2: profileCardSchema.optional(),
 });
 
+/**
+ * QR group identity is intentionally opaque. The API accepts the exact text
+ * decoded by the scanner and hashes its UTF-8 bytes server-side. Clients must
+ * not trim, normalize, case-fold, parse as URLs, fetch, or navigate this text.
+ */
+export const MAX_SHARED_GROUP_QR_CONTENT_LENGTH = 4096;
+export type SharedGroupQrContentError = "empty" | "too_long" | "nul";
+
+function sharedGroupQrContentLength(value: string) {
+  return Array.from(value).length;
+}
+
+export function sharedGroupQrContentError(value: string): SharedGroupQrContentError | null {
+  const length = sharedGroupQrContentLength(value);
+  if (length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH) return "too_long";
+  if (length === 0) return "empty";
+  if (value.includes("\u0000")) return "nul";
+  return null;
+}
+
+export const sharedGroupJoinRequestSchema = z.strictObject({
+  qr_content: z.string()
+    .min(1)
+    .refine(
+      (value) => sharedGroupQrContentLength(value) <= MAX_SHARED_GROUP_QR_CONTENT_LENGTH,
+      `QR content must be ${MAX_SHARED_GROUP_QR_CONTENT_LENGTH} characters or less`,
+    )
+    .refine((value) => !value.includes("\u0000"), "QR content must be text"),
+});
+
+export const sharedGroupSummarySchema = z.strictObject({
+  id: z.uuid(),
+  name: z.literal("Shared group"),
+  member_count: z.number().int().positive(),
+  last_message_at: utcTimestampSchema.nullable(),
+  last_message_preview: z.string().nullable(),
+  created_at: utcTimestampSchema,
+  unread_count: z.number().int().nonnegative(),
+});
+
+export const sharedGroupJoinResponseSchema = z.strictObject({
+  group: sharedGroupSummarySchema,
+  is_new_group: z.boolean(),
+  is_new_member: z.boolean(),
+});
+
+
 const dmInboxParticipantProfileSchema = z.strictObject({
   id: z.uuid(),
   username: z.string().min(1).max(64),
@@ -1097,7 +1144,8 @@ export const dmMessageEditRequestSchema = z.strictObject({
 
 export const messageHintSchema = z.object({
   thread_id: z.uuid(),
-  action: z.enum(["sent", "edited", "deleted", "read"]),
+  thread_type: z.enum(["dm", "shared_group"]).optional(),
+  action: z.enum(["sent", "edited", "deleted", "read", "membership"]),
   actor_id: z.uuid().nullable().optional(),
   sequence: z.number().int().positive().optional(),
 });
@@ -1343,6 +1391,42 @@ export const pageInfoSchema = z.strictObject({
   next_cursor: cursorSchema.nullable(),
   has_more: z.boolean(),
   limit: z.number().int().min(1).max(MAX_PAGE_SIZE),
+});
+
+export const sharedGroupsResponseSchema = z.strictObject({
+  groups: z.array(sharedGroupSummarySchema).max(MAX_PAGE_SIZE),
+  total_unread: z.number().int().nonnegative(),
+  pagination: pageInfoSchema,
+}).superRefine((response, context) => {
+  const ids = new Set<string>();
+  let unread = 0;
+  response.groups.forEach((group, index) => {
+    if (ids.has(group.id)) {
+      context.addIssue({ code: "custom", path: ["groups", index, "id"], message: "Duplicate group ID" });
+    }
+    ids.add(group.id);
+    unread += group.unread_count;
+  });
+  if (response.total_unread !== unread) {
+    context.addIssue({ code: "custom", path: ["total_unread"], message: "Group unread total does not match the page" });
+  }
+  if (response.groups.length > response.pagination.limit) {
+    context.addIssue({ code: "custom", path: ["groups"], message: "Group page exceeds its declared limit" });
+  }
+  if (response.pagination.has_more && response.groups.length !== response.pagination.limit) {
+    context.addIssue({ code: "custom", path: ["pagination", "has_more"], message: "A partial group page cannot have more rows" });
+  }
+});
+
+export const sharedGroupMessageCreateSchema = z.strictObject({
+  client_id: z.uuid(),
+  content: z.string().trim().min(1).max(4000),
+});
+
+export const sharedGroupMessagesResponseSchema = z.strictObject({
+  group: sharedGroupSummarySchema,
+  messages: z.array(messageSchema).max(MAX_PAGE_SIZE),
+  pagination: pageInfoSchema,
 });
 
 export const moderationReportsResponseSchema = z.strictObject({
@@ -1696,6 +1780,12 @@ export type DmInboxThread = z.infer<typeof dmInboxThreadSchema>;
 export type DmInboxResponse = z.infer<typeof dmInboxResponseSchema>;
 export type DmThreadCreateRequest = z.infer<typeof dmThreadCreateRequestSchema>;
 export type DmThreadCreateResponse = z.infer<typeof dmThreadCreateResponseSchema>;
+export type SharedGroupJoinRequest = z.infer<typeof sharedGroupJoinRequestSchema>;
+export type SharedGroupSummary = z.infer<typeof sharedGroupSummarySchema>;
+export type SharedGroupJoinResponse = z.infer<typeof sharedGroupJoinResponseSchema>;
+export type SharedGroupsResponse = z.infer<typeof sharedGroupsResponseSchema>;
+export type SharedGroupMessageCreate = z.infer<typeof sharedGroupMessageCreateSchema>;
+export type SharedGroupMessagesResponse = z.infer<typeof sharedGroupMessagesResponseSchema>;
 export type Message = z.infer<typeof messageSchema>;
 export type NearbyUserDto = z.infer<typeof nearbyUserSchema>;
 export type NearbyResponseDto = z.infer<typeof nearbyResponseSchema>;

@@ -97,6 +97,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   );
   const startOutgoingCall = useCallStore((s) => s.startOutgoingCall);
   const setActiveThreadId = useAppStore((s) => s.setActiveThreadId);
+  const setActiveGroupId = useAppStore((s) => s.setActiveGroupId);
   const readReceipt = useReadReceipt(user?.id, threadId);
 
   const conversationQuery = useInfiniteQuery(threadQueryOptions(threadId));
@@ -128,13 +129,14 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
 
   useEffect(() => {
     setActiveThreadId(threadId);
+    setActiveGroupId(null);
     return () => {
-      const currentActiveThreadId = useAppStore.getState().activeThreadId;
-      if (currentActiveThreadId === threadId) {
-        useAppStore.getState().setActiveThreadId(null);
+      const current = useAppStore.getState();
+      if (current.activeThreadId === threadId) {
+        current.setActiveThreadId(null);
       }
     };
-  }, [rqClient, setActiveThreadId, threadId]);
+  }, [setActiveGroupId, setActiveThreadId, threadId]);
 
   const sendMutation = useMutation({
     mutationFn: ({ attempt }: { attempt: ChatMessageAttempt; token: ChatMessageSubmissionToken }) =>
