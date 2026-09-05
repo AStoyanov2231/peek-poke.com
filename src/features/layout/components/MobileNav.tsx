@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MapPin, Mail, User, Shield } from "lucide-react";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
@@ -41,7 +41,10 @@ function MobileNavInner() {
   const isAdmin = useHasRole("admin");
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
-  useEffect(() => { setPendingHref(null); }, [pathname]);
+  useEffect(() => {
+    const resetTimer = window.setTimeout(() => setPendingHref(null), 0);
+    return () => window.clearTimeout(resetTimer);
+  }, [pathname]);
 
   const activeHref = pendingHref ?? pathname;
   const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;

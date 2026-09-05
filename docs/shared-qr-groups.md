@@ -2,7 +2,7 @@
 
 ## Payload semantics
 
-A scan submits the exact decoded QR string as `qr_content`. The server accepts 1-4,096 characters and computes the SHA-256 digest of its UTF-8 bytes. It does not trim, normalize Unicode, fold case, parse URLs, fetch content, execute content, or navigate to content. The digest is the only persisted group identity. Therefore the same decoded string intentionally maps to the same group everywhere, while different strings remain isolated. A QR scan is public discoverability, not proof of physical presence or a private invitation.
+A scan submits the exact decoded QR string as `qr_content`. The server accepts 1-4,096 characters, rejects empty, over-limit, or NUL-containing input, and computes the SHA-256 digest of its UTF-8 bytes. It does not trim, normalize Unicode, fold case, parse URLs, fetch content, execute content, or navigate to content. The digest is the only persisted group identity. Therefore the same decoded string intentionally maps to the same group everywhere, while different strings remain isolated. A QR scan is public discoverability, not proof of physical presence or a private invitation.
 
 The raw decoded string is not stored, returned, logged, shown as a group name, or included in analytics. Groups use the safe literal label `Shared group`.
 
@@ -10,9 +10,9 @@ A newly joined member can read the existing conversation history, matching the s
 
 ## Server behavior
 
-The additive migration `supabase/migrations/20260814000000_shared_qr_groups.sql` creates the group, membership, message, and outbox tables. The `create_or_join_shared_group` RPC performs digest lookup, creation, and membership insertion in one security-definer transaction. The unique digest and conflict-safe insert make concurrent first scans converge on one group. Membership and message writes are idempotent. RLS denies direct client table access; the authenticated API routes authorize membership before reads and the message RPC authorizes every send. Outbox delivery leases remain held until completion; account erasure returns a retryable blocked result while delivery is unresolved, with no automatic stale-lease reclamation or third-party notification recall guarantee.
+The additive migration `supabase/migrations/20260814000000_shared_qr_groups.sql` creates the group, membership, message, and outbox tables. The guarded follow-up migration `supabase/migrations/20260906000000_correct_account_erasure_coalesce.sql` corrects the approved account-erasure function before rollout. The `create_or_join_shared_group` RPC performs digest lookup, creation, and membership insertion in one security-definer transaction. The unique digest and conflict-safe insert make concurrent first scans converge on one group. Membership and message writes are idempotent. RLS denies direct client table access; the authenticated API routes authorize membership before reads and the message RPC authorizes every send. Account erasure removes the deleting member's group messages and membership while preserving other members' history and membership. Outbox delivery leases remain held until completion; erasure returns a retryable blocked result while delivery is unresolved, with no automatic stale-lease reclamation or third-party notification recall guarantee.
 
-Apply the migration through the normal isolated Supabase project migration workflow before enabling the clients. Do not run it directly against production without the project's migration approval and deployment process.
+Apply the migrations through the normal isolated Supabase project migration workflow before enabling the clients. Do not run it directly against production without the project's migration approval and deployment process.
 
 ## Client support
 

@@ -42,18 +42,11 @@ export function QrScanner({
     }
     if (permission?.granted) {
       if (!submittingRef.current) {
-        // Permission is an external native state that controls the scanner view.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState("scanning");
       }
       return;
     }
-    if (permission && !permission.canAskAgain) {
-      // Permission is an external native state that controls the scanner view.
-      setState("denied");
-      setError("Camera access was denied. Allow camera access in your device settings, or enter the QR text below.");
-      return;
-    }
+    if (permission && !permission.canAskAgain) return;
     if (permissionRequestAttemptedRef.current) return;
     permissionRequestAttemptedRef.current = true;
     void requestPermission().then((next) => {
@@ -114,13 +107,22 @@ export function QrScanner({
   }
 
   const canSubmitManual = manualContent.length > 0;
-  const statusCopy = state === "starting"
+  const permissionDenied = Boolean(permission && !permission.granted && !permission.canAskAgain);
+  const showPermissionDenied = permissionDenied
+    && state !== "submitting"
+    && state !== "error"
+    && state !== "success";
+  const renderedState: ScannerState = showPermissionDenied ? "denied" : state;
+  const renderedError = showPermissionDenied
+    ? "Camera access was denied. Allow camera access in your device settings, or enter the QR text below."
+    : error;
+  const statusCopy = renderedState === "starting"
     ? "Starting camera…"
-    : state === "scanning"
+    : renderedState === "scanning"
       ? "Point your camera at any QR code"
-      : state === "submitting"
+      : renderedState === "submitting"
         ? "Joining shared group…"
-        : state === "success"
+        : renderedState === "success"
           ? "Shared group joined"
           : "Camera scanning is unavailable";
 
@@ -137,9 +139,9 @@ export function QrScanner({
           </View>
 
           <View style={styles.previewWrap}>
-            {permission?.granted && state !== "submitting" && state !== "success" ? (
+            {permission?.granted && renderedState !== "submitting" && renderedState !== "success" ? (
               <CameraView
-                active={open && state === "scanning"}
+                active={open && renderedState === "scanning"}
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                 onBarcodeScanned={({ data }) => void submit(data)}
                 onMountError={() => {
@@ -152,7 +154,7 @@ export function QrScanner({
                 style={styles.preview}
               />
             ) : null}
-            {state !== "scanning" && state !== "submitting" && state !== "success" ? (
+            {renderedState !== "scanning" && renderedState !== "submitting" && renderedState !== "success" ? (
               <View style={styles.previewMessage}>
                 <Text style={styles.previewMessageText}>{statusCopy}</Text>
               </View>
@@ -168,9 +170,9 @@ export function QrScanner({
           <Caption>
             Anyone with the same code can join. Scanning is not proof of physical presence, and Peek &amp; Poke never opens QR links.
           </Caption>
-          {error ? (
+          {renderedError ? (
             <View style={styles.errorRow}>
-              <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>{error}</Text>
+              <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>{renderedError}</Text>
               {retryAvailable ? <Button onPress={() => {
                 const content = retryContentRef.current;
                 if (content) void submit(content);

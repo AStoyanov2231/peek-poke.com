@@ -39,6 +39,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     let starting = false;
     let restartRequested = false;
     let visibilityPaused = false;
+    const isDocumentHidden = () => document.visibilityState === "hidden";
 
     const stopStream = () => {
       if (timer !== null) window.clearTimeout(timer);
@@ -109,7 +110,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
         restartRequested = true;
         return;
       }
-      if (document.visibilityState === "hidden") {
+      if (isDocumentHidden()) {
         visibilityPaused = true;
         return;
       }
@@ -125,14 +126,14 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
           audio: false,
           video: { facingMode: { ideal: "environment" } },
         });
-        if (disposed || submittingRef.current || visibilityPaused || document.visibilityState === "hidden" || !videoRef.current) {
+        if (disposed || submittingRef.current || visibilityPaused || isDocumentHidden() || !videoRef.current) {
           stream.getTracks().forEach((track) => track.stop());
           stream = null;
           return;
         }
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
-        if (disposed || submittingRef.current || visibilityPaused || document.visibilityState === "hidden") {
+        if (disposed || submittingRef.current || visibilityPaused || isDocumentHidden()) {
           stopStream();
           return;
         }
@@ -165,7 +166,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
+      if (isDocumentHidden()) {
         visibilityPaused = true;
         stopStream();
         if (!submittingRef.current) setState("error");
