@@ -162,7 +162,7 @@ begin
       pg_catalog.jsonb_build_object(
         'group_id', v_group.id,
         'recipient_ids', (
-          select pg_catalog.coalesce(
+          select coalesce(
             pg_catalog.jsonb_agg(member.user_id order by member.user_id),
             '[]'::jsonb
           )
@@ -357,7 +357,7 @@ begin
         'message_id', v_message.id,
         'sender_id', p_sender_id,
         'recipient_ids', (
-          select pg_catalog.coalesce(
+          select coalesce(
             pg_catalog.jsonb_agg(member.user_id order by member.user_id),
             '[]'::jsonb
           )
@@ -428,7 +428,7 @@ begin
       pg_catalog.jsonb_build_object(
         'group_id', p_group_id,
         'recipient_ids', (
-          select pg_catalog.coalesce(
+          select coalesce(
             pg_catalog.jsonb_agg(member.user_id order by member.user_id),
             '[]'::jsonb
           )
@@ -469,7 +469,7 @@ declare
   v_claimed integer;
   v_active_count integer := 0;
 begin
-  if p_group_id is null or p_recipient_ids is null or p_event_id is null or pg_catalog.nullif(p_worker_id, '') is null then
+  if p_group_id is null or p_recipient_ids is null or p_event_id is null or nullif(p_worker_id, '') is null then
     return pg_catalog.jsonb_build_object('status', 'empty', 'recipient_ids', '[]'::jsonb);
   end if;
 
@@ -631,7 +631,7 @@ begin
     outbox_event.payload,
     '{recipient_ids}',
     (
-      select pg_catalog.coalesce(
+      select coalesce(
         pg_catalog.jsonb_agg(recipient.value order by recipient.ordinality),
         '[]'::jsonb
       )
@@ -676,7 +676,7 @@ begin
       group_row.id::text,
       pg_catalog.jsonb_build_object(
         'group_id', group_row.id,
-        'recipient_ids', pg_catalog.coalesce(
+        'recipient_ids', coalesce(
           pg_catalog.jsonb_agg(member.user_id order by member.user_id)
             filter (where member.user_id is not null),
           '[]'::jsonb

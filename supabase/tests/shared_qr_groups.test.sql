@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(39);
+select plan(40);
 
 insert into auth.users (id, email)
 values
@@ -46,6 +46,16 @@ select has_table('public', 'shared_group_members', 'shared group membership tabl
 select has_table('public', 'shared_group_messages', 'shared group message table exists');
 select has_pk('public', 'shared_group_members', 'group membership is unique per user');
 select has_pk('public', 'shared_group_messages', 'messages have a primary key');
+select is(
+  (public.claim_shared_group_message_recipients(
+    '57000000-0000-4000-8000-000000000001',
+    array['57000000-0000-4000-8000-000000000001']::uuid[],
+    '58000000-0000-4000-8000-000000000001',
+    ''
+  ) ->> 'status'),
+  'empty',
+  'empty delivery workers are rejected before lease claims'
+);
 select is(
   (select count(*) from public.shared_groups),
   2::bigint,
