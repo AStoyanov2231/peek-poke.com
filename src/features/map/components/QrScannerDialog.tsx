@@ -37,6 +37,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     let timer: number | null = null;
     let detector: Detector | null = null;
     let starting = false;
+    let restartRequested = false;
     let visibilityPaused = false;
 
     const stopStream = () => {
@@ -100,7 +101,11 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     };
 
     const start = async () => {
-      if (disposed || visibilityPaused || submittingRef.current || starting) return;
+      if (disposed || visibilityPaused || submittingRef.current) return;
+      if (starting) {
+        restartRequested = true;
+        return;
+      }
       if (document.visibilityState === "hidden") {
         visibilityPaused = true;
         return;
@@ -146,6 +151,13 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
         }
       } finally {
         starting = false;
+        const shouldRestart = restartRequested
+          && !disposed
+          && !visibilityPaused
+          && !submittingRef.current
+          && stream === null;
+        restartRequested = false;
+        if (shouldRestart) void start();
       }
     };
 

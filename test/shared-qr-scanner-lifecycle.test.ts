@@ -135,7 +135,13 @@ describe("web QR scanner lifecycle", () => {
   });
 
   it("reacquires the camera after returning from the background", async () => {
-    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: vi.fn() }] }));
+    let resolveFirst!: (stream: { getTracks: () => Array<{ stop: () => void }> }) => void;
+    const firstAttempt = new Promise<{ getTracks: () => Array<{ stop: () => void }> }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const getUserMedia = vi.fn()
+      .mockReturnValueOnce(firstAttempt)
+      .mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] });
     let visibilityListener: (() => void) | undefined;
     vi.mocked(document.addEventListener).mockImplementation((event, callback) => {
       if (event === "visibilitychange") visibilityListener = callback as unknown as () => void;
@@ -152,6 +158,8 @@ describe("web QR scanner lifecycle", () => {
     visibilityListener?.();
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     visibilityListener?.();
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    resolveFirst({ getTracks: () => [{ stop: vi.fn() }] });
     await flush();
     expect(getUserMedia).toHaveBeenCalledTimes(2);
   });
