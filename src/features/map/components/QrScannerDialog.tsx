@@ -56,6 +56,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
       if (contentError) {
         stopStream();
         retryRef.current = null;
+        setRetryAvailable(false);
         setState("error");
         setError(contentError === "too_long"
           ? "This QR code is too long. Enter a shorter QR text below."

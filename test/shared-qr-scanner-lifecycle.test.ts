@@ -116,6 +116,22 @@ describe("web QR scanner lifecycle", () => {
     await flush();
   });
 
+  it("clears retry after invalid manual input", async () => {
+    onDecoded.mockRejectedValueOnce(new Error("offline"));
+    await mount();
+    await act(async () => {
+      input().props.onChange({ target: { value: "retryable" } });
+      joinButton().props.onClick();
+    });
+    await flush();
+    expect(renderer?.root.findAllByType("button").some((button) => String(button.props.children) === "Retry")).toBe(true);
+    await act(async () => {
+      input().props.onChange({ target: { value: "invalid\u0000content" } });
+      joinButton().props.onClick();
+    });
+    expect(renderer?.root.findAllByType("button").some((button) => String(button.props.children) === "Retry")).toBe(false);
+  });
+
   it("surfaces camera denial and releases camera listeners on unmount", async () => {
     const getUserMedia = vi.fn(async () => {
       throw new DOMException("denied", "NotAllowedError");

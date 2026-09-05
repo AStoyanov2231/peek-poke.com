@@ -86,6 +86,19 @@ describe("native QR scanner lifecycle", () => {
     await waitFor(() => expect(onDecoded).toHaveBeenCalledTimes(2));
   });
 
+  it("clears retry after invalid manual input", async () => {
+    const onDecoded = jest.fn().mockRejectedValueOnce(new Error("offline"));
+    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={onDecoded} />);
+
+    await waitFor(() => expect(mockCameraProps.current?.active).toBe(true));
+    (mockCameraProps.current?.onBarcodeScanned as ((value: { data: string }) => void))({ data: "retryable" });
+    await waitFor(() => expect(result.getByText("This QR code could not be joined. Check your connection and try again.")).toBeTruthy());
+    expect(result.getByText("Retry")).toBeTruthy();
+    fireEvent.changeText(result.getByLabelText("QR text"), "invalid\u0000content");
+    fireEvent.press(result.getByRole("button", { name: "Join" }));
+    await waitFor(() => expect(result.queryByText("Retry")).toBeNull());
+  });
+
   it("closes on backgrounding and removes the app-state listener", () => {
     const remove = jest.fn();
     const listener = jest.fn();

@@ -75,6 +75,7 @@ export function QrScanner({
     const contentError = sharedGroupQrContentError(content);
     if (contentError) {
       retryContentRef.current = null;
+      setRetryAvailable(false);
       setState("error");
       setError(contentError === "too_long"
         ? "This QR code is too long. Enter a shorter QR text below."
