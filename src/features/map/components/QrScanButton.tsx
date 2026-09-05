@@ -28,7 +28,9 @@ export function QrScanButton() {
     await queryClient.invalidateQueries({ queryKey: webQueryKeys.groups });
     if (session !== scannerSessionRef.current) return;
     closeScanner();
-    router.push(`/inbox?tab=chats&group=${encodeURIComponent(response.group.id)}`);
+    router.push(window.innerWidth < 768
+      ? `/group/${encodeURIComponent(response.group.id)}`
+      : `/inbox?tab=chats&group=${encodeURIComponent(response.group.id)}`);
   }, [closeScanner, queryClient, router]);
 
   return (

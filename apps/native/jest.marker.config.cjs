@@ -24,6 +24,7 @@ module.exports = {
       "<rootDir>/test/read-receipt-recovery-pressability.test.tsx",
       "<rootDir>/test/inbox-data-recovery-pressability.test.tsx",
       "<rootDir>/test/account-deletion-recovery.marker.ts",
+      "<rootDir>/test/qr-scanner-lifecycle.test.tsx",
     ],
   })),
 };

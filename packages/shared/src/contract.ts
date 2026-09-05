@@ -882,9 +882,14 @@ export const threadSummarySchema = z.object({
 export const MAX_SHARED_GROUP_QR_CONTENT_LENGTH = 4096;
 export type SharedGroupQrContentError = "empty" | "too_long" | "nul";
 
+function sharedGroupQrContentLength(value: string) {
+  return Array.from(value).length;
+}
+
 export function sharedGroupQrContentError(value: string): SharedGroupQrContentError | null {
-  if (value.length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH) return "too_long";
-  if (value.length === 0) return "empty";
+  const length = sharedGroupQrContentLength(value);
+  if (length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH) return "too_long";
+  if (length === 0) return "empty";
   if (value.includes("\u0000")) return "nul";
   return null;
 }
@@ -892,7 +897,10 @@ export function sharedGroupQrContentError(value: string): SharedGroupQrContentEr
 export const sharedGroupJoinRequestSchema = z.strictObject({
   qr_content: z.string()
     .min(1)
-    .max(MAX_SHARED_GROUP_QR_CONTENT_LENGTH)
+    .refine(
+      (value) => sharedGroupQrContentLength(value) <= MAX_SHARED_GROUP_QR_CONTENT_LENGTH,
+      `QR content must be ${MAX_SHARED_GROUP_QR_CONTENT_LENGTH} characters or less`,
+    )
     .refine((value) => !value.includes("\u0000"), "QR content must be text"),
 });
 

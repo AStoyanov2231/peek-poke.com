@@ -30,8 +30,4 @@ describe("shared QR group migration", () => {
     expect(pgTapSql.stmts.length).toBeGreaterThan(30);
   });
 
-  it("keeps the executable database behavior fixture parseable", async () => {
-    const parsed = await parse(pgTap);
-    expect(parsed.stmts.length).toBeGreaterThan(30);
-  });
 });

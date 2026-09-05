@@ -35,9 +35,15 @@ describe("shared QR group contracts", () => {
   it.each([
     ["empty", ""],
     ["oversized", "x".repeat(MAX_SHARED_GROUP_QR_CONTENT_LENGTH + 1)],
+    ["oversized Unicode", "🫧".repeat(MAX_SHARED_GROUP_QR_CONTENT_LENGTH + 1)],
     ["NUL", "coffee\u0000table"],
   ])("rejects %s QR text", (_label, qrContent) => {
     expect(() => sharedGroupJoinRequestSchema.parse({ qr_content: qrContent })).toThrow();
+  });
+
+  it("counts Unicode code points consistently with the server bound", () => {
+    const content = "🫧".repeat(MAX_SHARED_GROUP_QR_CONTENT_LENGTH);
+    expect(sharedGroupJoinRequestSchema.parse({ qr_content: content }).qr_content).toBe(content);
   });
 
   it("rejects duplicate groups and unread totals that could corrupt inbox state", () => {
