@@ -65,7 +65,7 @@ export function QrScanner({
   useEffect(() => {
     if (!open) return;
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active" && !submittingRef.current) onClose();
+      if (nextState === "background" && !submittingRef.current) onClose();
     });
     return () => subscription.remove();
   }, [onClose, open]);

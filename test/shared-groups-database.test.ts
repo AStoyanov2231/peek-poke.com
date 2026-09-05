@@ -204,10 +204,11 @@ describe("shared group database boundary", () => {
       headers: { "content-type": "application/json", "idempotency-key": clientId },
       body: JSON.stringify({ client_id: clientId, content: "member message" }),
     });
+    const outsiderClientId = randomUUID();
     const outsiderResponse = await appRequest(2, `/api/groups/${sharedGroupId}`, {
       method: "POST",
-      headers: { "content-type": "application/json", "idempotency-key": randomUUID() },
-      body: JSON.stringify({ client_id: randomUUID(), content: "outsider message" }),
+      headers: { "content-type": "application/json", "idempotency-key": outsiderClientId },
+      body: JSON.stringify({ client_id: outsiderClientId, content: "outsider message" }),
     });
     expect(sentResponse.status).toBe(200);
     expect(replayResponse.status).toBe(200);

@@ -96,6 +96,8 @@ describe("native QR scanner lifecycle", () => {
     const onClose = jest.fn();
     const result = render(<QrScanner open onClose={onClose} onDecoded={jest.fn(async () => undefined)} />);
 
+    listener("inactive");
+    expect(onClose).not.toHaveBeenCalled();
     listener("background");
     expect(onClose).toHaveBeenCalledTimes(1);
     result.unmount();
