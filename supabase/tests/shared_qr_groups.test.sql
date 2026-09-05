@@ -204,7 +204,10 @@ select is(
    where event_type = 'shared_group.message.changed'
      and aggregate_id = (select result -> 'group' ->> 'id' from shared_qr_test_state where name = 'first')
      and payload ->> 'action' = 'membership'
-     and (payload -> 'recipient_ids') ? '57000000-0000-4000-8000-000000000002'),
+     and payload -> 'recipient_ids' = pg_catalog.jsonb_build_array(
+       '57000000-0000-4000-8000-000000000001',
+       '57000000-0000-4000-8000-000000000002'
+     )),
   pg_catalog.jsonb_build_array(
     '57000000-0000-4000-8000-000000000001',
     '57000000-0000-4000-8000-000000000002'
