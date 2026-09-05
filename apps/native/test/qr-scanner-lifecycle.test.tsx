@@ -14,6 +14,23 @@ jest.mock("expo-camera", () => ({
   useCameraPermissions: () => [mockPermissionState, mockRequestPermission],
 }));
 
+jest.mock("@/components/ui", () => {
+  const React = require("react");
+  const { Pressable, Text } = require("react-native");
+  return {
+    Button: ({ children, disabled, onPress }: { children: React.ReactNode; disabled?: boolean; onPress: () => void }) => React.createElement(
+      Pressable,
+      { accessibilityRole: "button", accessibilityState: { disabled }, disabled, onPress },
+      React.createElement(Text, null, children),
+    ),
+    Caption: ({ children }: { children: React.ReactNode }) => React.createElement(Text, null, children),
+    IconButton: ({ label, onPress }: { label: string; onPress: () => void }) => React.createElement(
+      Pressable,
+      { accessibilityLabel: label, accessibilityRole: "button", onPress },
+    ),
+  };
+});
+
 import { QrScanner } from "@/components/qr-scanner";
 
 describe("native QR scanner lifecycle", () => {

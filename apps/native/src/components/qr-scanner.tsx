@@ -169,8 +169,8 @@ export function QrScanner({
             Anyone with the same code can join. Scanning is not proof of physical presence, and Peek &amp; Poke never opens QR links.
           </Caption>
           {error ? (
-            <View accessibilityRole="alert" style={styles.errorRow}>
-              <Text accessibilityLiveRegion="assertive" style={styles.error}>{error}</Text>
+            <View style={styles.errorRow}>
+              <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>{error}</Text>
               {retryAvailable ? <Button onPress={() => {
                 const content = retryContentRef.current;
                 if (content) void submit(content);

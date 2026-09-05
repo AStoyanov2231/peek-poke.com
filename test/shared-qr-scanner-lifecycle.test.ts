@@ -121,6 +121,8 @@ describe("web QR scanner lifecycle", () => {
     await mount();
     await act(async () => {
       input().props.onChange({ target: { value: "retryable" } });
+    });
+    await act(async () => {
       joinButton().props.onClick();
     });
     await flush();
