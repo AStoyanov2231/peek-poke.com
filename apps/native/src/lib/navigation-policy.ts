@@ -18,6 +18,7 @@ export const coreNativeStackRoutes = [
   "/onboarding",
   "/(app)",
   "/chat/[threadId]",
+  "/group/[groupId]",
   "/invite/[inviterId]",
 ] as const;
 
@@ -31,7 +32,7 @@ const staticNotificationRoutes = new Set([
   "/onboarding",
 ]);
 
-const dynamicNotificationRoute = /^\/(?:chat|profile)\/[A-Za-z0-9_-]+$/;
+const dynamicNotificationRoute = /^\/(?:chat|group|profile)\/[A-Za-z0-9_-]+$/;
 const unsafeEncoding = /%(?:2e|2f|5c)/i;
 
 export function resolveNotificationRoute(value: unknown): string | null {

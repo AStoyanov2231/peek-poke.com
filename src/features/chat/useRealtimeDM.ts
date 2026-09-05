@@ -17,6 +17,7 @@ import {
   fetchThreadMessages,
   webQueryKeys,
   type ThreadQueryData,
+  type SharedGroupQueryData,
 } from "@/data/web-query";
 import {
   isWebProfileRecoveryQuery,
@@ -24,6 +25,7 @@ import {
   refreshWebProfileReferences,
 } from "@/data/owner-profile-cache";
 import { markActiveThreadRead } from "@/data/read-receipt";
+import { fetchSharedGroupMessages, markSharedGroupRead } from "@/data/shared-groups";
 
 const supabase = createClient();
 const VISIBILITY_THROTTLE_MS = 30_000;
@@ -75,22 +77,38 @@ export function useRealtimeUserSync({
       delayMs: REFETCH_DEBOUNCE_MS,
       onError: (error) => console.error("Message realtime recovery failed", error),
       onFlush: async ({ recovery, threadIds }, signal) => {
-        await queryClient.invalidateQueries({
-          queryKey: webQueryKeys.threads,
-          exact: true,
-          refetchType: "none",
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: webQueryKeys.threads,
+            exact: true,
+            refetchType: "none",
+          }),
+          queryClient.invalidateQueries({
+            queryKey: webQueryKeys.groups,
+            exact: true,
+            refetchType: "none",
+          }),
+        ]);
         if (signal.aborted) return;
-        const activeThreadId = useAppStore.getState().activeThreadId;
+        const { activeThreadId, activeGroupId } = useAppStore.getState();
+        const hintedActiveGroup = activeGroupId && threadIds.includes(activeGroupId)
+          ? activeGroupId
+          : null;
         const hintedActiveThread = activeThreadId && threadIds.includes(activeThreadId)
           ? activeThreadId
           : null;
-        const threadToBackfill = hintedActiveThread ?? (recovery ? activeThreadId : null);
+        const groupToBackfill = hintedActiveGroup ?? (recovery ? activeGroupId : null);
+        const threadToBackfill = groupToBackfill ? null : hintedActiveThread ?? (recovery ? activeThreadId : null);
 
         for (const threadId of threadIds) {
-          if (threadId === threadToBackfill) continue;
+          if (threadId === threadToBackfill || threadId === groupToBackfill) continue;
           queryClient.removeQueries({
             queryKey: webQueryKeys.messages(threadId),
+            exact: true,
+            type: "inactive",
+          });
+          queryClient.removeQueries({
+            queryKey: webQueryKeys.groupMessages(threadId),
             exact: true,
             type: "inactive",
           });
@@ -110,19 +128,48 @@ export function useRealtimeUserSync({
             exact: true,
             type: "active",
           }),
+          queryClient.refetchQueries({
+            queryKey: webQueryKeys.groups,
+            exact: true,
+            type: "active",
+          }),
         ];
 
-        if (threadToBackfill) {
+        if (groupToBackfill) {
+          const groupId = groupToBackfill;
+          await queryClient.invalidateQueries({
+            queryKey: webQueryKeys.groupMessages(groupId),
+            exact: true,
+            refetchType: "none",
+          });
+          if (signal.aborted) return;
+          await queryClient.cancelQueries({ queryKey: webQueryKeys.groupMessages(groupId), exact: true });
+          if (signal.aborted) return;
+          try {
+            await markSharedGroupRead(groupId, signal);
+          } catch (error) {
+            if (!signal.aborted && (!(error instanceof Error) || error.name !== "AbortError")) {
+              console.error("Shared group read receipt recovery failed", error);
+            }
+          }
+          if (signal.aborted) return;
+          durableReads.push(
+            fetchSharedGroupMessages(groupId, null, signal).then((latestPage) => {
+              if (signal.aborted) return;
+              queryClient.setQueryData<InfiniteData<SharedGroupQueryData>>(
+                webQueryKeys.groupMessages(groupId),
+                { pages: [latestPage], pageParams: [null] },
+              );
+            }),
+          );
+        } else if (threadToBackfill) {
           await queryClient.invalidateQueries({
             queryKey: webQueryKeys.messages(threadToBackfill),
             exact: true,
             refetchType: "none",
           });
           if (signal.aborted) return;
-          await queryClient.cancelQueries({
-            queryKey: webQueryKeys.messages(threadToBackfill),
-            exact: true,
-          });
+          await queryClient.cancelQueries({ queryKey: webQueryKeys.messages(threadToBackfill), exact: true });
           if (signal.aborted) return;
           if (hintedActiveThread || recovery) {
             try {
@@ -283,10 +330,8 @@ export function useRealtimeUserSync({
       stopProfileCacheObservation();
       stopProfileOnlineObservation();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      void queryClient.cancelQueries({
-        queryKey: webQueryKeys.threads,
-        exact: false,
-      });
+      void queryClient.cancelQueries({ queryKey: webQueryKeys.threads, exact: false });
+      void queryClient.cancelQueries({ queryKey: webQueryKeys.groups, exact: false });
       void queryClient.cancelQueries({ queryKey: webQueryKeys.friends, exact: true });
       void queryClient.cancelQueries({ queryKey: webQueryKeys.coins, exact: true });
       void queryClient.cancelQueries({ queryKey: webQueryKeys.profile, exact: true });

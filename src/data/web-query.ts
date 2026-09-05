@@ -35,6 +35,8 @@ import {
   type ProfileInterestDto,
   type PublicProfileResponse,
   type MessagesResponse,
+  type SharedGroupMessagesResponse,
+  type SharedGroupSummary,
   type LocationUpdateResponse,
   type MeetingResponse,
 } from "@peekpoke/shared";
@@ -45,6 +47,7 @@ import type {
   Thread,
 } from "@/stores/appStore";
 import { fetchContract, fetchJson } from "@/lib/typed-api";
+import { fetchSharedGroupMessages, fetchSharedGroups } from "@/data/shared-groups";
 
 export { ApiTransportError as WebQueryError } from "@peekpoke/shared";
 
@@ -66,6 +69,8 @@ export const webQueryKeys = {
   friends: ["web", "friends"] as const,
   threads: ["web", "threads"] as const,
   messages: (threadId: string) => ["web", "threads", threadId, "messages"] as const,
+  groups: ["web", "groups"] as const,
+  groupMessages: (groupId: string) => ["web", "groups", groupId, "messages"] as const,
   coins: ["web", "coins"] as const,
   publicProfile: (userId: string) => ["web", "profile", userId] as const,
   nearby: (viewerId: string, lat: number, lng: number) =>
@@ -109,6 +114,11 @@ export type ThreadsQueryData = {
 };
 
 export type ThreadQueryData = MessagesResponse;
+export type SharedGroupQueryData = SharedGroupMessagesResponse;
+export type SharedGroupsQueryData = {
+  groups: SharedGroupSummary[];
+  totalUnread: number;
+};
 
 export type PublicProfileData = PublicProfileResponse;
 
@@ -282,6 +292,29 @@ export const threadsQueryOptions = queryOptions({
   },
   staleTime: WEB_QUERY_STALE_TIME.inbox,
 });
+
+export const sharedGroupsQueryOptions = queryOptions({
+  queryKey: webQueryKeys.groups,
+  queryFn: async ({ signal }): Promise<SharedGroupsQueryData> => {
+    const data = await fetchSharedGroups(signal);
+    return { groups: data.groups, totalUnread: data.total_unread };
+  },
+  staleTime: WEB_QUERY_STALE_TIME.inbox,
+});
+
+export function sharedGroupQueryOptions(groupId: string) {
+  return infiniteQueryOptions({
+    queryKey: webQueryKeys.groupMessages(groupId),
+    queryFn: ({ pageParam, signal }) => fetchSharedGroupMessages(groupId, pageParam, signal),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.pagination.has_more
+      ? lastPage.pagination.next_cursor ?? undefined
+      : undefined,
+    enabled: Boolean(groupId),
+    refetchOnReconnect: false,
+    staleTime: WEB_QUERY_STALE_TIME.inbox,
+  });
+}
 
 export function fetchThreadMessages(
   threadId: string,

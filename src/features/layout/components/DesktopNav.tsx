@@ -23,7 +23,7 @@ const desktopNavItems: DesktopNavItem[] = [
 
 export function DesktopNav() {
   const pathname = usePathname();
-  if (pathname.startsWith("/chat") || pathname === "/onboarding") return null;
+  if (pathname.startsWith("/chat") || pathname.startsWith("/group") || pathname === "/onboarding") return null;
   return <DesktopNavInner />;
 }
 

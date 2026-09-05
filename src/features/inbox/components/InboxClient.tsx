@@ -10,7 +10,7 @@ import { InboxChatPanel } from "@/features/inbox/components/InboxChatPanel";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RestoredScroll } from "@/features/layout/components/RestoredScroll";
 import { useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
-import { friendsQueryOptions, threadsQueryOptions } from "@/data/web-query";
+import { friendsQueryOptions, sharedGroupsQueryOptions, threadsQueryOptions } from "@/data/web-query";
 import { InboxDataRecovery } from "@/features/inbox/components/InboxDataRecovery";
 
 type Tab = "chats" | "friends" | "requests";
@@ -19,10 +19,12 @@ type Tab = "chats" | "friends" | "requests";
 export function InboxClient() {
   const friendsQuery = useQuery(friendsQueryOptions);
   const threadsQuery = useQuery(threadsQueryOptions);
+  const groupsQuery = useQuery(sharedGroupsQueryOptions);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const threadId = searchParams.get("thread") ?? null;
+  const groupId = searchParams.get("group") ?? null;
   const requestCount = useFriendRequestCount();
   const unreadCount = useTotalUnread();
 
@@ -33,6 +35,7 @@ export function InboxClient() {
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", newTab);
       params.delete("thread");
+      params.delete("group");
       router.replace(`/inbox?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
@@ -42,19 +45,30 @@ export function InboxClient() {
     (id: string) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("thread", id);
+      params.delete("group");
       router.replace(`/inbox?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
 
-  if (friendsQuery.isError || (threadsQuery.isError && !threadsQuery.data)) {
+  const setGroup = useCallback(
+    (id: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("group", id);
+      params.delete("thread");
+      router.replace(`/inbox?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  if (friendsQuery.isError || (threadsQuery.isError && !threadsQuery.data) || (groupsQuery.isError && !groupsQuery.data)) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="t-body text-ink-9">Your inbox could not be loaded.</p>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
-          onClick={() => void Promise.all([friendsQuery.refetch(), threadsQuery.refetch()])}
+          onClick={() => void Promise.all([friendsQuery.refetch(), threadsQuery.refetch(), groupsQuery.refetch()])}
         >
           Try again
         </button>
@@ -99,15 +113,14 @@ export function InboxClient() {
         </div>
 
         {threadsQuery.error && threadsQuery.data ? (
-          <InboxDataRecovery
-            pending={threadsQuery.isFetching}
-            onRetry={() => { void threadsQuery.refetch(); }}
-          />
+          <InboxDataRecovery pending={threadsQuery.isFetching} onRetry={() => { void threadsQuery.refetch(); }} />
+        ) : groupsQuery.error && groupsQuery.data ? (
+          <InboxDataRecovery pending={groupsQuery.isFetching} onRetry={() => { void groupsQuery.refetch(); }} />
         ) : null}
 
         {/* Tab content */}
         <RestoredScroll storageKey={`inbox:${localTab}`} className="flex-1 min-h-0 overflow-y-auto">
-          {localTab === "chats" && <ChatsTab onSelectThread={setThread} activeThreadId={threadId} />}
+          {localTab === "chats" && <ChatsTab onSelectThread={setThread} onSelectGroup={setGroup} activeThreadId={threadId} activeGroupId={groupId} />}
           {localTab === "friends" && <FriendsTab />}
           {localTab === "requests" && <RequestsTab />}
         </RestoredScroll>
@@ -115,7 +128,7 @@ export function InboxClient() {
 
       {/* Desktop right panel */}
       <div className="hidden md:flex flex-1 flex-col min-w-0 min-h-0">
-        <InboxChatPanel threadId={threadId} />
+        <InboxChatPanel threadId={threadId} groupId={groupId} />
       </div>
     </div>
   );

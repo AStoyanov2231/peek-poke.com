@@ -26,7 +26,8 @@ export function MobileNav() {
   if (
     isKeyboardVisible ||
     pathname === "/onboarding" ||
-    pathname.startsWith("/chat/")
+    pathname.startsWith("/chat/") ||
+    pathname.startsWith("/group/")
   ) return null;
 
   return <MobileNavInner />;

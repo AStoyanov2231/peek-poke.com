@@ -34,6 +34,7 @@ type Coordinates = { lat: number; lng: number };
 interface AppState {
   drafts: Record<string, string>;
   activeThreadId: string | null;
+  activeGroupId: string | null;
   mapReady: boolean;
   coinSpent: boolean;
   coinSpentCount: number;
@@ -48,6 +49,7 @@ interface AppState {
   highlightedUserId: string | null;
   setDraft: (threadId: string, text: string) => void;
   setActiveThreadId: (threadId: string | null) => void;
+  setActiveGroupId: (groupId: string | null) => void;
   setMapReady: (ready: boolean) => void;
   triggerCoinSpent: () => void;
   setUserLocation: (location: Coordinates | null) => void;
@@ -68,6 +70,7 @@ interface AppState {
 const initialState = {
   drafts: {},
   activeThreadId: null,
+  activeGroupId: null,
   mapReady: false,
   coinSpent: false,
   coinSpentCount: 0,
@@ -152,6 +155,7 @@ export const useAppStore = create<AppState>((set, get) => {
       return { drafts };
     }),
   setActiveThreadId: (activeThreadId) => set({ activeThreadId }),
+  setActiveGroupId: (activeGroupId) => set({ activeGroupId }),
   setMapReady: (mapReady) => set({ mapReady }),
   triggerCoinSpent: () => {
     if (coinSpentTimer) clearTimeout(coinSpentTimer);

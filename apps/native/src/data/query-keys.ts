@@ -15,10 +15,12 @@ export const nativeQueryKeys = {
   },
   inbox: {
     threads: ["inbox", "threads"] as const,
+    groups: ["inbox", "groups"] as const,
   },
   chat: {
     all: ["chat"] as const,
     messages: (threadId: string) => ["chat", threadId, "messages"] as const,
+    groupMessages: (groupId: string) => ["chat", "group", groupId, "messages"] as const,
   },
   discovery: {
     userSearch: ["discovery", "search", "users"] as const,
@@ -44,5 +46,6 @@ export function isNativeChatQueryKey(queryKey: readonly unknown[]) {
 export function isNativeUserSyncQueryKey(queryKey: readonly unknown[]) {
   return isNativeChatQueryKey(queryKey)
     || queryKey[0] === nativeQueryKeys.social.friends[0]
-    || queryKey[0] === nativeQueryKeys.inbox.threads[0];
+    || queryKey[0] === nativeQueryKeys.inbox.threads[0]
+    || queryKey[0] === nativeQueryKeys.inbox.groups[0];
 }

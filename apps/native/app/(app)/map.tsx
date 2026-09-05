@@ -48,6 +48,7 @@ import {
 import { displayName } from "@/components/ui-helpers";
 import { MapMarkerButton } from "@/components/map-marker-button";
 import { MapFilterMenu } from "@/components/map-filter-menu";
+import { QrScanner } from "@/components/qr-scanner";
 import { LocationSyncRecovery } from "@/components/location-sync-recovery";
 import { mapTouchTargetGeometry, type NativeTouchPlatform } from "@/components/ui-touch-targets";
 import {
@@ -94,6 +95,7 @@ import {
   userSearchQueryOptions,
 } from "@/data/discovery/queries";
 import { socialQuery } from "@/data/social/queries";
+import { joinSharedGroup } from "@/data/shared-groups";
 import { commitFriendshipBalance } from "@/data/social/cache";
 import {
   createOrFindThread,
@@ -221,6 +223,8 @@ export default function MapScreen() {
   const [queryText, setQueryText] = useState("");
   const [mapFilter, setMapFilter] = useState<MapFilter>("all");
   const [mapFilterOpen, setMapFilterOpen] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const qrScannerSessionRef = useRef(0);
   const [cursorPos, setCursorPos] = useState(0);
   const [highlightedUserId, setHighlightedUserId] = useState<string | null>(null);
   const [highlightedData, setHighlightedData] = useState<PublicProfileData | null>(null);
@@ -546,6 +550,28 @@ export default function MapScreen() {
     setHighlightedData(null);
     setPendingUserId(null);
   }, [stopOrbit]);
+
+  const openQrScanner = useCallback(() => {
+    qrScannerSessionRef.current += 1;
+    setQrScannerOpen(true);
+  }, []);
+  const closeQrScanner = useCallback(() => {
+    qrScannerSessionRef.current += 1;
+    setQrScannerOpen(false);
+  }, []);
+
+  const joinQrGroup = useCallback(async (content: string) => {
+    const session = qrScannerSessionRef.current;
+    const response = await joinSharedGroup(content);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: nativeQueryKeys.inbox.groups }),
+      queryClient.invalidateQueries({ queryKey: nativeQueryKeys.inbox.threads }),
+    ]);
+    if (session !== qrScannerSessionRef.current) return;
+    closeQrScanner();
+    clearSelection();
+    router.push(`/group/${response.group.id}` as never);
+  }, [clearSelection, closeQrScanner, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1005,6 +1031,14 @@ export default function MapScreen() {
       </View>
 
       <IconButton
+        icon="qr"
+        label="Scan a QR code to join a shared group"
+        size={44}
+        style={[styles.qrButton, { top: insets.top + 108 }]}
+        onPress={openQrScanner}
+      />
+
+      <IconButton
         icon="recenter"
         label="Center map on my location"
         size={44}
@@ -1072,6 +1106,13 @@ export default function MapScreen() {
         onClose={() => setUpgradeMessage(null)}
         onUpgrade={() => router.navigate("/(app)/premium" as never)}
       />
+      {qrScannerOpen ? (
+        <QrScanner
+          open
+          onClose={closeQrScanner}
+          onDecoded={joinQrGroup}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1760,6 +1801,11 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.regular,
     fontSize: 15,
     lineHeight: 20,
+  },
+  qrButton: {
+    position: "absolute",
+    right: spacing[4],
+    zIndex: 35,
   },
   filterSurface: {
     width: minimumActivationSize,

@@ -11,9 +11,9 @@ import { EDIT_WINDOW_MINUTES } from "@peekpoke/shared";
 interface ChatMessageListProps {
   messages: DMMessage[];
   userId: string;
-  onDelete: (messageId: string) => void;
-  onEdit: (message: DMMessage) => void;
-  onReply: (message: DMMessage) => void;
+  onDelete?: (messageId: string) => void;
+  onEdit?: (message: DMMessage) => void;
+  onReply?: (message: DMMessage) => void;
   canReply?: boolean;
   hasOlder?: boolean;
   isLoadingOlder?: boolean;
@@ -115,10 +115,10 @@ export function ChatMessageList({
   const handleTouchStart = useCallback((e: React.TouchEvent, msg: DMMessage, isOwn: boolean) => {
     const el = e.currentTarget as HTMLElement;
     const t = e.touches[0];
-    swipeStartRef.current = canReply ? { x: t.clientX, y: t.clientY, id: msg.id } : null;
+    swipeStartRef.current = canReply && onReply ? { x: t.clientX, y: t.clientY, id: msg.id } : null;
     swipeElRef.current = el;
     longPressTimer.current = setTimeout(() => openContextMenu(el, msg, isOwn), 500);
-  }, [canReply, openContextMenu]);
+  }, [canReply, onReply, openContextMenu]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent, msg: DMMessage) => {
     clearTimeout(longPressTimer.current);
@@ -143,10 +143,10 @@ export function ChatMessageList({
     const dx = t.clientX - swipeStartRef.current.x;
     const dy = t.clientY - swipeStartRef.current.y;
     swipeStartRef.current = null;
-    if (canReply && !msg.is_deleted && dx < -50 && Math.abs(dx) > Math.abs(dy)) {
+    if (canReply && onReply && !msg.is_deleted && dx < -50 && Math.abs(dx) > Math.abs(dy)) {
       onReply(msg);
     }
-  }, [canReply, resetSwipeEl, onReply]);
+  }, [canReply, onReply, resetSwipeEl]);
 
   const handleTouchCancel = useCallback(() => {
     clearTimeout(longPressTimer.current);
@@ -326,11 +326,11 @@ export function ChatMessageList({
               </div>
               <div className="fixed z-50" style={{ top: menuTop, ...menuAlign }}>
                 <div className="bg-surface rounded-lg border border-hairline overflow-hidden min-w-[180px] shadow-e-2">
-                  {canEdit && (
+                  {canEdit && onEdit && (
                     <>
                       <button type="button"
                         className="w-full flex items-center gap-3 px-4 py-3 md:hover:bg-ink-1 t-body text-ink-8"
-                        onClick={() => { onEdit(contextMenu.message); setContextMenu(null); }}
+                        onClick={() => { onEdit?.(contextMenu.message); setContextMenu(null); }}
                       >
                         <Pencil size={18} />Edit
                       </button>
@@ -348,12 +348,12 @@ export function ChatMessageList({
                   >
                     <Copy size={18} />Copy
                   </button>
-                  {contextMenu.isOwn && (
+                  {contextMenu.isOwn && onDelete && (
                     <>
                       <div className="hr" />
                       <button type="button"
                         className="w-full flex items-center gap-3 px-4 py-3 md:hover:bg-ink-1 t-body text-danger-500"
-                        onClick={() => { onDelete(contextMenu.messageId); setContextMenu(null); }}
+                        onClick={() => { onDelete?.(contextMenu.messageId); setContextMenu(null); }}
                       >
                         <Trash2 size={18} />Delete
                       </button>

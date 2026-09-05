@@ -12,6 +12,7 @@ import {
   type SocialData,
   type ThreadMutationData,
 } from "./api";
+import { fetchSharedGroups } from "@/data/shared-groups";
 import {
   addThreadToInbox,
   applyFriendResponse,
@@ -34,6 +35,12 @@ export const socialQuery = () => queryOptions({
 export const inboxQuery = () => queryOptions({
   queryKey: nativeQueryKeys.inbox.threads,
   queryFn: fetchInbox,
+  staleTime: 15_000,
+});
+
+export const sharedGroupsQuery = () => queryOptions({
+  queryKey: nativeQueryKeys.inbox.groups,
+  queryFn: fetchSharedGroups,
   staleTime: 15_000,
 });
 

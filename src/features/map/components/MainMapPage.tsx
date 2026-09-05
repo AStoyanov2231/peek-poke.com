@@ -13,6 +13,7 @@ import { bootstrapQueryOptions } from "@/data/web-query";
 import { useGeolocation } from "@/features/map/useGeolocation";
 import { useMeetingDetection } from "@/features/map/useMeetingDetection";
 import { useNearbyPresence } from "@/features/map/useNearbyPresence";
+import { QrScanButton } from "@/features/map/components/QrScanButton";
 
 export default function MainPage() {
   const userId = useQuery(bootstrapQueryOptions).data?.identity.id;
@@ -29,6 +30,7 @@ export default function MainPage() {
       <div className="flex-1 relative min-w-0 pointer-events-none">
         <MapSearchBar />
         <MapTopLabels />
+        <QrScanButton />
         <NearbySwiper />
         <RecenterButton />
         <BotHint />

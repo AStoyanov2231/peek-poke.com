@@ -28,6 +28,7 @@ describe("native navigation definitions", () => {
       "/onboarding",
       "/(app)",
       "/chat/[threadId]",
+      "/group/[groupId]",
       "/invite/[inviterId]",
     ]);
   });

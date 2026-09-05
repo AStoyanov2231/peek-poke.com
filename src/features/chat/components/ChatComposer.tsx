@@ -18,7 +18,7 @@ interface ChatComposerProps {
   isEditing: boolean;
   editError: string | null;
   onCancelEdit: () => void;
-  onSelectImage: (file: File) => void;
+  onSelectImage?: (file: File) => void;
 }
 
 export function ChatComposer({
@@ -92,11 +92,11 @@ export function ChatComposer({
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) onSelectImage(file);
+              if (file) onSelectImage?.(file);
               event.target.value = "";
             }}
           />
-          {!isEditing ? (
+          {!isEditing && onSelectImage ? (
             <button
               type="button"
               disabled={isPending}

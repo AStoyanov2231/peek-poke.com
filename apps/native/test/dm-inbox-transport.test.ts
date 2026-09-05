@@ -51,7 +51,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("native DM inbox transport", () => {
   it("never substitutes bootstrap thread counts for validated unread cursors", () => {
     const source = readFileSync("app/(app)/inbox.tsx", "utf8");
-    expect(source).toContain("const unread = threadsQuery.data?.total_unread ?? 0");
+    expect(source).toContain("threadsQuery.data?.total_unread ?? 0");
     expect(source).not.toContain("unread_summary.threads");
     expect(source).toContain("threadsQuery.error && threadsQuery.data");
   });
