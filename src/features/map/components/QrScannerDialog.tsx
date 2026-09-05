@@ -36,6 +36,8 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     let stream: MediaStream | null = null;
     let timer: number | null = null;
     let detector: Detector | null = null;
+    let starting = false;
+    let visibilityPaused = false;
 
     const stopStream = () => {
       if (timer !== null) window.clearTimeout(timer);
@@ -82,7 +84,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     submitRef.current = submit;
 
     const detect = async () => {
-      if (disposed || submittingRef.current || !detector || !videoRef.current || videoRef.current.readyState < 2) return;
+      if (disposed || visibilityPaused || submittingRef.current || !detector || !videoRef.current || videoRef.current.readyState < 2) return;
       try {
         const results = await detector.detect(videoRef.current);
         const content = results[0]?.rawValue;
@@ -94,29 +96,38 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
         // A frame can be unavailable while the camera is warming up. Keep
         // scanning and reserve visible errors for permission/device failures.
       }
-      if (!disposed && !submittingRef.current) timer = window.setTimeout(() => void detect(), 220);
+      if (!disposed && !visibilityPaused && !submittingRef.current) timer = window.setTimeout(() => void detect(), 220);
     };
 
     const start = async () => {
-      const detectorConstructor = (window as Window & { BarcodeDetector?: DetectorConstructor }).BarcodeDetector;
-      if (!detectorConstructor || !navigator.mediaDevices?.getUserMedia) {
-        setState("unsupported");
+      if (disposed || visibilityPaused || submittingRef.current || starting) return;
+      if (document.visibilityState === "hidden") {
+        visibilityPaused = true;
         return;
       }
+      starting = true;
+      const detectorConstructor = (window as Window & { BarcodeDetector?: DetectorConstructor }).BarcodeDetector;
       try {
+        if (!detectorConstructor || !navigator.mediaDevices?.getUserMedia) {
+          setState("unsupported");
+          return;
+        }
         detector = new detectorConstructor({ formats: ["qr_code"] });
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: { facingMode: { ideal: "environment" } },
         });
-        if (disposed || !videoRef.current) {
+        if (disposed || visibilityPaused || document.visibilityState === "hidden" || !videoRef.current) {
           stream.getTracks().forEach((track) => track.stop());
           stream = null;
           return;
         }
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
-        if (disposed) return;
+        if (disposed || visibilityPaused || document.visibilityState === "hidden") {
+          stopStream();
+          return;
+        }
         setState("scanning");
         void detect();
       } catch (failure) {
@@ -133,14 +144,24 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
           setState("error");
           setError("The camera could not start. Try again or enter the QR text below.");
         }
+      } finally {
+        starting = false;
       }
     };
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
+        visibilityPaused = true;
         stopStream();
         if (!submittingRef.current) setState("error");
         if (!submittingRef.current) setError("Camera paused while Peek & Poke was in the background. Try again when you return.");
+        return;
+      }
+      if (visibilityPaused && !submittingRef.current && !disposed) {
+        visibilityPaused = false;
+        setState("starting");
+        setError(null);
+        void start();
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);

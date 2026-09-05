@@ -134,6 +134,28 @@ describe("web QR scanner lifecycle", () => {
     expect(document.removeEventListener).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
   });
 
+  it("reacquires the camera after returning from the background", async () => {
+    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: vi.fn() }] }));
+    let visibilityListener: (() => void) | undefined;
+    vi.mocked(document.addEventListener).mockImplementation((event, callback) => {
+      if (event === "visibilitychange") visibilityListener = callback as unknown as () => void;
+    });
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
+    vi.stubGlobal("window", {
+      BarcodeDetector: class {},
+      clearTimeout: nativeClearTimeout,
+      setTimeout: (callback: () => void, delay?: number) => nativeSetTimeout(callback, delay),
+    });
+    await mount();
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    visibilityListener?.();
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    visibilityListener?.();
+    await flush();
+    expect(getUserMedia).toHaveBeenCalledTimes(2);
+  });
+
   it("stops an acquired stream when the camera preview cannot mount", async () => {
     const stop = vi.fn();
     vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop }] })) } });

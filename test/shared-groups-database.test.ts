@@ -24,6 +24,10 @@ const isApprovedRemoteUrl = (() => {
 })();
 const remoteTargetOptedIn = process.env.SUPABASE_TEST_TARGET === APPROVED_PROJECT_REF;
 const databaseTargetAllowed = isLocalUrl || (isApprovedRemoteUrl && remoteTargetOptedIn);
+const databaseTestRequested = Boolean(process.env.SUPABASE_TEST_TARGET || url || serviceRoleKey || anonKey);
+if (databaseTestRequested && (!url || !serviceRoleKey || !anonKey || !databaseTargetAllowed)) {
+  throw new Error(`Shared-group database tests require the approved target ${APPROVED_PROJECT_REF} with complete credentials and SUPABASE_TEST_TARGET opt-in.`);
+}
 const describeDatabase = url && serviceRoleKey && anonKey && databaseTargetAllowed ? describe : describe.skip;
 
 let supabase: SupabaseClient;
