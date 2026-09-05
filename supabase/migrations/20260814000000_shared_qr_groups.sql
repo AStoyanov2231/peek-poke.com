@@ -44,6 +44,19 @@ create table if not exists public.shared_group_messages (
   unique (group_id, client_id)
 );
 
+create table if not exists public.shared_group_delivery_leases (
+  event_id uuid not null references public.outbox_events(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  group_id uuid not null references public.shared_groups(id) on delete cascade,
+  worker_id text not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  primary key (event_id, user_id)
+);
+
+create index if not exists shared_group_delivery_leases_user_idx
+  on public.shared_group_delivery_leases (user_id, expires_at);
+
 create index if not exists shared_group_members_user_group_idx
   on public.shared_group_members (user_id, group_id);
 create index if not exists shared_group_messages_group_created_idx
@@ -52,6 +65,7 @@ create index if not exists shared_group_messages_group_created_idx
 alter table public.shared_groups enable row level security;
 alter table public.shared_group_members enable row level security;
 alter table public.shared_group_messages enable row level security;
+alter table public.shared_group_delivery_leases enable row level security;
 
 drop policy if exists "shared groups are server only" on public.shared_groups;
 create policy "shared groups are server only"
@@ -65,11 +79,16 @@ drop policy if exists "shared group messages are server only" on public.shared_g
 create policy "shared group messages are server only"
   on public.shared_group_messages for all to authenticated
   using (false) with check (false);
+drop policy if exists "shared group delivery leases are server only" on public.shared_group_delivery_leases;
+create policy "shared group delivery leases are server only"
+  on public.shared_group_delivery_leases for all to authenticated
+  using (false) with check (false);
 
 revoke all on public.shared_groups from anon, authenticated;
 revoke all on public.shared_group_members from anon, authenticated;
 revoke all on public.shared_group_messages from anon, authenticated;
-grant all on public.shared_groups, public.shared_group_members, public.shared_group_messages to service_role;
+revoke all on public.shared_group_delivery_leases from anon, authenticated;
+grant all on public.shared_groups, public.shared_group_members, public.shared_group_messages, public.shared_group_delivery_leases to service_role;
 
 create or replace function public.create_or_join_shared_group(
   p_user_id uuid,
@@ -425,9 +444,12 @@ begin
 end;
 $$;
 
+drop function if exists public.claim_shared_group_message_recipients(uuid, uuid[]);
 create or replace function public.claim_shared_group_message_recipients(
   p_group_id uuid,
-  p_recipient_ids uuid[]
+  p_recipient_ids uuid[],
+  p_event_id uuid,
+  p_worker_id text
 )
 returns uuid[]
 language plpgsql
@@ -438,10 +460,15 @@ declare
   v_recipient_id uuid;
   v_active_recipients uuid[] := '{}'::uuid[];
   v_profile_id uuid;
+  v_claimed integer;
 begin
-  if p_group_id is null or p_recipient_ids is null then
+  if p_group_id is null or p_recipient_ids is null or p_event_id is null or pg_catalog.nullif(p_worker_id, '') is null then
     return v_active_recipients;
   end if;
+
+  delete from public.shared_group_delivery_leases lease
+  where lease.event_id = p_event_id
+    and lease.expires_at <= pg_catalog.clock_timestamp();
 
   for v_recipient_id in
     select distinct requested.recipient_id
@@ -449,6 +476,7 @@ begin
     where requested.recipient_id is not null
     order by requested.recipient_id
   loop
+    v_profile_id := null;
     select profile.id
     into v_profile_id
     from public.profiles profile
@@ -462,7 +490,25 @@ begin
       where member.group_id = p_group_id
         and member.user_id = v_recipient_id
     ) then
-      v_active_recipients := pg_catalog.array_append(v_active_recipients, v_recipient_id);
+      insert into public.shared_group_delivery_leases (
+        event_id, user_id, group_id, worker_id, expires_at
+      )
+      values (
+        p_event_id,
+        v_recipient_id,
+        p_group_id,
+        p_worker_id,
+        pg_catalog.clock_timestamp() + interval '2 minutes'
+      )
+      on conflict (event_id, user_id) do update
+      set worker_id = excluded.worker_id,
+          expires_at = excluded.expires_at
+      where public.shared_group_delivery_leases.expires_at <= pg_catalog.clock_timestamp()
+         or public.shared_group_delivery_leases.worker_id = p_worker_id;
+      get diagnostics v_claimed = row_count;
+      if v_claimed = 1 then
+        v_active_recipients := pg_catalog.array_append(v_active_recipients, v_recipient_id);
+      end if;
     end if;
   end loop;
 
@@ -470,13 +516,35 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_shared_group_message_recipients(uuid, uuid[]) from public, anon, authenticated;
+create or replace function public.release_shared_group_message_delivery_leases(
+  p_event_id uuid,
+  p_worker_id text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_deleted integer;
+begin
+  delete from public.shared_group_delivery_leases lease
+  where lease.event_id = p_event_id
+    and lease.worker_id = p_worker_id;
+  get diagnostics v_deleted = row_count;
+  return v_deleted > 0;
+end;
+$$;
+
+revoke all on function public.claim_shared_group_message_recipients(uuid, uuid[], uuid, text) from public, anon, authenticated;
+revoke all on function public.release_shared_group_message_delivery_leases(uuid, text) from public, anon, authenticated;
 revoke all on function public.create_or_join_shared_group(uuid, text) from public, anon, authenticated;
 revoke all on function public.get_shared_groups(uuid, timestamptz, uuid, integer) from public, anon, authenticated;
 revoke all on function public.get_shared_groups(uuid) from public, anon, authenticated;
 revoke all on function public.send_shared_group_message_transactional(uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.mark_shared_group_read(uuid, uuid) from public, anon, authenticated;
-grant execute on function public.claim_shared_group_message_recipients(uuid, uuid[]) to service_role;
+grant execute on function public.claim_shared_group_message_recipients(uuid, uuid[], uuid, text) to service_role;
+grant execute on function public.release_shared_group_message_delivery_leases(uuid, text) to service_role;
 grant execute on function public.create_or_join_shared_group(uuid, text) to service_role;
 grant execute on function public.get_shared_groups(uuid, timestamptz, uuid, integer) to service_role;
 grant execute on function public.get_shared_groups(uuid) to service_role;
@@ -492,6 +560,18 @@ as $$
 declare
   v_group_ids uuid[];
 begin
+  while exists (
+    select 1
+    from public.shared_group_delivery_leases lease
+    where lease.user_id = new.id
+      and lease.expires_at > pg_catalog.clock_timestamp()
+  ) loop
+    perform pg_catalog.pg_sleep(0.05);
+  end loop;
+
+  delete from public.shared_group_delivery_leases lease
+  where lease.user_id = new.id;
+
   select pg_catalog.array_agg(affected.group_id)
   into v_group_ids
   from (

@@ -5,6 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const APPROVED_PROJECT_REF = "ttojvnwpnpuhkyjncwxn";
 const url = process.env.SUPABASE_TEST_URL;
 const appUrl = process.env.SUPABASE_TEST_APP_URL?.replace(/\/+$/, "");
+const isLocalAppUrl = (() => {
+  if (!appUrl) return false;
+  try {
+    const parsed = new URL(appUrl);
+    return parsed.origin === appUrl && new Set(["localhost", "127.0.0.1", "::1"]).has(parsed.hostname);
+  } catch {
+    return false;
+  }
+})();
+const isApprovedRemoteAppUrl = appUrl === "https://www.peek-poke.com";
 const serviceRoleKey = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY;
 const anonKey = process.env.SUPABASE_TEST_ANON_KEY;
 const isLocalUrl = (() => {
@@ -24,14 +34,15 @@ const isApprovedRemoteUrl = (() => {
   }
 })();
 const remoteTargetOptedIn = process.env.SUPABASE_TEST_TARGET === APPROVED_PROJECT_REF;
-const databaseTargetAllowed = isLocalUrl || (isApprovedRemoteUrl && remoteTargetOptedIn);
+const appTargetAllowed = isLocalAppUrl || (isApprovedRemoteUrl && isApprovedRemoteAppUrl && remoteTargetOptedIn);
+const databaseTargetAllowed = (isLocalUrl && isLocalAppUrl) || (isApprovedRemoteUrl && appTargetAllowed && remoteTargetOptedIn);
 const databaseTestRequested = Boolean(process.env.SUPABASE_TEST_TARGET || url || appUrl || serviceRoleKey || anonKey);
 if (databaseTestRequested && (!url || !serviceRoleKey || !anonKey || !appUrl || !databaseTargetAllowed)) {
-  throw new Error(`Shared-group database tests require the approved target ${APPROVED_PROJECT_REF}, application URL, complete credentials, and SUPABASE_TEST_TARGET opt-in.`);
+  throw new Error(`Shared-group database tests require approved database target ${APPROVED_PROJECT_REF}, local or verified application target, complete credentials, and SUPABASE_TEST_TARGET opt-in.`);
 }
 function requireDatabaseTestConfig() {
   if (!url || !serviceRoleKey || !anonKey || !appUrl || !databaseTargetAllowed) {
-    throw new Error(`Shared-group database tests require SUPABASE_TEST_URL, SUPABASE_TEST_SERVICE_ROLE_KEY, SUPABASE_TEST_ANON_KEY, SUPABASE_TEST_APP_URL, and approved target ${APPROVED_PROJECT_REF}.`);
+    throw new Error(`Shared-group database tests require approved database target ${APPROVED_PROJECT_REF}, local or verified SUPABASE_TEST_APP_URL, complete credentials, and SUPABASE_TEST_TARGET opt-in.`);
   }
 }
 

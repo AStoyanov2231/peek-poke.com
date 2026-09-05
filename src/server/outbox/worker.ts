@@ -112,6 +112,7 @@ async function handleMessageEvent(
 async function handleSharedGroupMessageEvent(
   supabase: SupabaseClient,
   event: OutboxEvent,
+  workerId: string,
 ) {
   const groupId = uuidField(event.payload, "group_id");
   const action = event.payload.action;
@@ -148,6 +149,8 @@ async function handleSharedGroupMessageEvent(
       {
         p_group_id: groupId,
         p_recipient_ids: [...memberIds],
+        p_event_id: event.id,
+        p_worker_id: workerId,
       },
     );
     if (recipientError) throw recipientError;
@@ -158,44 +161,52 @@ async function handleSharedGroupMessageEvent(
       (userId): userId is string => typeof userId === "string" && memberIds.has(userId),
     );
   }
-  const delivered = await Promise.all(memberList.map((userId) =>
-    broadcastPrivateRealtimeEvent(
-      `sync:user:${userId}`,
-      "messages-changed",
-      {
-        thread_id: groupId,
-        thread_type: "shared_group",
-        action,
-        actor_id: actorId,
-        ...(sequence === undefined ? {} : { sequence }),
-      },
-    )));
-  if (delivered.some((value) => !value)) {
-    throw new Error("Shared group realtime delivery failed");
-  }
+  try {
+    const delivered = await Promise.all(memberList.map((userId) =>
+      broadcastPrivateRealtimeEvent(
+        `sync:user:${userId}`,
+        "messages-changed",
+        {
+          thread_id: groupId,
+          thread_type: "shared_group",
+          action,
+          actor_id: actorId,
+          ...(sequence === undefined ? {} : { sequence }),
+        },
+      )));
+    if (delivered.some((value) => !value)) {
+      throw new Error("Shared group realtime delivery failed");
+    }
 
-  if (action !== "sent") return;
-  const messageId = uuidField(event.payload, "message_id");
-  const { data: message, error: messageError } = await supabase
-    .from("shared_group_messages")
-    .select("content, message_type, sender_id")
-    .eq("id", messageId)
-    .eq("group_id", groupId)
-    .maybeSingle();
-  if (messageError || !message) throw messageError ?? new Error("Shared group message no longer exists");
+    if (action !== "sent") return;
+    const messageId = uuidField(event.payload, "message_id");
+    const { data: message, error: messageError } = await supabase
+      .from("shared_group_messages")
+      .select("content, message_type, sender_id")
+      .eq("id", messageId)
+      .eq("group_id", groupId)
+      .maybeSingle();
+    if (messageError || !message) throw messageError ?? new Error("Shared group message no longer exists");
 
-  const pushDeliveries: Promise<void>[] = [];
-  for (const userId of memberList) {
-    if (userId === message.sender_id) continue;
-    pushDeliveries.push(sendPushToUser(userId, {
-      title: "New shared group message",
-      body: message.message_type === "text" ? (message.content ?? "").slice(0, 140) : "Sent a message",
-      route: `/group/${groupId}`,
-      threadId: groupId,
-      data: { kind: "shared-group", groupId, senderId: message.sender_id },
-    }));
+    const pushDeliveries: Promise<void>[] = [];
+    for (const userId of memberList) {
+      if (userId === message.sender_id) continue;
+      pushDeliveries.push(sendPushToUser(userId, {
+        title: "New shared group message",
+        body: message.message_type === "text" ? (message.content ?? "").slice(0, 140) : "Sent a message",
+        route: `/group/${groupId}`,
+        threadId: groupId,
+        data: { kind: "shared-group", groupId, senderId: message.sender_id },
+      }));
+    }
+    await Promise.all(pushDeliveries);
+  } finally {
+    const { error: releaseError } = await supabase.rpc("release_shared_group_message_delivery_leases", {
+      p_event_id: event.id,
+      p_worker_id: workerId,
+    });
+    if (releaseError) throw releaseError;
   }
-  await Promise.all(pushDeliveries);
 }
 
 async function handleFriendshipChanged(event: OutboxEvent) {
@@ -505,7 +516,7 @@ async function dispatchOutboxEvent(
     return;
   }
   if (event.event_type === "shared_group.message.changed") {
-    await handleSharedGroupMessageEvent(supabase, event);
+    await handleSharedGroupMessageEvent(supabase, event, workerId);
     return;
   }
   if (
