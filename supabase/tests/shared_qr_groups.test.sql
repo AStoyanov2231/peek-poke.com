@@ -102,10 +102,10 @@ select is(
   'membership rows are one per group and user'
 );
 select is(
-  (select result ->> 'error' from public.create_or_join_shared_group(
+  (public.create_or_join_shared_group(
     '57000000-0000-4000-8000-000000000003',
     ''
-  )),
+  ) ->> 'error'),
   'INVALID_QR_CONTENT',
   'empty QR text is rejected'
 );
@@ -178,10 +178,10 @@ select is(
   'group messages return their group as the conversation ID'
 );
 select is(
-  (select result ->> 'error' from public.mark_shared_group_read(
+  (public.mark_shared_group_read(
     (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
     '57000000-0000-4000-8000-000000000003'
-  )),
+  ) ->> 'error'),
   'GROUP_NOT_FOUND',
   'a nonmember cannot mark a guessed group read'
 );
@@ -245,12 +245,12 @@ select is(
   'the message outbox snapshots recipients at send time'
 );
 select is(
-  (select result ->> 'error' from public.send_shared_group_message_transactional(
+  (public.send_shared_group_message_transactional(
     (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
     '57000000-0000-4000-8000-000000000001',
     '58000000-0000-4000-8000-000000000001',
     'different body'
-  )),
+  ) ->> 'error'),
   'IDEMPOTENCY_KEY_REUSED',
   'reusing a message key with different content is rejected'
 );
@@ -311,12 +311,12 @@ select is(
   'account erasure emits a sanitized shared-group deletion hint'
 );
 select is(
-  (select result ->> 'error' from public.send_shared_group_message_transactional(
+  (public.send_shared_group_message_transactional(
     (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
     '57000000-0000-4000-8000-000000000001',
     '58000000-0000-4000-8000-000000000003',
     'deleted member cannot send'
-  )),
+  ) ->> 'error'),
   'GROUP_NOT_FOUND',
   'the deleted member loses shared-group access'
 );

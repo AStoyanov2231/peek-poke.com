@@ -111,7 +111,7 @@ describe("native QR scanner lifecycle", () => {
     await waitFor(() => expect(result.queryByText("Retry")).toBeNull());
   });
 
-  it("closes on backgrounding and removes the app-state listener", () => {
+  it("closes on inactive and background states and removes the app-state listener", () => {
     const remove = jest.fn();
     const listener = jest.fn();
     jest.spyOn(AppState, "addEventListener").mockImplementation((_event, callback) => {
@@ -122,10 +122,38 @@ describe("native QR scanner lifecycle", () => {
     const result = render(<QrScanner open onClose={onClose} onDecoded={jest.fn(async () => undefined)} />);
 
     listener("inactive");
-    expect(onClose).not.toHaveBeenCalled();
-    listener("background");
     expect(onClose).toHaveBeenCalledTimes(1);
+    listener("background");
+    expect(onClose).toHaveBeenCalledTimes(2);
     result.unmount();
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the permission prompt open through inactive and closes after permission recovers", async () => {
+    mockPermissionState = { granted: false, canAskAgain: true };
+    let resolvePermission!: (value: { granted: boolean; canAskAgain: boolean }) => void;
+    mockRequestPermission.mockReturnValue(new Promise<{ granted: boolean; canAskAgain: boolean }>((resolve) => {
+      resolvePermission = resolve;
+    }));
+    const remove = jest.fn();
+    const listener = jest.fn();
+    jest.spyOn(AppState, "addEventListener").mockImplementation((_event, callback) => {
+      listener.mockImplementation(callback);
+      return { remove };
+    });
+    const onClose = jest.fn();
+    render(<QrScanner open onClose={onClose} onDecoded={jest.fn(async () => undefined)} />);
+
+    await waitFor(() => expect(mockRequestPermission).toHaveBeenCalledTimes(1));
+    listener("inactive");
+    expect(onClose).not.toHaveBeenCalled();
+
+    mockPermissionState = { granted: true, canAskAgain: true };
+    await act(async () => {
+      resolvePermission({ granted: true, canAskAgain: true });
+    });
+    await waitFor(() => expect(mockCameraProps.current?.active).toBe(true));
+    listener("inactive");
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

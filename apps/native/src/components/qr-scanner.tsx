@@ -73,10 +73,13 @@ export function QrScanner({
   useEffect(() => {
     if (!open) return;
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "background" && !submittingRef.current) onClose();
+      if (
+        (nextState === "background" || (nextState === "inactive" && permission?.granted))
+        && !submittingRef.current
+      ) onClose();
     });
     return () => subscription.remove();
-  }, [onClose, open]);
+  }, [onClose, open, permission]);
 
   async function submit(content: string) {
     if (submittingRef.current) return;
