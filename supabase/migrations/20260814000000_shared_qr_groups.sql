@@ -478,6 +478,20 @@ begin
     return pg_catalog.jsonb_build_object('status', 'empty', 'recipient_ids', '[]'::jsonb);
   end if;
 
+  if not exists (
+    select 1
+    from public.outbox_events outbox_event
+    where outbox_event.id = p_event_id
+      and outbox_event.status = 'processing'
+      and outbox_event.locked_by = p_worker_id
+  ) then
+    return pg_catalog.jsonb_build_object('status', 'busy', 'recipient_ids', '[]'::jsonb);
+  end if;
+
+  delete from public.shared_group_delivery_leases lease
+  where lease.event_id = p_event_id
+    and lease.worker_id <> p_worker_id;
+
   for v_recipient_id in
     select distinct requested.recipient_id
     from pg_catalog.unnest(p_recipient_ids) requested(recipient_id)
@@ -566,6 +580,15 @@ begin
   where lease.event_id = p_event_id
     and lease.worker_id = p_worker_id;
   get diagnostics v_updated = row_count;
+
+  update public.outbox_events outbox_event
+  set locked_at = pg_catalog.clock_timestamp()
+  where outbox_event.id = p_event_id
+    and outbox_event.status = 'processing'
+    and outbox_event.locked_by = p_worker_id;
+  if not found then
+    return false;
+  end if;
   return v_updated > 0;
 end;
 $$;
@@ -619,7 +642,11 @@ begin
   while exists (
     select 1
     from public.shared_group_delivery_leases lease
+    join public.outbox_events outbox_event on outbox_event.id = lease.event_id
     where lease.user_id = new.id
+      and outbox_event.status = 'processing'
+      and outbox_event.locked_by = lease.worker_id
+      and outbox_event.locked_at >= pg_catalog.clock_timestamp() - interval '5 minutes'
   ) loop
     perform pg_catalog.pg_sleep(0.05);
   end loop;

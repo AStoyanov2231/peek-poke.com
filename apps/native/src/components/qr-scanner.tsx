@@ -41,9 +41,11 @@ export function QrScanner({
       return;
     }
     if (permission?.granted) {
-      // Permission is an external native state that controls the scanner view.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState("scanning");
+      if (!submittingRef.current) {
+        // Permission is an external native state that controls the scanner view.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setState("scanning");
+      }
       return;
     }
     if (permission && !permission.canAskAgain) {
@@ -55,7 +57,7 @@ export function QrScanner({
     if (permissionRequestAttemptedRef.current) return;
     permissionRequestAttemptedRef.current = true;
     void requestPermission().then((next) => {
-      if (!mountedRef.current || !open) return;
+      if (!mountedRef.current || !open || submittingRef.current) return;
       if (next.granted) setState("scanning");
       else {
         setState("denied");

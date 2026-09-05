@@ -64,6 +64,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
         return;
       }
       submittingRef.current = true;
+      restartRequested = false;
       retryRef.current = () => void submit(content);
       setRetryAvailable(true);
       stopStream();
@@ -78,6 +79,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
         }
       } catch (failure) {
         if (disposed) return;
+        stopStream();
         submittingRef.current = false;
         setState("error");
         setError(failure instanceof Error ? failure.message : "Could not join this shared group.");
@@ -123,14 +125,14 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
           audio: false,
           video: { facingMode: { ideal: "environment" } },
         });
-        if (disposed || visibilityPaused || document.visibilityState === "hidden" || !videoRef.current) {
+        if (disposed || submittingRef.current || visibilityPaused || document.visibilityState === "hidden" || !videoRef.current) {
           stream.getTracks().forEach((track) => track.stop());
           stream = null;
           return;
         }
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
-        if (disposed || visibilityPaused || document.visibilityState === "hidden") {
+        if (disposed || submittingRef.current || visibilityPaused || document.visibilityState === "hidden") {
           stopStream();
           return;
         }
