@@ -170,9 +170,11 @@ as $$
         'last_message_at', group_row.last_message_at,
         'last_message_preview', group_row.last_message_preview,
         'created_at', group_row.created_at,
-        'unread_count', greatest(
-          group_row.next_message_sequence - member.last_read_sequence,
-          0
+        'unread_count', (
+          select count(*)::integer
+          from public.shared_group_messages unread_message
+          where unread_message.group_id = group_row.id
+            and unread_message.sequence > member.last_read_sequence
         )
       ) as payload
     from public.shared_group_members member
@@ -269,6 +271,14 @@ begin
         'group_id', p_group_id,
         'message_id', v_message.id,
         'sender_id', p_sender_id,
+        'recipient_ids', (
+          select pg_catalog.coalesce(
+            pg_catalog.jsonb_agg(member.user_id order by member.user_id),
+            '[]'::jsonb
+          )
+          from public.shared_group_members member
+          where member.group_id = p_group_id
+        ),
         'sequence', v_sequence,
         'action', 'sent'
       )
@@ -340,3 +350,62 @@ grant execute on function public.create_or_join_shared_group(uuid, text) to serv
 grant execute on function public.get_shared_groups(uuid) to service_role;
 grant execute on function public.send_shared_group_message_transactional(uuid, uuid, uuid, text) to service_role;
 grant execute on function public.mark_shared_group_read(uuid, uuid) to service_role;
+
+create or replace function public.erase_shared_group_account_data()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_group_ids uuid[];
+begin
+  select pg_catalog.array_agg(distinct message.group_id)
+  into v_group_ids
+  from public.shared_group_messages message
+  where message.sender_id = new.id;
+
+  delete from public.outbox_events outbox_event
+  where outbox_event.event_type = 'shared_group.message.changed'
+    and outbox_event.payload ->> 'message_id' in (
+      select message.id::text
+      from public.shared_group_messages message
+      where message.sender_id = new.id
+    );
+
+  delete from public.shared_group_messages message
+  where message.sender_id = new.id;
+  delete from public.shared_group_members member
+  where member.user_id = new.id;
+
+  if v_group_ids is not null then
+    update public.shared_groups group_row
+    set last_message_at = (
+          select message.created_at
+          from public.shared_group_messages message
+          where message.group_id = group_row.id
+          order by message.sequence desc
+          limit 1
+        ),
+        last_message_preview = (
+          select pg_catalog.left(message.content, 140)
+          from public.shared_group_messages message
+          where message.group_id = group_row.id
+          order by message.sequence desc
+          limit 1
+        )
+    where group_row.id = any(v_group_ids);
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.erase_shared_group_account_data() from public, anon, authenticated, service_role;
+
+drop trigger if exists erase_shared_group_account_data_on_profile on public.profiles;
+create trigger erase_shared_group_account_data_on_profile
+after update of deleted_at on public.profiles
+for each row
+when (old.deleted_at is null and new.deleted_at is not null)
+execute function public.erase_shared_group_account_data();

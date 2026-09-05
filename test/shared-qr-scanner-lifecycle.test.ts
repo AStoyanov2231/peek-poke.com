@@ -1,37 +1,27 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import {
+  MAX_SHARED_GROUP_QR_CONTENT_LENGTH,
+  sharedGroupQrContentError,
+} from "@peekpoke/shared";
 
-const web = readFileSync(
-  new URL("../src/features/map/components/QrScannerDialog.tsx", import.meta.url),
-  "utf8",
-);
-const native = readFileSync(
-  new URL("../apps/native/src/components/qr-scanner.tsx", import.meta.url),
-  "utf8",
-);
-
-describe.each([
-  ["web", web],
-  ["Expo", native],
-])("%s QR scanner lifecycle", (_platform, source) => {
-  it("bounds and validates untrusted decoded content before joining", () => {
-    expect(source).toContain("MAX_SHARED_GROUP_QR_CONTENT_LENGTH");
-    expect(source).toContain("content.length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH");
-    expect(source).toContain("content.includes(\"\\u0000\")");
-    expect(source).toContain("never opens QR links");
+describe("shared QR scanner input behavior", () => {
+  it.each([
+    ["empty", "", "empty"],
+    ["NUL-containing", "safe\u0000text", "nul"],
+    ["oversized", "x".repeat(MAX_SHARED_GROUP_QR_CONTENT_LENGTH + 1), "too_long"],
+  ] as const)("rejects %s payloads before submission", (_label, content, error) => {
+    expect(sharedGroupQrContentError(content)).toBe(error);
   });
 
-  it("guards repeated frame detections and releases camera work", () => {
-    expect(source).toContain("submittingRef.current");
-    expect(source).toContain("setState(\"submitting\")");
-    if (source === web) {
-      expect(source).toContain("track.stop()");
-      expect(source).toContain("document.addEventListener(\"visibilitychange\"");
-      expect(source).toContain("return () => {");
-    } else {
-      expect(source).toContain("active={open && state === \"scanning\"}");
-      expect(source).toContain("AppState.addEventListener(\"change\"");
-      expect(source).toContain("onClose()");
-    }
+  it.each([
+    "  https://example.invalid/qr?id=7  ",
+    "plain text QR content",
+    "\u0001control text is still bounded text",
+  ])("accepts exact bounded QR text without interpreting it", (content) => {
+    expect(sharedGroupQrContentError(content)).toBeNull();
+  });
+
+  it("accepts the maximum bounded payload", () => {
+    expect(sharedGroupQrContentError("x".repeat(MAX_SHARED_GROUP_QR_CONTENT_LENGTH))).toBeNull();
   });
 });

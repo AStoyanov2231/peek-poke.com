@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { AppState, Modal, StyleSheet, Text, TextInput, View } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import { colors, radii, shadows, spacing, typography } from "@peekpoke/design";
-import { MAX_SHARED_GROUP_QR_CONTENT_LENGTH } from "@peekpoke/shared";
+import { sharedGroupQrContentError } from "@peekpoke/shared";
 import { Button, Caption, IconButton } from "@/components/ui";
 
 type ScannerState = "starting" | "scanning" | "submitting" | "success" | "denied" | "unsupported" | "error";
@@ -72,10 +72,11 @@ export function QrScanner({
 
   async function submit(content: string) {
     if (submittingRef.current) return;
-    if (!content || content.length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH || content.includes("\u0000")) {
+    const contentError = sharedGroupQrContentError(content);
+    if (contentError) {
       retryContentRef.current = null;
       setState("error");
-      setError(content.length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH
+      setError(contentError === "too_long"
         ? "This QR code is too long. Enter a shorter QR text below."
         : "This QR code is empty or invalid. Enter the QR text below.");
       return;
@@ -100,7 +101,7 @@ export function QrScanner({
     }
   }
 
-  const canSubmitManual = manualContent.length > 0 && manualContent.length <= MAX_SHARED_GROUP_QR_CONTENT_LENGTH;
+  const canSubmitManual = manualContent.length > 0;
   const statusCopy = state === "starting"
     ? "Starting camera…"
     : state === "scanning"
@@ -173,7 +174,6 @@ export function QrScanner({
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={state !== "submitting"}
-                maxLength={MAX_SHARED_GROUP_QR_CONTENT_LENGTH}
                 onChangeText={setManualContent}
                 placeholder="Paste QR text"
                 placeholderTextColor={colors.ink[5]}

@@ -880,6 +880,15 @@ export const threadSummarySchema = z.object({
  * not trim, normalize, case-fold, parse as URLs, fetch, or navigate this text.
  */
 export const MAX_SHARED_GROUP_QR_CONTENT_LENGTH = 4096;
+export type SharedGroupQrContentError = "empty" | "too_long" | "nul";
+
+export function sharedGroupQrContentError(value: string): SharedGroupQrContentError | null {
+  if (value.length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH) return "too_long";
+  if (value.length === 0) return "empty";
+  if (value.includes("\u0000")) return "nul";
+  return null;
+}
+
 export const sharedGroupJoinRequestSchema = z.strictObject({
   qr_content: z.string()
     .min(1)

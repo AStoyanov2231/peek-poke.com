@@ -126,14 +126,16 @@ async function handleSharedGroupMessageEvent(
     throw new Error("Shared group message sequence is invalid");
   }
 
-  const { data: members, error: membersError } = await supabase
-    .from("shared_group_members")
-    .select("user_id")
-    .eq("group_id", groupId);
-  if (membersError) throw membersError;
+  const recipientIds = event.payload.recipient_ids;
+  if (!Array.isArray(recipientIds)) {
+    throw new Error("Shared group message recipients are invalid");
+  }
   const memberIds = new Set<string>();
-  for (const member of members ?? []) {
-    if (typeof member.user_id === "string") memberIds.add(member.user_id);
+  for (const recipientId of recipientIds) {
+    if (typeof recipientId !== "string" || !UUID_VALUE.test(recipientId)) {
+      throw new Error("Shared group message recipient is invalid");
+    }
+    memberIds.add(recipientId);
   }
   const memberList = [...memberIds];
   const delivered = await Promise.all(memberList.map((userId) =>

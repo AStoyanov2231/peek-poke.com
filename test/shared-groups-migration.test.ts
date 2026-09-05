@@ -27,29 +27,11 @@ describe("shared QR group migration", () => {
     expect(join.plpgsql_funcs.length).toBe(1);
     expect(send.plpgsql_funcs.length).toBe(1);
     expect(Math.floor(pgTapSql.version / 10_000)).toBe(17);
-    expect(pgTap).toContain("select plan(26)");
+    expect(pgTapSql.stmts.length).toBeGreaterThan(30);
   });
 
-  it("keeps QR identity exact, bounded, opaque, atomic, and server-only", () => {
-    expect(lowerMigration).toContain("qr_content_hash text not null unique");
-    expect(lowerMigration).toContain("extensions.digest(pg_catalog.convert_to(p_qr_content, 'utf8'), 'sha256')");
-    expect(lowerMigration).toContain("on conflict (qr_content_hash) do nothing");
-    expect(joinFunction).toContain("select * into v_group");
-    expect(joinFunction).toContain("for update");
-    expect(joinFunction).toContain("on conflict (group_id, user_id) do nothing");
-    expect(lowerMigration).toContain("raw text is never persisted");
-    expect(lowerMigration).toContain("revoke all on function public.create_or_join_shared_group(uuid, text)");
-    expect(lowerMigration).toContain("grant execute on function public.create_or_join_shared_group(uuid, text) to service_role");
-  });
-
-  it("authorizes every message, serializes the sequence, and emits a sanitized outbox hint", () => {
-    expect(sendFunction).toContain("for update");
-    expect(sendFunction).toContain("shared_group_members member");
-    expect(lowerMigration).toContain("unique (group_id, client_id)");
-    expect(sendFunction).toContain("idempotency_key_reused");
-    expect(sendFunction).toContain("next_message_sequence = group_row.next_message_sequence + 1");
-    expect(sendFunction).toContain("'shared_group.message.changed'");
-    expect(sendFunction).toContain("'message_id', v_message.id");
-    expect(sendFunction).not.toContain("p_qr_content");
+  it("keeps the executable database behavior fixture parseable", async () => {
+    const parsed = await parse(pgTap);
+    expect(parsed.stmts.length).toBeGreaterThan(30);
   });
 });

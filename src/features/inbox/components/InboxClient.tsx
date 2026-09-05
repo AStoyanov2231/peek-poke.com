@@ -61,14 +61,14 @@ export function InboxClient() {
     [router, searchParams]
   );
 
-  if (friendsQuery.isError || (threadsQuery.isError && !threadsQuery.data) || (groupsQuery.isError && !groupsQuery.data)) {
+  if (friendsQuery.isError || (threadsQuery.isError && !threadsQuery.data)) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="t-body text-ink-9">Your inbox could not be loaded.</p>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
-          onClick={() => void Promise.all([friendsQuery.refetch(), threadsQuery.refetch(), groupsQuery.refetch()])}
+          onClick={() => void Promise.all([friendsQuery.refetch(), threadsQuery.refetch()])}
         >
           Try again
         </button>
@@ -114,7 +114,7 @@ export function InboxClient() {
 
         {threadsQuery.error && threadsQuery.data ? (
           <InboxDataRecovery pending={threadsQuery.isFetching} onRetry={() => { void threadsQuery.refetch(); }} />
-        ) : groupsQuery.error && groupsQuery.data ? (
+        ) : groupsQuery.error ? (
           <InboxDataRecovery pending={groupsQuery.isFetching} onRetry={() => { void groupsQuery.refetch(); }} />
         ) : null}
 

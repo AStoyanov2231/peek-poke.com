@@ -1,19 +1,21 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(34);
 
 insert into auth.users (id, email)
 values
   ('57000000-0000-4000-8000-000000000001', 'qr-group-a@test.invalid'),
   ('57000000-0000-4000-8000-000000000002', 'qr-group-b@test.invalid'),
-  ('57000000-0000-4000-8000-000000000003', 'qr-group-outsider@test.invalid');
+  ('57000000-0000-4000-8000-000000000003', 'qr-group-outsider@test.invalid'),
+  ('57000000-0000-4000-8000-000000000004', 'qr-group-late@test.invalid');
 
 insert into public.profiles (id, auth_user_id, username)
 values
   ('57000000-0000-4000-8000-000000000001', '57000000-0000-4000-8000-000000000001', 'qr_group_a'),
   ('57000000-0000-4000-8000-000000000002', '57000000-0000-4000-8000-000000000002', 'qr_group_b'),
-  ('57000000-0000-4000-8000-000000000003', '57000000-0000-4000-8000-000000000003', 'qr_group_outsider');
+  ('57000000-0000-4000-8000-000000000003', '57000000-0000-4000-8000-000000000003', 'qr_group_outsider'),
+  ('57000000-0000-4000-8000-000000000004', '57000000-0000-4000-8000-000000000004', 'qr_group_late');
 
 create temporary table shared_qr_test_state (
   name text primary key,
@@ -122,6 +124,14 @@ values (
   )
 );
 
+insert into shared_qr_test_state (name, result)
+values (
+  'late-join', public.create_or_join_shared_group(
+    '57000000-0000-4000-8000-000000000004',
+    '  https://coffee.example/table?id=7  '
+  )
+);
+
 select is(
   (select result -> 'message' ->> 'id' from shared_qr_test_state where name = 'sent'),
   (select result -> 'message' ->> 'id' from shared_qr_test_state where name = 'replay'),
@@ -183,6 +193,17 @@ select is(
   'a stored group message emits one shared group outbox hint'
 );
 select is(
+  (select payload -> 'recipient_ids'
+   from public.outbox_events
+   where event_type = 'shared_group.message.changed'
+     and aggregate_id = (select result -> 'group' ->> 'id' from shared_qr_test_state where name = 'first')),
+  pg_catalog.jsonb_build_array(
+    '57000000-0000-4000-8000-000000000001',
+    '57000000-0000-4000-8000-000000000002'
+  ),
+  'the message outbox snapshots recipients at send time'
+);
+select is(
   (select result ->> 'error' from public.send_shared_group_message_transactional(
     (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
     '57000000-0000-4000-8000-000000000001',
@@ -191,6 +212,53 @@ select is(
   )),
   'IDEMPOTENCY_KEY_REUSED',
   'reusing a message key with different content is rejected'
+);
+
+select is(
+  (public.erase_account_data('57000000-0000-4000-8000-000000000001') ->> 'success')::boolean,
+  true,
+  'account erasure succeeds for a shared-group member'
+);
+select is(
+  (select count(*) from public.shared_group_messages),
+  0::bigint,
+  'account erasure removes the deleted member messages'
+);
+select is(
+  (select count(*) from public.shared_group_members
+   where group_id = (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first')),
+  1::bigint,
+  'account erasure removes only the deleted member membership'
+);
+select is(
+  (select (public.get_shared_groups('57000000-0000-4000-8000-000000000002') -> 0 ->> 'member_count')::integer),
+  2,
+  'the remaining members still see the group with its updated count'
+);
+select is(
+  (select result ->> 'error' from public.send_shared_group_message_transactional(
+    (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
+    '57000000-0000-4000-8000-000000000001',
+    '58000000-0000-4000-8000-000000000002',
+    'deleted member cannot send'
+  )),
+  'GROUP_NOT_FOUND',
+  'the deleted member loses shared-group access'
+);
+select is(
+  (public.send_shared_group_message_transactional(
+    (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
+    '57000000-0000-4000-8000-000000000002',
+    '58000000-0000-4000-8000-000000000002',
+    'hello from B'
+  ) ->> 'deduplicated')::boolean,
+  false,
+  'the remaining member can continue messaging'
+);
+select is(
+  (select count(*) from public.shared_group_messages),
+  1::bigint,
+  'remaining member data is preserved after account erasure'
 );
 
 select * from finish();

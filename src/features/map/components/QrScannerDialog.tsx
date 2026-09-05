@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Loader2, ScanQrCode, X } from "lucide-react";
-import { MAX_SHARED_GROUP_QR_CONTENT_LENGTH } from "@peekpoke/shared";
+import { sharedGroupQrContentError } from "@peekpoke/shared";
 
 interface QrScannerDialogProps {
   open: boolean;
@@ -49,11 +49,12 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
 
     const submit = async (content: string) => {
       if (disposed || submittingRef.current) return;
-      if (content.length === 0 || content.length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH || content.includes("\u0000")) {
+      const contentError = sharedGroupQrContentError(content);
+      if (contentError) {
         stopStream();
         retryRef.current = null;
         setState("error");
-        setError(content.length > MAX_SHARED_GROUP_QR_CONTENT_LENGTH
+        setError(contentError === "too_long"
           ? "This QR code is too long. Enter a shorter QR text below."
           : "This QR code is empty or invalid. Enter the QR text below.");
         return;
@@ -85,7 +86,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
       try {
         const results = await detector.detect(videoRef.current);
         const content = results[0]?.rawValue;
-        if (typeof content === "string" && content.length > 0) {
+        if (typeof content === "string") {
           await submit(content);
           return;
         }
@@ -156,7 +157,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
 
   if (!open || typeof document === "undefined") return null;
 
-  const canSubmitManual = manualContent.length > 0 && manualContent.length <= MAX_SHARED_GROUP_QR_CONTENT_LENGTH;
+  const canSubmitManual = manualContent.length > 0;
   const statusCopy = state === "starting"
     ? "Starting camera…"
     : state === "scanning"
@@ -226,7 +227,6 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
               <input
                 id="qr-manual-content"
                 className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline bg-ink-1 px-3 text-sm text-ink-9 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                maxLength={MAX_SHARED_GROUP_QR_CONTENT_LENGTH}
                 onChange={(event) => setManualContent(event.target.value)}
                 placeholder="Paste QR text"
                 type="text"

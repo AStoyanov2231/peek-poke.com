@@ -80,7 +80,10 @@ export const useTotalUnread = () => {
   return dmUnread + groupUnread;
 };
 export const useIsMessagesLoaded = () => useQuery(threadsQueryOptions).isSuccess;
-export const useIsGroupsLoaded = () => useQuery(sharedGroupsQueryOptions).isSuccess;
+export const useIsGroupsLoaded = () => {
+  const query = useQuery(sharedGroupsQueryOptions);
+  return query.isSuccess || query.isError;
+};
 
 // Coins selectors
 export const useCoins = () => useQuery(coinsQueryOptions).data?.balance ?? 0;

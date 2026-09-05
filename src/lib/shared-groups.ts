@@ -51,6 +51,12 @@ export async function getSharedGroupSummary(
     .select("user_id", { count: "exact", head: true })
     .eq("group_id", groupId);
   if (countError) throw countError;
+  const { count: unreadCount, error: unreadError } = await service
+    .from("shared_group_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("group_id", groupId)
+    .gt("sequence", lastReadSequence);
+  if (unreadError) throw unreadError;
   return {
     id: group.id,
     name: "Shared group",
@@ -58,7 +64,7 @@ export async function getSharedGroupSummary(
     last_message_at: group.last_message_at,
     last_message_preview: group.last_message_preview,
     created_at: group.created_at,
-    unread_count: Math.max(0, Number(group.next_message_sequence) - lastReadSequence),
+    unread_count: unreadCount ?? 0,
   };
 }
 
