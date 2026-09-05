@@ -255,7 +255,7 @@ as $$
         )
       )
     order by coalesce(group_row.last_message_at, group_row.created_at) desc, group_row.id desc
-    limit pg_catalog.least(pg_catalog.greatest(p_limit, 1), 100) + 1
+    limit least(greatest(p_limit, 1), 100) + 1
   ) item;
 $$;
 
