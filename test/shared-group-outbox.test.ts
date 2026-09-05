@@ -75,9 +75,11 @@ describe("shared group outbox recipient snapshots", () => {
           error: null,
         };
       }
-      if (name === "claim_shared_group_message_recipients") return { data: [SENDER_ID, MEMBER_ID], error: null };
+      if (name === "claim_shared_group_message_recipients") return { data: { status: "claimed", recipient_ids: [SENDER_ID, MEMBER_ID] }, error: null };
+      if (name === "heartbeat_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "release_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "complete_outbox_event") return { data: true, error: null };
+      if (name === "cleanup_completed_workflow_rows") return { data: 0, error: null };
       throw new Error(`Unexpected RPC: ${name}`);
     });
   });
@@ -99,6 +101,38 @@ describe("shared group outbox recipient snapshots", () => {
     expect(sendPushToUser).toHaveBeenCalledWith(MEMBER_ID, expect.anything());
   });
 
+  it("retries instead of completing when recipient delivery is claimed elsewhere", async () => {
+    database.rpc.mockImplementation(async (name: string) => {
+      if (name === "claim_outbox_events") {
+        return {
+          data: [{
+            id: EVENT_ID,
+            event_type: "shared_group.message.changed",
+            aggregate_id: GROUP_ID,
+            attempts: 1,
+            payload: {
+              group_id: GROUP_ID,
+              message_id: MESSAGE_ID,
+              sender_id: SENDER_ID,
+              recipient_ids: [MEMBER_ID],
+              sequence: 1,
+              action: "sent",
+            },
+          }],
+          error: null,
+        };
+      }
+      if (name === "claim_shared_group_message_recipients") return { data: { status: "busy", recipient_ids: [] }, error: null };
+      if (name === "retry_outbox_event") return { data: true, error: null };
+      if (name === "cleanup_completed_workflow_rows") return { data: 0, error: null };
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+
+    await expect(processOutboxBatch()).resolves.toMatchObject({ claimed: 1, retried: 1, completed: 0 });
+    expect(broadcastPrivateRealtimeEvent).not.toHaveBeenCalled();
+    expect(sendPushToUser).not.toHaveBeenCalled();
+  });
+
   it("broadcasts an erasure invalidation without loading a deleted message", async () => {
     database.rpc.mockImplementation(async (name: string) => {
       if (name === "claim_outbox_events") {
@@ -118,9 +152,11 @@ describe("shared group outbox recipient snapshots", () => {
           error: null,
         };
       }
-      if (name === "claim_shared_group_message_recipients") return { data: [MEMBER_ID], error: null };
+      if (name === "claim_shared_group_message_recipients") return { data: { status: "claimed", recipient_ids: [MEMBER_ID] }, error: null };
+      if (name === "heartbeat_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "release_shared_group_message_delivery_leases") return { data: true, error: null };
       if (name === "complete_outbox_event") return { data: true, error: null };
+      if (name === "cleanup_completed_workflow_rows") return { data: 0, error: null };
       throw new Error(`Unexpected RPC: ${name}`);
     });
 

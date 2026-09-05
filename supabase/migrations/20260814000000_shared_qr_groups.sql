@@ -49,13 +49,23 @@ create table if not exists public.shared_group_delivery_leases (
   user_id uuid not null references public.profiles(id) on delete cascade,
   group_id uuid not null references public.shared_groups(id) on delete cascade,
   worker_id text not null,
-  expires_at timestamptz not null,
+  heartbeat_at timestamptz not null,
   created_at timestamptz not null default now(),
   primary key (event_id, user_id)
 );
 
+alter table public.shared_group_delivery_leases
+  add column if not exists heartbeat_at timestamptz;
+update public.shared_group_delivery_leases
+set heartbeat_at = coalesce(heartbeat_at, now());
+alter table public.shared_group_delivery_leases
+  alter column heartbeat_at set not null;
+alter table public.shared_group_delivery_leases
+  drop column if exists expires_at;
+
+drop index if exists public.shared_group_delivery_leases_user_idx;
 create index if not exists shared_group_delivery_leases_user_idx
-  on public.shared_group_delivery_leases (user_id, expires_at);
+  on public.shared_group_delivery_leases (user_id, heartbeat_at);
 
 create index if not exists shared_group_members_user_group_idx
   on public.shared_group_members (user_id, group_id);
@@ -445,13 +455,14 @@ end;
 $$;
 
 drop function if exists public.claim_shared_group_message_recipients(uuid, uuid[]);
+drop function if exists public.claim_shared_group_message_recipients(uuid, uuid[], uuid, text);
 create or replace function public.claim_shared_group_message_recipients(
   p_group_id uuid,
   p_recipient_ids uuid[],
   p_event_id uuid,
   p_worker_id text
 )
-returns uuid[]
+returns jsonb
 language plpgsql
 security definer
 set search_path = ''
@@ -461,14 +472,16 @@ declare
   v_active_recipients uuid[] := '{}'::uuid[];
   v_profile_id uuid;
   v_claimed integer;
+  v_active_count integer := 0;
+  v_stale_before timestamptz := pg_catalog.clock_timestamp() - interval '90 seconds';
 begin
   if p_group_id is null or p_recipient_ids is null or p_event_id is null or pg_catalog.nullif(p_worker_id, '') is null then
-    return v_active_recipients;
+    return pg_catalog.jsonb_build_object('status', 'empty', 'recipient_ids', '[]'::jsonb);
   end if;
 
   delete from public.shared_group_delivery_leases lease
   where lease.event_id = p_event_id
-    and lease.expires_at <= pg_catalog.clock_timestamp();
+    and lease.heartbeat_at < v_stale_before;
 
   for v_recipient_id in
     select distinct requested.recipient_id
@@ -484,35 +497,83 @@ begin
       and profile.deleted_at is null
     for update;
 
-    if v_profile_id is not null and exists (
+    if v_profile_id is null or not exists (
       select 1
       from public.shared_group_members member
       where member.group_id = p_group_id
         and member.user_id = v_recipient_id
     ) then
-      insert into public.shared_group_delivery_leases (
-        event_id, user_id, group_id, worker_id, expires_at
-      )
-      values (
-        p_event_id,
-        v_recipient_id,
-        p_group_id,
-        p_worker_id,
-        pg_catalog.clock_timestamp() + interval '2 minutes'
-      )
-      on conflict (event_id, user_id) do update
-      set worker_id = excluded.worker_id,
-          expires_at = excluded.expires_at
-      where public.shared_group_delivery_leases.expires_at <= pg_catalog.clock_timestamp()
-         or public.shared_group_delivery_leases.worker_id = p_worker_id;
-      get diagnostics v_claimed = row_count;
-      if v_claimed = 1 then
-        v_active_recipients := pg_catalog.array_append(v_active_recipients, v_recipient_id);
-      end if;
+      continue;
     end if;
+
+    v_active_count := v_active_count + 1;
+    if exists (
+      select 1
+      from public.shared_group_delivery_leases lease
+      where lease.event_id = p_event_id
+        and lease.user_id = v_recipient_id
+        and lease.worker_id <> p_worker_id
+        and lease.heartbeat_at >= v_stale_before
+    ) then
+      delete from public.shared_group_delivery_leases lease
+      where lease.event_id = p_event_id
+        and lease.worker_id = p_worker_id;
+      return pg_catalog.jsonb_build_object('status', 'busy', 'recipient_ids', '[]'::jsonb);
+    end if;
+
+    insert into public.shared_group_delivery_leases (
+      event_id, user_id, group_id, worker_id, heartbeat_at
+    )
+    values (
+      p_event_id,
+      v_recipient_id,
+      p_group_id,
+      p_worker_id,
+      pg_catalog.clock_timestamp()
+    )
+    on conflict (event_id, user_id) do update
+    set worker_id = excluded.worker_id,
+        heartbeat_at = excluded.heartbeat_at
+    where public.shared_group_delivery_leases.heartbeat_at < v_stale_before
+       or public.shared_group_delivery_leases.worker_id = p_worker_id;
+    get diagnostics v_claimed = row_count;
+    if v_claimed <> 1 then
+      delete from public.shared_group_delivery_leases lease
+      where lease.event_id = p_event_id
+        and lease.worker_id = p_worker_id;
+      return pg_catalog.jsonb_build_object('status', 'busy', 'recipient_ids', '[]'::jsonb);
+    end if;
+    v_active_recipients := pg_catalog.array_append(v_active_recipients, v_recipient_id);
   end loop;
 
-  return v_active_recipients;
+  if v_active_count = 0 then
+    return pg_catalog.jsonb_build_object('status', 'empty', 'recipient_ids', '[]'::jsonb);
+  end if;
+  return pg_catalog.jsonb_build_object(
+    'status', 'claimed',
+    'recipient_ids', pg_catalog.to_jsonb(v_active_recipients)
+  );
+end;
+$$;
+
+create or replace function public.heartbeat_shared_group_message_delivery_leases(
+  p_event_id uuid,
+  p_worker_id text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_updated integer;
+begin
+  update public.shared_group_delivery_leases lease
+  set heartbeat_at = pg_catalog.clock_timestamp()
+  where lease.event_id = p_event_id
+    and lease.worker_id = p_worker_id;
+  get diagnostics v_updated = row_count;
+  return v_updated > 0;
 end;
 $$;
 
@@ -537,6 +598,7 @@ end;
 $$;
 
 revoke all on function public.claim_shared_group_message_recipients(uuid, uuid[], uuid, text) from public, anon, authenticated;
+revoke all on function public.heartbeat_shared_group_message_delivery_leases(uuid, text) from public, anon, authenticated;
 revoke all on function public.release_shared_group_message_delivery_leases(uuid, text) from public, anon, authenticated;
 revoke all on function public.create_or_join_shared_group(uuid, text) from public, anon, authenticated;
 revoke all on function public.get_shared_groups(uuid, timestamptz, uuid, integer) from public, anon, authenticated;
@@ -544,6 +606,7 @@ revoke all on function public.get_shared_groups(uuid) from public, anon, authent
 revoke all on function public.send_shared_group_message_transactional(uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.mark_shared_group_read(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.claim_shared_group_message_recipients(uuid, uuid[], uuid, text) to service_role;
+grant execute on function public.heartbeat_shared_group_message_delivery_leases(uuid, text) to service_role;
 grant execute on function public.release_shared_group_message_delivery_leases(uuid, text) to service_role;
 grant execute on function public.create_or_join_shared_group(uuid, text) to service_role;
 grant execute on function public.get_shared_groups(uuid, timestamptz, uuid, integer) to service_role;
@@ -564,7 +627,7 @@ begin
     select 1
     from public.shared_group_delivery_leases lease
     where lease.user_id = new.id
-      and lease.expires_at > pg_catalog.clock_timestamp()
+      and lease.heartbeat_at >= pg_catalog.clock_timestamp() - interval '90 seconds'
   ) loop
     perform pg_catalog.pg_sleep(0.05);
   end loop;
