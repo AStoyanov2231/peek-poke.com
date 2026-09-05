@@ -294,6 +294,13 @@ begin
   for update;
 
   if not found or v_profile.deleted_at is not null then
+    if not exists (
+      select 1
+      from public.shared_group_members member
+      where member.group_id = p_group_id and member.user_id = p_sender_id
+    ) then
+      return pg_catalog.jsonb_build_object('error', 'GROUP_NOT_FOUND');
+    end if;
     return pg_catalog.jsonb_build_object('error', 'ACCOUNT_NOT_ACTIVE');
   end if;
 
