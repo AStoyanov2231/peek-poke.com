@@ -73,7 +73,7 @@ describe("shared group database boundary", () => {
     requireDatabaseTestConfig();
     supabase = createClient(url!, serviceRoleKey!);
     const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    for (const role of ["a", "b", "c"]) {
+    for (const role of ["a", "b", "c", "d"]) {
       const user = await createTestUser(`${suffix}_${role}`);
       userIds.push(user.userId);
       credentials.push({ email: user.email, password: user.password });
@@ -185,6 +185,13 @@ describe("shared group database boundary", () => {
       p_qr_content: `${qrContent}-direct-call`,
     });
     expect(deniedRpc.error).not.toBeNull();
+    const thirdJoinResponse = await appRequest(3, "/api/groups", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ qr_content: qrContent }),
+    });
+    expect(thirdJoinResponse.status).toBe(200);
+    expect((await thirdJoinResponse.json()).group.id).toBe(sharedGroupId);
 
     const clientId = randomUUID();
     const sentResponse = await appRequest(1, `/api/groups/${sharedGroupId}`, {
@@ -213,6 +220,35 @@ describe("shared group database boundary", () => {
       method: "POST",
     });
     expect(readResponse.status).toBe(200);
+    const senderClientId = randomUUID();
+    const senderResponse = await appRequest(0, `/api/groups/${sharedGroupId}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "idempotency-key": senderClientId },
+      body: JSON.stringify({ client_id: senderClientId, content: "sender message" }),
+    });
+    expect(senderResponse.status).toBe(200);
+    const deleteSenderResponse = await appRequest(0, "/api/account/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ confirmation: "DELETE" }),
+    });
+    expect(deleteSenderResponse.status).toBe(202);
+    const { data: deletedSenderMessages, error: deletedSenderMessagesError } = await supabase
+      .from("shared_group_messages")
+      .select("id")
+      .eq("sender_id", userIds[0]);
+    expect(deletedSenderMessagesError).toBeNull();
+    expect(deletedSenderMessages).toEqual([]);
+    const { data: remainingAfterAppErasure, error: remainingAfterAppErasureError } = await supabase
+      .from("shared_group_members")
+      .select("user_id")
+      .eq("group_id", sharedGroupId)
+      .order("user_id");
+    expect(remainingAfterAppErasureError).toBeNull();
+    expect(remainingAfterAppErasure).toEqual([
+      { user_id: userIds[1] },
+      { user_id: userIds[3] },
+    ]);
 
     const deleteDifferentResponse = await appRequest(2, "/api/account/delete", {
       method: "POST",
@@ -228,10 +264,10 @@ describe("shared group database boundary", () => {
     expect(deletedDifferentMemberships).toEqual([]);
 
     const [raceErasure, raceSend] = await Promise.all([
-      supabase.rpc("erase_account_data", { p_user_id: userIds[0] }),
+      supabase.rpc("erase_account_data", { p_user_id: userIds[1] }),
       supabase.rpc("send_shared_group_message_transactional", {
         p_group_id: sharedGroupId,
-        p_sender_id: userIds[0],
+        p_sender_id: userIds[1],
         p_client_id: randomUUID(),
         p_content: "race message",
       }),
@@ -242,17 +278,17 @@ describe("shared group database boundary", () => {
     const { data: racedMessages, error: racedMessagesError } = await supabase
       .from("shared_group_messages")
       .select("id")
-      .eq("sender_id", userIds[0]);
+      .eq("sender_id", userIds[1]);
     expect(racedMessagesError).toBeNull();
     expect(racedMessages).toEqual([]);
     const { data: racedMemberships, error: racedMembershipsError } = await supabase
       .from("shared_group_members")
       .select("user_id")
-      .eq("user_id", userIds[0]);
+      .eq("user_id", userIds[1]);
     expect(racedMembershipsError).toBeNull();
     expect(racedMemberships).toEqual([]);
 
-    const erasure = await supabase.rpc("erase_account_data", { p_user_id: userIds[0] });
+    const erasure = await supabase.rpc("erase_account_data", { p_user_id: userIds[1] });
     expect(erasure.error).toBeNull();
     expect(erasure.data.success).toBe(true);
     const { data: remainingMembers, error: remainingMembersError } = await supabase
@@ -260,6 +296,6 @@ describe("shared group database boundary", () => {
       .select("user_id")
       .eq("group_id", sharedGroupId);
     expect(remainingMembersError).toBeNull();
-    expect(remainingMembers).toEqual([{ user_id: userIds[1] }]);
+    expect(remainingMembers).toEqual([{ user_id: userIds[3] }]);
   });
 });

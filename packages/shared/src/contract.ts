@@ -1145,7 +1145,7 @@ export const dmMessageEditRequestSchema = z.strictObject({
 export const messageHintSchema = z.object({
   thread_id: z.uuid(),
   thread_type: z.enum(["dm", "shared_group"]).optional(),
-  action: z.enum(["sent", "edited", "deleted", "read"]),
+  action: z.enum(["sent", "edited", "deleted", "read", "membership"]),
   actor_id: z.uuid().nullable().optional(),
   sequence: z.number().int().positive().optional(),
 });

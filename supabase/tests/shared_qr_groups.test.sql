@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(39);
 
 insert into auth.users (id, email)
 values
@@ -193,9 +193,23 @@ select is(
 select is(
   (select count(*) from public.outbox_events
    where event_type = 'shared_group.message.changed'
-   and aggregate_id = (select result -> 'group' ->> 'id' from shared_qr_test_state where name = 'first')),
+   and aggregate_id = (select result -> 'group' ->> 'id' from shared_qr_test_state where name = 'first')
+   and payload ->> 'action' in ('sent', 'read')),
   2::bigint,
   'a stored group message and read update emit shared group outbox hints'
+);
+select is(
+  (select payload -> 'recipient_ids'
+   from public.outbox_events
+   where event_type = 'shared_group.message.changed'
+     and aggregate_id = (select result -> 'group' ->> 'id' from shared_qr_test_state where name = 'first')
+     and payload ->> 'action' = 'membership'
+     and (payload -> 'recipient_ids') ? '57000000-0000-4000-8000-000000000002'),
+  pg_catalog.jsonb_build_array(
+    '57000000-0000-4000-8000-000000000001',
+    '57000000-0000-4000-8000-000000000002'
+  ),
+  'a second member join emits a sanitized membership hint'
 );
 select is(
   (select count(*) from public.outbox_events

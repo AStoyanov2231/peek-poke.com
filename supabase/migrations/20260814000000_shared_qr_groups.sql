@@ -127,6 +127,30 @@ begin
   on conflict (group_id, user_id) do nothing;
   v_new_member := found;
 
+  if v_new_member then
+    insert into public.outbox_events (
+      event_type, aggregate_type, aggregate_id, payload
+    )
+    values (
+      'shared_group.message.changed',
+      'shared_group',
+      v_group.id::text,
+      pg_catalog.jsonb_build_object(
+        'group_id', v_group.id,
+        'recipient_ids', (
+          select pg_catalog.coalesce(
+            pg_catalog.jsonb_agg(member.user_id order by member.user_id),
+            '[]'::jsonb
+          )
+          from public.shared_group_members member
+          where member.group_id = v_group.id
+        ),
+        'actor_id', p_user_id,
+        'action', 'membership'
+      )
+    );
+  end if;
+
   return pg_catalog.jsonb_build_object(
     'group', pg_catalog.jsonb_build_object(
       'id', v_group.id,
