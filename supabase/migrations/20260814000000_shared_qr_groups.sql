@@ -136,7 +136,15 @@ begin
       'last_message_at', v_group.last_message_at,
       'last_message_preview', v_group.last_message_preview,
       'created_at', v_group.created_at,
-      'unread_count', 0
+      'unread_count', (
+        select count(*)::integer
+        from public.shared_group_messages unread_message
+        join public.shared_group_members unread_member
+          on unread_member.group_id = unread_message.group_id
+         and unread_member.user_id = p_user_id
+        where unread_message.group_id = v_group.id
+          and unread_message.sequence > unread_member.last_read_sequence
+      )
     ),
     'is_new_group', v_new_group,
     'is_new_member', v_new_member

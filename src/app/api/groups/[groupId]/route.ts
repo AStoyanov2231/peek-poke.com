@@ -23,7 +23,10 @@ import {
 } from "@/lib/shared-groups";
 import { parseBody } from "@/lib/validators";
 import { decodeCursor } from "@peekpoke/shared";
-import { finalizeDescendingMessagePage, olderThanMessageCursor } from "@/lib/message-history";
+import {
+  finalizeDescendingSequencePage,
+  olderThanSequenceCursor,
+} from "@/lib/message-history";
 
 const groupMessageRpcSchema = z.strictObject({
   message: z.unknown(),
@@ -64,22 +67,31 @@ export const GET = withAuth<{ groupId: string }>(async (request, { user, params 
   const pagination = parseContractPagination(request);
   if (pagination.error) return pagination.error;
   const decodedCursor = pagination.data.cursor ? decodeCursor(pagination.data.cursor) : null;
+  const sequenceCursor = decodedCursor ? Number(decodedCursor.sort_value) : null;
+  if (decodedCursor && (
+    !isValidUUID(decodedCursor.id)
+    || sequenceCursor === null
+    || !Number.isSafeInteger(sequenceCursor)
+    || sequenceCursor < 1
+  )) {
+    return apiError("Invalid cursor", 400, "INVALID_CURSOR");
+  }
   let query = service
     .from("shared_group_messages")
     .select(SHARED_GROUP_MESSAGE_COLUMNS)
     .eq("group_id", groupId)
-    .order("created_at", { ascending: false })
+    .order("sequence", { ascending: false })
     .order("id", { ascending: false })
     .limit(pagination.data.limit + 1);
-  if (decodedCursor) query = query.or(olderThanMessageCursor(decodedCursor));
+  if (decodedCursor) query = query.or(olderThanSequenceCursor(decodedCursor));
   const { data: rows, error } = await query;
   if (error) {
     console.error("groups/[groupId]: messages failed", error);
     return apiError("Group messages are temporarily unavailable", 503, "GROUP_MESSAGES_FETCH_FAILED");
   }
 
-  const page = finalizeDescendingMessagePage(
-    (rows ?? []) as unknown as Array<{ id: string; created_at: string }>,
+  const page = finalizeDescendingSequencePage(
+    (rows ?? []) as unknown as Array<{ id: string; sequence: number }>,
     pagination.data.limit,
   );
   const messages = page.items

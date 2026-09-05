@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(36);
 
 insert into auth.users (id, email)
 values
@@ -132,6 +132,11 @@ values (
   )
 );
 
+select is(
+  (select (result -> 'group' ->> 'unread_count')::integer from shared_qr_test_state where name = 'late-join'),
+  1,
+  'a new member receives the existing history as unread'
+);
 select is(
   (select result -> 'message' ->> 'id' from shared_qr_test_state where name = 'sent'),
   (select result -> 'message' ->> 'id' from shared_qr_test_state where name = 'replay'),
