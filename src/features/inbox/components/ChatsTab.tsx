@@ -36,7 +36,6 @@ export function ChatsTab({ onSelectThread, onSelectGroup, activeThreadId, active
   const groups = useGroups();
   const messagesLoaded = useIsMessagesLoaded();
   const groupsLoaded = useIsGroupsLoaded();
-  const isLoaded = messagesLoaded && groupsLoaded;
   const conversations = useMemo<ConversationItem[]>(() => [
     ...threads.map((item) => ({
       kind: "dm" as const,
@@ -64,7 +63,7 @@ export function ChatsTab({ onSelectThread, onSelectGroup, activeThreadId, active
     else onSelectGroup(groupId);
   }
 
-  if (!isLoaded) {
+  if (!messagesLoaded || (conversations.length === 0 && !groupsLoaded)) {
     return (
       <div className="px-3 space-y-1 pt-3">
         {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[72px] w-full rounded-xl" />)}
@@ -83,6 +82,7 @@ export function ChatsTab({ onSelectThread, onSelectGroup, activeThreadId, active
 
   return (
     <div className="flex flex-col gap-0.5 px-2 py-2">
+      {!groupsLoaded ? <div className="px-3 py-2 t-caption muted" role="status">Loading shared groups…</div> : null}
       {conversations.map((conversation) => {
         if (conversation.kind === "group") {
           const group = conversation.item;

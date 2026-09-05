@@ -425,11 +425,58 @@ begin
 end;
 $$;
 
+create or replace function public.claim_shared_group_message_recipients(
+  p_group_id uuid,
+  p_recipient_ids uuid[]
+)
+returns uuid[]
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_recipient_id uuid;
+  v_active_recipients uuid[] := '{}'::uuid[];
+  v_profile_id uuid;
+begin
+  if p_group_id is null or p_recipient_ids is null then
+    return v_active_recipients;
+  end if;
+
+  for v_recipient_id in
+    select distinct requested.recipient_id
+    from pg_catalog.unnest(p_recipient_ids) requested(recipient_id)
+    where requested.recipient_id is not null
+    order by requested.recipient_id
+  loop
+    select profile.id
+    into v_profile_id
+    from public.profiles profile
+    where profile.id = v_recipient_id
+      and profile.deleted_at is null
+    for update;
+
+    if v_profile_id is not null and exists (
+      select 1
+      from public.shared_group_members member
+      where member.group_id = p_group_id
+        and member.user_id = v_recipient_id
+    ) then
+      v_active_recipients := pg_catalog.array_append(v_active_recipients, v_recipient_id);
+    end if;
+  end loop;
+
+  return v_active_recipients;
+end;
+$$;
+
+revoke all on function public.claim_shared_group_message_recipients(uuid, uuid[]) from public, anon, authenticated;
 revoke all on function public.create_or_join_shared_group(uuid, text) from public, anon, authenticated;
 revoke all on function public.get_shared_groups(uuid, timestamptz, uuid, integer) from public, anon, authenticated;
 revoke all on function public.get_shared_groups(uuid) from public, anon, authenticated;
 revoke all on function public.send_shared_group_message_transactional(uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.mark_shared_group_read(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.claim_shared_group_message_recipients(uuid, uuid[]) to service_role;
 grant execute on function public.create_or_join_shared_group(uuid, text) to service_role;
 grant execute on function public.get_shared_groups(uuid, timestamptz, uuid, integer) to service_role;
 grant execute on function public.get_shared_groups(uuid) to service_role;

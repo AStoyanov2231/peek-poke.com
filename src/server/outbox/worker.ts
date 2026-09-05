@@ -141,20 +141,22 @@ async function handleSharedGroupMessageEvent(
     }
     memberIds.add(recipientId);
   }
-  let memberList = [...memberIds];
-  if (memberList.length > 0) {
-    const { data: members, error: membersError } = await supabase
-      .from("shared_group_members")
-      .select("user_id")
-      .eq("group_id", groupId)
-      .in("user_id", memberList);
-    if (membersError) throw membersError;
-    const activeMemberIds = new Set(
-      (members ?? [])
-        .map((member) => member.user_id)
-        .filter((userId): userId is string => typeof userId === "string"),
+  let memberList: string[] = [];
+  if (memberIds.size > 0) {
+    const { data: authorizedRecipients, error: recipientError } = await supabase.rpc(
+      "claim_shared_group_message_recipients",
+      {
+        p_group_id: groupId,
+        p_recipient_ids: [...memberIds],
+      },
     );
-    memberList = memberList.filter((userId) => activeMemberIds.has(userId));
+    if (recipientError) throw recipientError;
+    if (!Array.isArray(authorizedRecipients)) {
+      throw new Error("Shared group recipient claim returned an invalid result");
+    }
+    memberList = authorizedRecipients.filter(
+      (userId): userId is string => typeof userId === "string" && memberIds.has(userId),
+    );
   }
   const delivered = await Promise.all(memberList.map((userId) =>
     broadcastPrivateRealtimeEvent(
