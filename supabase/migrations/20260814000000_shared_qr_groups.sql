@@ -473,15 +473,10 @@ declare
   v_profile_id uuid;
   v_claimed integer;
   v_active_count integer := 0;
-  v_stale_before timestamptz := pg_catalog.clock_timestamp() - interval '90 seconds';
 begin
   if p_group_id is null or p_recipient_ids is null or p_event_id is null or pg_catalog.nullif(p_worker_id, '') is null then
     return pg_catalog.jsonb_build_object('status', 'empty', 'recipient_ids', '[]'::jsonb);
   end if;
-
-  delete from public.shared_group_delivery_leases lease
-  where lease.event_id = p_event_id
-    and lease.heartbeat_at < v_stale_before;
 
   for v_recipient_id in
     select distinct requested.recipient_id
@@ -513,7 +508,6 @@ begin
       where lease.event_id = p_event_id
         and lease.user_id = v_recipient_id
         and lease.worker_id <> p_worker_id
-        and lease.heartbeat_at >= v_stale_before
     ) then
       delete from public.shared_group_delivery_leases lease
       where lease.event_id = p_event_id
@@ -534,8 +528,7 @@ begin
     on conflict (event_id, user_id) do update
     set worker_id = excluded.worker_id,
         heartbeat_at = excluded.heartbeat_at
-    where public.shared_group_delivery_leases.heartbeat_at < v_stale_before
-       or public.shared_group_delivery_leases.worker_id = p_worker_id;
+    where public.shared_group_delivery_leases.worker_id = p_worker_id;
     get diagnostics v_claimed = row_count;
     if v_claimed <> 1 then
       delete from public.shared_group_delivery_leases lease
@@ -627,7 +620,6 @@ begin
     select 1
     from public.shared_group_delivery_leases lease
     where lease.user_id = new.id
-      and lease.heartbeat_at >= pg_catalog.clock_timestamp() - interval '90 seconds'
   ) loop
     perform pg_catalog.pg_sleep(0.05);
   end loop;

@@ -22,6 +22,7 @@ export function QrScanner({
   const [error, setError] = useState<string | null>(null);
   const [retryAvailable, setRetryAvailable] = useState(false);
   const submittingRef = useRef(false);
+  const permissionRequestAttemptedRef = useRef(false);
   const retryContentRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
 
@@ -35,7 +36,10 @@ export function QrScanner({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      permissionRequestAttemptedRef.current = false;
+      return;
+    }
     if (permission?.granted) {
       // Permission is an external native state that controls the scanner view.
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -48,6 +52,8 @@ export function QrScanner({
       setError("Camera access was denied. Allow camera access in your device settings, or enter the QR text below.");
       return;
     }
+    if (permissionRequestAttemptedRef.current) return;
+    permissionRequestAttemptedRef.current = true;
     void requestPermission().then((next) => {
       if (!mountedRef.current || !open) return;
       if (next.granted) setState("scanning");

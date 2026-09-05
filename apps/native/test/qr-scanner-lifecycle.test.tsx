@@ -41,6 +41,18 @@ describe("native QR scanner lifecycle", () => {
     resolve();
   });
 
+  it("requests permission only once during a denied scanner session", async () => {
+    mockPermissionState = { granted: false, canAskAgain: true };
+    mockRequestPermission.mockResolvedValue({ granted: false, canAskAgain: true });
+    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
+
+    await waitFor(() => expect(mockRequestPermission).toHaveBeenCalledTimes(1));
+    mockPermissionState = { granted: false, canAskAgain: true };
+    result.rerender(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
+    await waitFor(() => expect(result.getByRole("alert")).toBeTruthy());
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+  });
+
   it("shows permission denial and still allows the manual fallback", async () => {
     mockPermissionState = { granted: false, canAskAgain: false };
     const onDecoded = jest.fn(async () => undefined);
