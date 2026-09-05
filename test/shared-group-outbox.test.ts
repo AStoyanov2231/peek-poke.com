@@ -41,13 +41,19 @@ describe("shared group outbox recipient snapshots", () => {
     sendPushToUser.mockResolvedValue(undefined);
     database.from.mockImplementation((table: string) => {
       if (table === "outbox_events") return chain({ data: null, error: null });
+      if (table === "shared_group_members") {
+        return chain({
+          data: [{ user_id: SENDER_ID }, { user_id: MEMBER_ID }],
+          error: null,
+        });
+      }
       if (table === "shared_group_messages") {
         return chain({
           data: { content: "hello", message_type: "text", sender_id: SENDER_ID },
           error: null,
         });
       }
-      throw new Error(`Current membership must not be resolved: ${table}`);
+      throw new Error(`Unexpected table: ${table}`);
     });
     database.rpc.mockImplementation(async (name: string) => {
       if (name === "claim_outbox_events") {

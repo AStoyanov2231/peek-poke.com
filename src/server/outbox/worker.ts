@@ -137,7 +137,21 @@ async function handleSharedGroupMessageEvent(
     }
     memberIds.add(recipientId);
   }
-  const memberList = [...memberIds];
+  let memberList = [...memberIds];
+  if (memberList.length > 0) {
+    const { data: members, error: membersError } = await supabase
+      .from("shared_group_members")
+      .select("user_id")
+      .eq("group_id", groupId)
+      .in("user_id", memberList);
+    if (membersError) throw membersError;
+    const activeMemberIds = new Set(
+      (members ?? [])
+        .map((member) => member.user_id)
+        .filter((userId): userId is string => typeof userId === "string"),
+    );
+    memberList = memberList.filter((userId) => activeMemberIds.has(userId));
+  }
   const delivered = await Promise.all(memberList.map((userId) =>
     broadcastPrivateRealtimeEvent(
       `sync:user:${userId}`,

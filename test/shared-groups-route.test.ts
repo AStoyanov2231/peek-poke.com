@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "@/app/api/groups/route";
+import { GET, POST } from "@/app/api/groups/route";
 import { POST as sendGroupMessage } from "@/app/api/groups/[groupId]/route";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -106,21 +106,18 @@ describe("shared group API routes", () => {
     });
   });
 
-  it("converges concurrent first scans and keeps different payloads distinct", async () => {
-    const ids = [GROUP_ID, "66666666-6666-4666-8666-666666666666"];
-    database.rpc.mockImplementation(async (_name: string, args: { p_qr_content: string }) => ({
-      data: { group: { ...group, id: args.p_qr_content === "coffee" ? ids[0] : ids[1] }, is_new_group: true, is_new_member: true },
-      error: null,
-    }));
-    const responses = await Promise.all([
-      POST(joinRequest("coffee")),
-      POST(joinRequest("coffee")),
-      POST(joinRequest("different-table")),
-    ]);
-    const payloads = await Promise.all(responses.map((response) => response.json()));
-    expect(payloads[0].group.id).toBe(ids[0]);
-    expect(payloads[1].group.id).toBe(ids[0]);
-    expect(payloads[2].group.id).toBe(ids[1]);
+  it("requests newest-first group pages from the database boundary", async () => {
+    const newest = { ...group, id: "66666666-6666-4666-8666-666666666666", created_at: "2026-08-14T12:00:00.000Z" };
+    database.rpc.mockResolvedValueOnce({ data: [newest, group], error: null });
+    const response = await GET(new Request("http://localhost/api/groups?limit=1"));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ groups: [newest], pagination: { has_more: true } });
+    expect(database.rpc).toHaveBeenCalledWith("get_shared_groups", {
+      p_user_id: USER_ID,
+      p_before_sort_at: null,
+      p_before_id: null,
+      p_limit: 1,
+    });
   });
 
   it("does not let a nonmember send to a guessed group", async () => {

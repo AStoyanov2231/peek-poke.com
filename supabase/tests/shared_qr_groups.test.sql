@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(35);
 
 insert into auth.users (id, email)
 values
@@ -214,20 +214,31 @@ select is(
   'reusing a message key with different content is rejected'
 );
 
+insert into shared_qr_test_state (name, result)
+values (
+  'second-sent', public.send_shared_group_message_transactional(
+    (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
+    '57000000-0000-4000-8000-000000000002',
+    '58000000-0000-4000-8000-000000000002',
+    'hello from B before erasure'
+  )
+);
+
 select is(
   (public.erase_account_data('57000000-0000-4000-8000-000000000001') ->> 'success')::boolean,
   true,
   'account erasure succeeds for a shared-group member'
 );
 select is(
-  (select count(*) from public.shared_group_messages),
+  (select count(*) from public.shared_group_messages
+   where sender_id = '57000000-0000-4000-8000-000000000001'),
   0::bigint,
   'account erasure removes the deleted member messages'
 );
 select is(
   (select count(*) from public.shared_group_members
    where group_id = (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first')),
-  1::bigint,
+  2::bigint,
   'account erasure removes only the deleted member membership'
 );
 select is(
@@ -236,10 +247,21 @@ select is(
   'the remaining members still see the group with its updated count'
 );
 select is(
+  (select payload -> 'recipient_ids'
+   from public.outbox_events
+   where event_type = 'shared_group.message.changed'
+     and payload ->> 'message_id' = (select result -> 'message' ->> 'id' from shared_qr_test_state where name = 'second-sent')),
+  pg_catalog.jsonb_build_array(
+    '57000000-0000-4000-8000-000000000002',
+    '57000000-0000-4000-8000-000000000004'
+  ),
+  'account erasure scrubs the deleted recipient from pending hints'
+);
+select is(
   (select result ->> 'error' from public.send_shared_group_message_transactional(
     (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
     '57000000-0000-4000-8000-000000000001',
-    '58000000-0000-4000-8000-000000000002',
+    '58000000-0000-4000-8000-000000000003',
     'deleted member cannot send'
   )),
   'GROUP_NOT_FOUND',
@@ -249,15 +271,15 @@ select is(
   (public.send_shared_group_message_transactional(
     (select (result -> 'group' ->> 'id')::uuid from shared_qr_test_state where name = 'first'),
     '57000000-0000-4000-8000-000000000002',
-    '58000000-0000-4000-8000-000000000002',
-    'hello from B'
+    '58000000-0000-4000-8000-000000000003',
+    'hello from B after erasure'
   ) ->> 'deduplicated')::boolean,
   false,
   'the remaining member can continue messaging'
 );
 select is(
   (select count(*) from public.shared_group_messages),
-  1::bigint,
+  2::bigint,
   'remaining member data is preserved after account erasure'
 );
 

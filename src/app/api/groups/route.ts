@@ -3,22 +3,36 @@ import { z } from "zod";
 import {
   MAX_PAGE_SIZE,
   sharedGroupJoinRequestSchema,
+  decodeCursor,
   sharedGroupJoinResponseSchema,
   sharedGroupSummarySchema,
   sharedGroupsResponseSchema,
 } from "@peekpoke/shared";
 import { withAuth } from "@/lib/auth";
 import { apiError } from "@/lib/api-error";
-import { cursorPage } from "@/lib/api-contract";
+import { cursorPage, parseContractPagination } from "@/lib/api-contract";
 import { parseBody } from "@/lib/validators";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validation";
 
 const sharedGroupListRpcSchema = z.array(sharedGroupSummarySchema).max(MAX_PAGE_SIZE + 1);
 
 export const GET = withAuth(async (request, { user }) => {
+  const pagination = parseContractPagination(request);
+  if (pagination.error) return pagination.error;
+  const decodedCursor = pagination.data.cursor ? decodeCursor(pagination.data.cursor) : null;
+  if (pagination.data.cursor && (!decodedCursor || !isValidUUID(decodedCursor.id) || Number.isNaN(Date.parse(decodedCursor.sort_value)))) {
+    return apiError("Invalid cursor", 400, "INVALID_CURSOR");
+  }
+
   const service = createServiceClient();
-  const { data, error } = await service.rpc("get_shared_groups", { p_user_id: user.id });
+  const { data, error } = await service.rpc("get_shared_groups", {
+    p_user_id: user.id,
+    p_before_sort_at: decodedCursor?.sort_value ?? null,
+    p_before_id: decodedCursor?.id ?? null,
+    p_limit: pagination.data.limit,
+  });
   if (error) {
     console.error("groups: list failed", error);
     return apiError("Shared groups are temporarily unavailable", 503, "GROUPS_FETCH_FAILED");
@@ -35,6 +49,8 @@ export const GET = withAuth(async (request, { user }) => {
     parsed.data,
     (group) => group.id,
     (group) => group.last_message_at ?? group.created_at,
+    MAX_PAGE_SIZE,
+    "descending",
   );
   if (page.error) return page.error;
   const response = sharedGroupsResponseSchema.safeParse({

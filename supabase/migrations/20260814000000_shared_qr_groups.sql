@@ -144,7 +144,12 @@ begin
 end;
 $$;
 
-create or replace function public.get_shared_groups(p_user_id uuid)
+create or replace function public.get_shared_groups(
+  p_user_id uuid,
+  p_before_sort_at timestamptz,
+  p_before_id uuid,
+  p_limit integer
+)
 returns jsonb
 language sql
 stable
@@ -182,9 +187,27 @@ as $$
     join public.profiles profile on profile.id = member.user_id
     where member.user_id = p_user_id
       and profile.deleted_at is null
+      and (
+        p_before_sort_at is null
+        or coalesce(group_row.last_message_at, group_row.created_at) < p_before_sort_at
+        or (
+          coalesce(group_row.last_message_at, group_row.created_at) = p_before_sort_at
+          and group_row.id < p_before_id
+        )
+      )
     order by coalesce(group_row.last_message_at, group_row.created_at) desc, group_row.id desc
-    limit 101
+    limit pg_catalog.least(pg_catalog.greatest(p_limit, 1), 100) + 1
   ) item;
+$$;
+
+create or replace function public.get_shared_groups(p_user_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.get_shared_groups(p_user_id, null::timestamptz, null::uuid, 100);
 $$;
 
 create or replace function public.send_shared_group_message_transactional(
@@ -343,10 +366,12 @@ end;
 $$;
 
 revoke all on function public.create_or_join_shared_group(uuid, text) from public, anon, authenticated;
+revoke all on function public.get_shared_groups(uuid, timestamptz, uuid, integer) from public, anon, authenticated;
 revoke all on function public.get_shared_groups(uuid) from public, anon, authenticated;
 revoke all on function public.send_shared_group_message_transactional(uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.mark_shared_group_read(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.create_or_join_shared_group(uuid, text) to service_role;
+grant execute on function public.get_shared_groups(uuid, timestamptz, uuid, integer) to service_role;
 grant execute on function public.get_shared_groups(uuid) to service_role;
 grant execute on function public.send_shared_group_message_transactional(uuid, uuid, uuid, text) to service_role;
 grant execute on function public.mark_shared_group_read(uuid, uuid) to service_role;
@@ -372,6 +397,24 @@ begin
       from public.shared_group_messages message
       where message.sender_id = new.id
     );
+
+  update public.outbox_events outbox_event
+  set payload = pg_catalog.jsonb_set(
+    outbox_event.payload,
+    '{recipient_ids}',
+    (
+      select pg_catalog.coalesce(
+        pg_catalog.jsonb_agg(recipient.value order by recipient.ordinality),
+        '[]'::jsonb
+      )
+      from pg_catalog.jsonb_array_elements_text(outbox_event.payload -> 'recipient_ids')
+        with ordinality as recipient(value, ordinality)
+      where recipient.value <> new.id::text
+    ),
+    true
+  )
+  where outbox_event.event_type = 'shared_group.message.changed'
+    and outbox_event.payload -> 'recipient_ids' ? new.id::text;
 
   delete from public.shared_group_messages message
   where message.sender_id = new.id;
