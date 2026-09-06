@@ -85,10 +85,10 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     let disposed = false;
     let stream: MediaStream | null = null;
     let timer: number | null = null;
-    let decoder: Decoder = { detector: null, canvas: null };
     let starting = false;
     let restartRequested = false;
     let visibilityPaused = false;
+    let cameraGeneration = 0;
     const bodyOverflow = document.body?.style?.overflow;
     const isDocumentHidden = () => document.visibilityState === "hidden";
 
@@ -106,8 +106,13 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
       }
     };
 
-    const showCameraError = (nextState: ScannerState, message = errorForState(nextState)) => {
-      if (disposed) return;
+    const showCameraError = (
+      nextState: ScannerState,
+      message = errorForState(nextState),
+      expectedGeneration = cameraGeneration,
+    ) => {
+      if (disposed || expectedGeneration !== cameraGeneration) return;
+      cameraGeneration += 1;
       stopStream();
       setState(nextState);
       setError(message);
@@ -149,40 +154,45 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
       }
     };
 
-    const detect = async () => {
-      if (disposed || visibilityPaused || submittingRef.current || (!decoder.detector && !decoder.canvas)) return;
-      const video = videoRef.current;
-      if (!video || video.readyState < 2) {
-        if (!disposed && !visibilityPaused && !submittingRef.current) timer = window.setTimeout(() => void detect(), 220);
+    const detect = async (generation: number, sessionDecoder: Decoder, video: HTMLVideoElement) => {
+      if (disposed || generation !== cameraGeneration || visibilityPaused || submittingRef.current || (!sessionDecoder.detector && !sessionDecoder.canvas)) return;
+      if (video.readyState < 2) {
+        if (!disposed && generation === cameraGeneration && !visibilityPaused && !submittingRef.current) {
+          timer = window.setTimeout(() => void detect(generation, sessionDecoder, video), 220);
+        }
         return;
       }
 
       try {
         let content: string | undefined;
-        if (decoder.detector) {
-          const results = await decoder.detector.detect(video);
+        if (sessionDecoder.detector) {
+          const results = await sessionDecoder.detector.detect(video);
           content = results[0]?.rawValue;
-        } else if (decoder.canvas) {
-          content = decodeQrVideoFrame(video, decoder.canvas) ?? undefined;
+        } else if (sessionDecoder.canvas) {
+          content = decodeQrVideoFrame(video, sessionDecoder.canvas) ?? undefined;
         }
+        if (disposed || generation !== cameraGeneration || visibilityPaused || submittingRef.current) return;
         if (typeof content === "string") {
           await submit(content);
           return;
         }
       } catch (failure) {
+        if (disposed || generation !== cameraGeneration || visibilityPaused || submittingRef.current) return;
         if (failure instanceof QrDecoderUnavailableError) {
-          showCameraError("decoder-unavailable");
+          showCameraError("decoder-unavailable", undefined, generation);
           return;
         }
         // A native detector can exist but fail on a browser's implementation.
         // Switch to the canvas decoder rather than leaving a live but unusable view.
-        if (decoder.detector && decoder.canvas) decoder.detector = null;
-        else if (decoder.detector) {
-          showCameraError("decoder-unavailable");
+        if (sessionDecoder.detector && sessionDecoder.canvas) sessionDecoder.detector = null;
+        else if (sessionDecoder.detector) {
+          showCameraError("decoder-unavailable", undefined, generation);
           return;
         }
       }
-      if (!disposed && !visibilityPaused && !submittingRef.current) timer = window.setTimeout(() => void detect(), 220);
+      if (!disposed && generation === cameraGeneration && !visibilityPaused && !submittingRef.current) {
+        timer = window.setTimeout(() => void detect(generation, sessionDecoder, video), 220);
+      }
     };
 
     const createDecoder = (): Decoder | null => {
@@ -216,16 +226,17 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
         visibilityPaused = true;
         return;
       }
+      const generation = ++cameraGeneration;
       starting = true;
       setState("starting");
       setError(null);
       try {
         if (window.isSecureContext === false) {
-          showCameraError("insecure");
+          showCameraError("insecure", undefined, generation);
           return;
         }
         if (!navigator.mediaDevices?.getUserMedia) {
-          showCameraError("unsupported");
+          showCameraError("unsupported", undefined, generation);
           return;
         }
 
@@ -235,18 +246,19 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
           audio: false,
           video: { facingMode: { ideal: "environment" } },
         });
-        if (disposed || submittingRef.current || visibilityPaused || isDocumentHidden() || !videoRef.current) {
+        const video = videoRef.current;
+        if (disposed || generation !== cameraGeneration || submittingRef.current || visibilityPaused || isDocumentHidden() || !video) {
           stopStream();
           return;
         }
-        videoRef.current.srcObject = stream;
+        video.srcObject = stream;
         try {
-          await videoRef.current.play();
+          await video.play();
         } catch {
-          showCameraError("playback-error");
+          showCameraError("playback-error", undefined, generation);
           return;
         }
-        if (disposed || submittingRef.current || visibilityPaused || isDocumentHidden()) {
+        if (disposed || generation !== cameraGeneration || submittingRef.current || visibilityPaused || isDocumentHidden()) {
           stopStream();
           return;
         }
@@ -256,18 +268,17 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
           showCameraError("decoder-unavailable");
           return;
         }
-        decoder = nextDecoder;
         setState("scanning");
-        void detect();
+        void detect(generation, nextDecoder, video);
       } catch (failure) {
-        if (disposed) return;
+        if (disposed || generation !== cameraGeneration) return;
         const name = errorName(failure);
         if (name === "NotAllowedError" || name === "SecurityError") {
-          showCameraError("denied");
+          showCameraError("denied", undefined, generation);
         } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-          showCameraError("no-camera");
+          showCameraError("no-camera", undefined, generation);
         } else {
-          showCameraError("error");
+          showCameraError("error", undefined, generation);
         }
       } finally {
         starting = false;
@@ -289,6 +300,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     const onVisibilityChange = () => {
       if (isDocumentHidden()) {
+        cameraGeneration += 1;
         visibilityPaused = true;
         stopStream();
         if (!submittingRef.current) {
@@ -309,6 +321,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     void start();
     return () => {
       disposed = true;
+      cameraGeneration += 1;
       submittingRef.current = false;
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearTimeout(focusTimer);

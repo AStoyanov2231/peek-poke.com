@@ -143,7 +143,7 @@ export function QrScanner({
     : error ?? errorCopy(renderedState);
   const status = stateCopy(renderedState);
   const isBusy = renderedState === "starting" || renderedState === "submitting";
-  const canRetry = retryAvailable || renderedState === "denied" || renderedState === "no-camera" || renderedState === "error";
+  const canRetry = retryAvailable || (!permissionDenied && (renderedState === "denied" || renderedState === "no-camera" || renderedState === "error"));
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={open}>
       <View style={styles.root}>
