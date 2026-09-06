@@ -61,7 +61,10 @@ describe("native QR scanner lifecycle", () => {
     });
     expect(onDecoded).toHaveBeenCalledTimes(1);
     expect(onDecoded).toHaveBeenCalledWith("  https://example.invalid/qr?id=7  ");
-    resolve();
+    await act(async () => {
+      resolve();
+      await Promise.resolve();
+    });
   });
 
   it("requests permission only once during a denied scanner session", async () => {
