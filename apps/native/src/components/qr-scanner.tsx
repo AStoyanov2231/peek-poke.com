@@ -1,12 +1,37 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { AppState, Modal, StyleSheet, Text, TextInput, View } from "react-native";
+import { AppState, Modal, StyleSheet, Text, View } from "react-native";
 import { useEffect, useRef, useState } from "react";
-import { colors, radii, shadows, spacing, typography } from "@peekpoke/design";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors, radii, spacing, typography } from "@peekpoke/design";
 import { sharedGroupQrContentError } from "@peekpoke/shared";
 import { Button, Caption, IconButton } from "@/components/ui";
 
-type ScannerState = "starting" | "scanning" | "submitting" | "success" | "denied" | "unsupported" | "error";
+type ScannerState = "starting" | "scanning" | "submitting" | "success" | "denied" | "no-camera" | "error";
 
+function stateCopy(state: ScannerState) {
+  switch (state) {
+    case "starting": return "Starting camera";
+    case "scanning": return "Align a QR code inside the frame";
+    case "submitting": return "Joining shared group";
+    case "success": return "Shared group joined";
+    case "denied": return "Camera access is blocked";
+    case "no-camera": return "No camera found";
+    case "error": return "Camera could not start";
+  }
+}
+
+function errorCopy(state: ScannerState) {
+  switch (state) {
+    case "denied": return "Camera access is blocked. Allow it in your device settings, then try again.";
+    case "no-camera": return "No camera was found. Connect a camera and try again.";
+    case "error": return "The camera could not start. Try again.";
+    default: return null;
+  }
+}
+
+// Scanner lifecycle is intentionally kept together so acquisition, decoding, and
+// cleanup share the same disposed and duplicate-submission fences.
+// react-doctor-disable-next-line no-high-complexity-react-function
 export function QrScanner({
   open,
   onClose,
@@ -16,9 +41,9 @@ export function QrScanner({
   onClose: () => void;
   onDecoded: (content: string) => Promise<void>;
 }) {
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [state, setState] = useState<ScannerState>("starting");
-  const [manualContent, setManualContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [retryAvailable, setRetryAvailable] = useState(false);
   const submittingRef = useRef(false);
@@ -40,26 +65,22 @@ export function QrScanner({
       permissionRequestAttemptedRef.current = false;
       return;
     }
-    if (permission?.granted) {
-      if (!submittingRef.current) {
-        setState("scanning");
-      }
-      return;
-    }
-    if (permission && !permission.canAskAgain) return;
+    if (permission?.granted || (permission && !permission.canAskAgain)) return;
     if (permissionRequestAttemptedRef.current) return;
     permissionRequestAttemptedRef.current = true;
     void requestPermission().then((next) => {
       if (!mountedRef.current || !open || submittingRef.current) return;
-      if (next.granted) setState("scanning");
-      else {
+      if (next.granted) {
+        setState("scanning");
+        setError(null);
+      } else {
         setState("denied");
-        setError("Camera access was denied. Allow camera access in your device settings, or enter the QR text below.");
+        setError(errorCopy("denied"));
       }
     }).catch(() => {
       if (!mountedRef.current || !open) return;
       setState("error");
-      setError("The camera could not start. Try again or enter the QR text below.");
+      setError(errorCopy("error"));
     });
   }, [open, permission, requestPermission]);
 
@@ -72,7 +93,7 @@ export function QrScanner({
       ) onClose();
     });
     return () => subscription.remove();
-  }, [onClose, open, permission]);
+  }, [onClose, open, permission?.granted]);
 
   async function submit(content: string) {
     if (submittingRef.current) return;
@@ -82,8 +103,8 @@ export function QrScanner({
       setRetryAvailable(false);
       setState("error");
       setError(contentError === "too_long"
-        ? "This QR code is too long. Enter a shorter QR text below."
-        : "This QR code is empty or invalid. Enter the QR text below.");
+        ? "This QR code is too long to scan. Try another QR code."
+        : "This QR code is empty or invalid. Try another QR code.");
       return;
     }
     submittingRef.current = true;
@@ -106,107 +127,90 @@ export function QrScanner({
     }
   }
 
-  const canSubmitManual = manualContent.length > 0;
   const permissionDenied = Boolean(permission && !permission.granted && !permission.canAskAgain);
-  const showPermissionDenied = permissionDenied
+  const renderedState: ScannerState = permissionDenied
     && state !== "submitting"
     && state !== "error"
-    && state !== "success";
-  const renderedState: ScannerState = showPermissionDenied ? "denied" : state;
-  const renderedError = showPermissionDenied
-    ? "Camera access was denied. Allow camera access in your device settings, or enter the QR text below."
-    : error;
-  const statusCopy = renderedState === "starting"
-    ? "Starting camera…"
-    : renderedState === "scanning"
-      ? "Point your camera at any QR code"
-      : renderedState === "submitting"
-        ? "Joining shared group…"
-        : renderedState === "success"
-          ? "Shared group joined"
-          : "Camera scanning is unavailable";
-
+    && state !== "success"
+    ? "denied"
+    : permission?.granted && state === "starting"
+      ? "scanning"
+      : state;
+  const renderedError = permissionDenied
+    && renderedState === "denied"
+    ? errorCopy("denied")
+    : error ?? errorCopy(renderedState);
+  const status = stateCopy(renderedState);
+  const isBusy = renderedState === "starting" || renderedState === "submitting";
+  const canRetry = retryAvailable || renderedState === "denied" || renderedState === "no-camera" || renderedState === "error";
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={open}>
-      <View style={styles.backdrop}>
-        <View accessibilityViewIsModal style={styles.card}>
-          <View style={styles.header}>
+      <View style={styles.root}>
+        <View style={styles.previewWrap}>
+          {permission?.granted && renderedState !== "submitting" && renderedState !== "success" ? (
+            <CameraView
+              active={open && renderedState === "scanning"}
+              barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+              onBarcodeScanned={({ data }) => void submit(data)}
+              onMountError={() => {
+                if (!submittingRef.current) {
+                  setState("no-camera");
+                  setError(errorCopy("no-camera"));
+                }
+              }}
+              facing="back"
+              style={styles.preview}
+            />
+          ) : null}
+          <View pointerEvents="none" style={styles.previewShade} />
+          <View pointerEvents="none" style={styles.frameAnchor}>
+            <View style={styles.scanFrame} />
+          </View>
+          <View style={[styles.header, { paddingTop: insets.top + spacing[3] }]}>
             <View style={styles.headerText}>
-              <Text style={styles.title}>Join a shared group</Text>
-              <Caption>Scan any QR code to create or join its shared group.</Caption>
+              <Text style={styles.title}>Scan to join</Text>
+              <Caption style={styles.headerCaption}>Join the group linked to this QR code</Caption>
             </View>
-            <IconButton icon="close" label="Close QR scanner" size={40} variant="ghost" onPress={onClose} />
+            <IconButton icon="close" label="Close QR scanner" size={44} variant="ghost" onPress={onClose} />
           </View>
-
-          <View style={styles.previewWrap}>
-            {permission?.granted && renderedState !== "submitting" && renderedState !== "success" ? (
-              <CameraView
-                active={open && renderedState === "scanning"}
-                barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-                onBarcodeScanned={({ data }) => void submit(data)}
-                onMountError={() => {
-                  if (!submittingRef.current) {
-                    setState("unsupported");
-                    setError("No camera is available in this environment. Enter the QR text below instead.");
-                  }
-                }}
-                facing="back"
-                style={styles.preview}
-              />
-            ) : null}
-            {renderedState !== "scanning" && renderedState !== "submitting" && renderedState !== "success" ? (
-              <View style={styles.previewMessage}>
-                <Text style={styles.previewMessageText}>{statusCopy}</Text>
-              </View>
-            ) : null}
-            {state === "submitting" ? (
-              <View style={styles.previewMessage}>
-                <Text style={styles.previewMessageText}>Joining shared group…</Text>
-              </View>
-            ) : null}
-          </View>
-
-          <Text style={styles.status}>{statusCopy}</Text>
-          <Caption>
-            Anyone with the same code can join. Scanning is not proof of physical presence, and Peek &amp; Poke never opens QR links.
-          </Caption>
-          {renderedError ? (
-            <View style={styles.errorRow}>
-              <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>{renderedError}</Text>
-              {retryAvailable ? <Button onPress={() => {
-                const content = retryContentRef.current;
-                if (content) void submit(content);
-              }} size="sm" variant="secondary">Retry</Button> : null}
+          {renderedState !== "scanning" && renderedState !== "submitting" && renderedState !== "success" ? (
+            <View style={styles.previewMessage}>
+              <Text style={styles.previewMessageText}>{status}</Text>
             </View>
           ) : null}
-
-          <View style={styles.manualSection}>
-            <Text style={styles.manualLabel}>Can’t scan? Enter the QR text</Text>
-            <View style={styles.manualRow}>
-              <TextInput
-                accessibilityLabel="QR text"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={state !== "submitting"}
-                multiline
-                numberOfLines={3}
-                onChangeText={setManualContent}
-                placeholder="Paste QR text"
-                placeholderTextColor={colors.ink[5]}
-                style={styles.input}
-                textAlignVertical="top"
-                value={manualContent}
-              />
-              <Button
-                disabled={!canSubmitManual || state === "submitting"}
-                onPress={() => void submit(manualContent)}
-                size="md"
-                variant="secondary"
-              >
-                Join
-              </Button>
+          {renderedState === "submitting" ? (
+            <View style={styles.previewMessage}>
+              <Text style={styles.previewMessageText}>Joining shared group…</Text>
             </View>
-          </View>
+          ) : null}
+        </View>
+
+        <View style={[styles.controls, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
+          <Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>
+          <Caption style={styles.disclaimer}>
+            Anyone with the same code can join. QR links are never opened.
+          </Caption>
+          {renderedError ? (
+            <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>{renderedError}</Text>
+          ) : null}
+          <Button
+            disabled={isBusy || renderedState === "scanning" || renderedState === "success" || !canRetry}
+            fullWidth
+            leftIcon="qr"
+            onPress={() => {
+              if (retryAvailable) {
+                const content = retryContentRef.current;
+                if (content) void submit(content);
+              } else {
+                setState(permission?.granted ? "scanning" : "starting");
+                setError(null);
+              }
+            }}
+            size="lg"
+            variant="accent"
+          >
+            {retryAvailable ? "Retry joining" : renderedState === "scanning" ? "Scanning for QR code" : "Try camera again"}
+          </Button>
         </View>
       </View>
     </Modal>
@@ -214,55 +218,61 @@ export function QrScanner({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: colors.scrim,
-  },
-  card: {
-    maxHeight: "94%",
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    padding: spacing[4],
-    gap: spacing[3],
-    backgroundColor: colors.surface,
-    ...shadows.e2,
+  root: { flex: 1, backgroundColor: colors.ink[9] },
+  previewWrap: { flex: 1, minHeight: 0, backgroundColor: colors.ink[9] },
+  preview: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  previewShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.22)" },
+  frameAnchor: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
+  scanFrame: {
+    width: "78%",
+    maxWidth: 520,
+    aspectRatio: 1,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    borderRadius: radii.xl,
   },
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing[3],
+    paddingHorizontal: spacing[4],
+    backgroundColor: "rgba(0,0,0,0.78)",
   },
   headerText: { flex: 1, minWidth: 0, gap: spacing[1] },
-  title: { ...typography.title3, color: colors.ink[9] },
-  previewWrap: {
-    aspectRatio: 1,
-    overflow: "hidden",
-    borderRadius: radii.lg,
-    backgroundColor: colors.ink[9],
-  },
-  preview: { flex: 1 },
+  title: { ...typography.title3, color: colors.surface },
+  headerCaption: { color: "rgba(255,255,255,0.7)" },
   previewMessage: {
-    ...StyleSheet.absoluteFill,
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: "center",
     justifyContent: "center",
     padding: spacing[6],
   },
-  previewMessageText: { ...typography.bodyBold, color: colors.surface, textAlign: "center" },
-  status: { ...typography.bodyBold, color: colors.ink[9] },
-  error: { ...typography.caption, color: colors.danger[500], flex: 1 },
-  errorRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
-  manualSection: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline, paddingTop: spacing[3], gap: spacing[2] },
-  manualLabel: { ...typography.caption, color: colors.ink[7] },
-  manualRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
-  input: {
-    flex: 1,
-    minHeight: 48,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.hairline,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing[3],
-    color: colors.ink[9],
-    ...typography.body,
+  previewMessageText: {
+    ...typography.bodyBold,
+    color: colors.surface,
+    textAlign: "center",
+    backgroundColor: "rgba(0,0,0,0.68)",
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[3],
   },
+  controls: {
+    flexShrink: 0,
+    gap: spacing[2],
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[4],
+    backgroundColor: "rgba(0,0,0,0.92)",
+  },
+  status: { ...typography.bodyBold, color: colors.surface },
+  disclaimer: { color: "rgba(255,255,255,0.66)" },
+  error: { ...typography.caption, color: "#ffaaa3" },
 });

@@ -6,6 +6,10 @@ const mockRequestPermission = jest.fn();
 const mockCameraProps: { current: Record<string, unknown> | null } = { current: null };
 let mockPermissionState: { granted: boolean; canAskAgain: boolean } | null = null;
 
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
+
 jest.mock("expo-camera", () => ({
   CameraView: (props: Record<string, unknown>) => {
     mockCameraProps.current = props;
@@ -51,8 +55,10 @@ describe("native QR scanner lifecycle", () => {
 
     await waitFor(() => expect(mockCameraProps.current?.active).toBe(true));
     const scan = mockCameraProps.current?.onBarcodeScanned as ((value: { data: string }) => void);
-    scan({ data: "  https://example.invalid/qr?id=7  " });
-    scan({ data: "  https://example.invalid/qr?id=7  " });
+    await act(async () => {
+      scan({ data: "  https://example.invalid/qr?id=7  " });
+      scan({ data: "  https://example.invalid/qr?id=7  " });
+    });
     expect(onDecoded).toHaveBeenCalledTimes(1);
     expect(onDecoded).toHaveBeenCalledWith("  https://example.invalid/qr?id=7  ");
     resolve();
@@ -70,16 +76,13 @@ describe("native QR scanner lifecycle", () => {
     expect(mockRequestPermission).toHaveBeenCalledTimes(1);
   });
 
-  it("shows permission denial and still allows the manual fallback", async () => {
+  it("shows permission denial without a typed or pasted fallback", () => {
     mockPermissionState = { granted: false, canAskAgain: false };
-    const onDecoded = jest.fn(async () => undefined);
-    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={onDecoded} />);
+    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
 
     expect(result.getByRole("alert")).toBeTruthy();
-    const content = "plain\nQR text";
-    fireEvent.changeText(result.getByLabelText("QR text"), content);
-    fireEvent.press(result.getByRole("button", { name: "Join" }));
-    await waitFor(() => expect(onDecoded).toHaveBeenCalledWith(content));
+    expect(result.queryByLabelText("QR text")).toBeNull();
+    expect(result.queryByRole("button", { name: "Join" })).toBeNull();
   });
 
   it("shows the camera fallback when the preview cannot mount", async () => {
@@ -90,7 +93,7 @@ describe("native QR scanner lifecycle", () => {
       (mockCameraProps.current?.onMountError as () => void)();
     });
     expect(result.getByRole("alert")).toBeTruthy();
-    expect(result.getByText("No camera is available in this environment. Enter the QR text below instead.")).toBeTruthy();
+    expect(result.getByText("No camera was found. Connect a camera and try again.")).toBeTruthy();
   });
 
   it("shows the camera fallback when permission request is rejected", async () => {
@@ -99,7 +102,7 @@ describe("native QR scanner lifecycle", () => {
     const result = render(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
 
     await waitFor(() => expect(result.getByRole("alert")).toBeTruthy());
-    expect(result.getByText("The camera could not start. Try again or enter the QR text below.")).toBeTruthy();
+    expect(result.getByText("The camera could not start. Try again.")).toBeTruthy();
   });
 
   it("offers retry after a failed join", async () => {
@@ -109,23 +112,19 @@ describe("native QR scanner lifecycle", () => {
     const result = render(<QrScanner open onClose={jest.fn()} onDecoded={onDecoded} />);
 
     await waitFor(() => expect(mockCameraProps.current?.active).toBe(true));
-    (mockCameraProps.current?.onBarcodeScanned as ((value: { data: string }) => void))({ data: "retryable" });
+    await act(async () => {
+      (mockCameraProps.current?.onBarcodeScanned as ((value: { data: string }) => void))({ data: "retryable" });
+    });
     await waitFor(() => expect(result.getByText("This QR code could not be joined. Check your connection and try again.")).toBeTruthy());
-    fireEvent.press(result.getByRole("button", { name: "Retry" }));
+    fireEvent.press(result.getByRole("button", { name: "Retry joining" }));
     await waitFor(() => expect(onDecoded).toHaveBeenCalledTimes(2));
   });
 
-  it("clears retry after invalid manual input", async () => {
-    const onDecoded = jest.fn().mockRejectedValueOnce(new Error("offline"));
-    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={onDecoded} />);
+  it("does not render typed or pasted QR entry", async () => {
+    const result = render(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
 
-    await waitFor(() => expect(mockCameraProps.current?.active).toBe(true));
-    (mockCameraProps.current?.onBarcodeScanned as ((value: { data: string }) => void))({ data: "retryable" });
-    await waitFor(() => expect(result.getByText("This QR code could not be joined. Check your connection and try again.")).toBeTruthy());
-    expect(result.getByText("Retry")).toBeTruthy();
-    fireEvent.changeText(result.getByLabelText("QR text"), "invalid\u0000content");
-    fireEvent.press(result.getByRole("button", { name: "Join" }));
-    await waitFor(() => expect(result.queryByText("Retry")).toBeNull());
+    expect(result.queryByLabelText("QR text")).toBeNull();
+    expect(result.queryByRole("button", { name: "Join" })).toBeNull();
   });
 
   it("closes on inactive and background states and removes the app-state listener", () => {
