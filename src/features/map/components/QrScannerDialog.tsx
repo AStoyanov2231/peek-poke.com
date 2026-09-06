@@ -106,6 +106,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     };
 
     const showCameraError = (nextState: ScannerState, message = errorForState(nextState)) => {
+      if (disposed) return;
       stopStream();
       setState(nextState);
       setError(message);
