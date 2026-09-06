@@ -155,8 +155,8 @@ export function QrScanner({
               onBarcodeScanned={({ data }) => void submit(data)}
               onMountError={() => {
                 if (!submittingRef.current) {
-                  setState("no-camera");
-                  setError(errorCopy("no-camera"));
+                  setState("error");
+                  setError(errorCopy("error"));
                 }
               }}
               facing="back"

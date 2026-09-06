@@ -85,7 +85,7 @@ describe("native QR scanner lifecycle", () => {
     expect(result.queryByRole("button", { name: "Join" })).toBeNull();
   });
 
-  it("shows the camera fallback when the preview cannot mount", async () => {
+  it("shows a camera startup error when the preview cannot mount", async () => {
     const result = render(<QrScanner open onClose={jest.fn()} onDecoded={jest.fn(async () => undefined)} />);
 
     await waitFor(() => expect(mockCameraProps.current?.active).toBe(true));
@@ -93,7 +93,7 @@ describe("native QR scanner lifecycle", () => {
       (mockCameraProps.current?.onMountError as () => void)();
     });
     expect(result.getByRole("alert")).toBeTruthy();
-    expect(result.getByText("No camera was found. Connect a camera and try again.")).toBeTruthy();
+    expect(result.getByText("The camera could not start. Try again.")).toBeTruthy();
   });
 
   it("shows the camera fallback when permission request is rejected", async () => {
