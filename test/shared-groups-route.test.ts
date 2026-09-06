@@ -106,6 +106,17 @@ describe("shared group API routes", () => {
     });
   });
 
+  it("rejects legacy manual-code payloads at the group join boundary", async () => {
+    const response = await POST(new Request("http://localhost/api/groups", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: "typed-code" }),
+    }));
+
+    expect(response.status).toBe(400);
+    expect(database.rpc).not.toHaveBeenCalled();
+  });
+
   it("requests newest-first group pages from the database boundary", async () => {
     const newest = { ...group, id: "66666666-6666-4666-8666-666666666666", created_at: "2026-08-14T12:00:00.000Z" };
     database.rpc.mockResolvedValueOnce({ data: [newest, group], error: null });

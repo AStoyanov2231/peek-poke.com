@@ -12,6 +12,12 @@ module.exports = {
     displayName: target,
     preset: `jest-expo/${target}`,
     rootDir: __dirname,
+    moduleNameMapper: {
+      "^@peekpoke/design$": "<rootDir>/../../packages/design/src/index.ts",
+      "^@peekpoke/design/(.*)$": "<rootDir>/../../packages/design/src/$1",
+      "^@peekpoke/shared$": "<rootDir>/../../packages/shared/src/index.ts",
+      "^@peekpoke/shared/(.*)$": "<rootDir>/../../packages/shared/src/$1",
+    },
     testMatch: [
       "<rootDir>/test/map-marker-pressability.test.tsx",
       "<rootDir>/test/map-filter-menu-pressability.test.tsx",

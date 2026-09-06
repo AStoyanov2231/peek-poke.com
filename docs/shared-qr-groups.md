@@ -14,6 +14,6 @@ The required database objects are managed directly in the Supabase production pr
 
 ## Client support
 
-The web map opens a browser camera scanner when `BarcodeDetector` and `getUserMedia` are available, and always provides an exact-text fallback for unsupported browsers or denied permission. The Expo map uses `expo-camera` QR callbacks with an exact-text fallback. Adding `expo-camera` and its config plugin requires a new native dev/release build; JavaScript-only reloads are not sufficient for that client change.
+The web map opens a full-viewport browser camera scanner and requests `getUserMedia` before selecting a decoder. Browsers with `BarcodeDetector` use it; other supported browsers use the bundled canvas decoder. The Expo map uses `expo-camera` QR callbacks and distinguishes blocked permission, missing-camera, and camera-start failures, with retry where recovery is possible. There is no typed or pasted-code fallback: camera permission and device failures direct the user to browser or device settings or to retry. Adding `expo-camera` and its config plugin requires a new native dev/release build; JavaScript-only reloads are not sufficient for that client change.
 
 Both inboxes merge shared groups with direct messages, preserve last-activity ordering and unread counts, and route to a text-capable group conversation. Group messages use the existing private per-user realtime hint channel and server outbox worker, while the durable API remains authoritative.
