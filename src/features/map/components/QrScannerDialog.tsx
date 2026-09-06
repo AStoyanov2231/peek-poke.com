@@ -97,9 +97,10 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
     const stopStream = () => {
       if (timer !== null) window.clearTimeout(timer);
       timer = null;
-      stream?.getTracks().forEach((track) => track.stop());
+      const streamToStop = stream;
       stream = null;
-      if (videoRef.current) {
+      streamToStop?.getTracks().forEach((track) => track.stop());
+      if (streamToStop && videoRef.current?.srcObject === streamToStop) {
         videoRef.current.pause();
         videoRef.current.srcObject = null;
       }
