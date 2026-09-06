@@ -46,6 +46,7 @@ export function QrScanner({
   const [state, setState] = useState<ScannerState>("starting");
   const [error, setError] = useState<string | null>(null);
   const [retryAvailable, setRetryAvailable] = useState(false);
+  const [permissionRetry, setPermissionRetry] = useState(0);
   const submittingRef = useRef(false);
   const permissionRequestAttemptedRef = useRef(false);
   const retryContentRef = useRef<string | null>(null);
@@ -82,7 +83,7 @@ export function QrScanner({
       setState("error");
       setError(errorCopy("error"));
     });
-  }, [open, permission, requestPermission]);
+  }, [open, permission, permissionRetry, requestPermission]);
 
   useEffect(() => {
     if (!open) return;
@@ -202,6 +203,8 @@ export function QrScanner({
                 const content = retryContentRef.current;
                 if (content) void submit(content);
               } else {
+                permissionRequestAttemptedRef.current = false;
+                setPermissionRetry((value) => value + 1);
                 setState(permission?.granted ? "scanning" : "starting");
                 setError(null);
               }
