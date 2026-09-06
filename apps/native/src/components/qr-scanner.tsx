@@ -175,12 +175,12 @@ export function QrScanner({
             <IconButton icon="close" label="Close QR scanner" size={44} variant="ghost" onPress={onClose} />
           </View>
           {renderedState !== "scanning" && renderedState !== "submitting" && renderedState !== "success" ? (
-            <View style={styles.previewMessage}>
+            <View pointerEvents="none" style={styles.previewMessage}>
               <Text style={styles.previewMessageText}>{status}</Text>
             </View>
           ) : null}
           {renderedState === "submitting" ? (
-            <View style={styles.previewMessage}>
+            <View pointerEvents="none" style={styles.previewMessage}>
               <Text style={styles.previewMessageText}>Joining shared group…</Text>
             </View>
           ) : null}
