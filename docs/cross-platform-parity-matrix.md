@@ -132,11 +132,9 @@ management and private Realtime Broadcast/signaling.
   cluster, user, and coin actions to assistive technology. Runtime-free Jest/Expo
   projects verify iOS/Android Pressability and 44pt/48dp geometry; approved-device
   VoiceOver/TalkBack traversal and OS gesture dispatch remain unverified.
-- `supabase/migrations/20260729235452_durable_workflows.sql` and the
-  `/api/internal/outbox` worker must be rehearsed against an isolated full
-  schema baseline and promoted migration-first. In particular, production does not
-  expose `send_message_transactional`, so production DM sending correctly
-  fails closed until that migration exists. Production was not mutated.
+- The `/api/internal/outbox` worker depends on durable workflow objects already
+  deployed in the Supabase production project. Database rollout is managed
+  directly in Supabase rather than from migration files in this repository.
 - The authenticated-profile repository/migration path needs hosted promotion
   and isolated staging evidence for new-user, OAuth, refresh, and disabled-user
   transitions before rollout approval.

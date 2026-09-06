@@ -5,7 +5,7 @@
 - Supabase project metadata: region `eu-west-1`, healthy status, PostgreSQL 17.
 - Hosted schema metadata: 23 public tables, 77 public indexes, 29 public policies, 6 public triggers, one public Realtime table, one active cron job, and five Storage buckets.
 - Security advisor: leaked-password protection disabled; `user_locations` lacks an RLS policy.
-- Vercel project metadata: Next.js project with production and preview deployments; function region is now declared as `dub1` in `vercel.json` but requires deployment verification.
+- Vercel project metadata: Next.js project with production and preview deployments; function-region selection is managed by Vercel defaults.
 - Request tracing: implemented in API auth/public/webhook boundaries and Supabase client calls; dashboard samples are unavailable until the change is deployed.
 
 ## Metric baseline

@@ -9,8 +9,7 @@ Peek & Poke is a Next.js web/server app with a separate Expo React Native app th
 - `packages/shared/`: shared domain types, API contracts, route helpers, constants, and validation.
 - `packages/design/`: shared design tokens and component variant contracts for web and native.
 - `public/`: static web assets.
-- `supabase/`: Supabase assets and migrations.
-- `test/`, `e2e/`: Vitest and Playwright tests.
+- `test/`: Vitest tests.
 
 ## Setup
 
@@ -44,7 +43,6 @@ EXPO_PUBLIC_MAPBOX_TOKEN=...
 | `npm run start` | Start the production Next.js app |
 | `npm run lint` | Lint the web/server workspace |
 | `npm run test` | Run Vitest |
-| `npm run test:e2e` | Run Playwright |
 | `npm run native:start` | Start Expo for `apps/native` |
 | `npm run native:ios` | Start Expo iOS |
 | `npm run native:android` | Start Expo Android |

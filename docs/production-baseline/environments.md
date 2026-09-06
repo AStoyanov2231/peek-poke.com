@@ -33,7 +33,7 @@ preview/staging mapping still needs to be configured in the provider consoles.
 
 An outbox worker invocation of `/api/internal/outbox` must send
 `Authorization: Bearer $CRON_SECRET`. This repository does not configure a
-Vercel Cron for the route; `vercel.json` only declares the `dub1` function
-region. Configure an independently generated secret in every environment that
-invokes the worker. Promote the durable-workflow migration before the web
-deployment; never point a preview worker at the production Supabase project.
+Vercel Cron for the route. Configure an independently generated secret in every
+environment that invokes the worker. The durable workflow is managed directly
+in the production Supabase project; never point a preview worker at the
+production Supabase project.

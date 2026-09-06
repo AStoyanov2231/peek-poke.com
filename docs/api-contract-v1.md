@@ -33,5 +33,5 @@ Zod response schemas. Canonical fixtures live in
 `packages/shared/src/fixtures.ts` and are exercised by the shared contract
 test.
 
-The additive index migration is
-`supabase/migrations/20260730120000_shared_api_contract_indexes.sql`.
+Database changes for this contract are managed directly in the Supabase
+production project rather than from migration files in this repository.

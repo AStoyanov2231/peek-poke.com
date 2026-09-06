@@ -21,8 +21,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "security:smoke:live": "node --env-file=.env.local scripts/live-security-smoke.mjs",
-    "security:smoke:realtime:live": "node --env-file=.env.local scripts/live-realtime-auth-smoke.mjs",
     "native:start": "npm run start -w @peekpoke/native",
     "native:start:go": "npm run start:go -w @peekpoke/native",
     "native:android": "npm run android -w @peekpoke/native",
@@ -37,10 +35,7 @@
     "native:test": "npm run test -w @peekpoke/native",
     "native:test:ios": "npm run test:ios -w @peekpoke/native",
     "native:test:android": "npm run test:android -w @peekpoke/native",
-    "native:maintenance": "bash scripts/dev-maintenance.sh",
-    "deps:check": "npm ls --workspaces --include-workspace-root --depth=0",
-    "storage:migrate-private": "node --env-file=.env.local scripts/migrate-private-storage.mjs",
-    "doctor": "npx react-doctor@latest"
+    "deps:check": "npm ls --workspaces --include-workspace-root --depth=0"
   },
   "dependencies": {
     "@peekpoke/shared": "*",
@@ -78,7 +73,6 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@libpg-query/parser": "^17.6.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -86,8 +80,6 @@
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.2.10",
     "postcss": "^8.5.15",
-    "react-doctor": "^0.8.1",
-    "supabase": "^2.110.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
     "vitest": "^4.1.10"
