@@ -9,14 +9,18 @@ import {
 import { apiFetch, jsonBody } from "@/lib/api";
 
 export type AvailabilityReadOptions = {
+  discoveryContext?: boolean;
   radiusKm?: 2 | 10 | 25;
   signal?: AbortSignal;
 };
 
 export function fetchAvailability(
-  { radiusKm = 25, signal }: AvailabilityReadOptions = {},
+  { discoveryContext = false, radiusKm = 25, signal }: AvailabilityReadOptions = {},
 ): Promise<AvailabilityReadResponse> {
-  return apiFetch(`/api/availability?radiusKm=${radiusKm}`, {
+  const query = discoveryContext
+    ? `?radiusKm=${radiusKm}&discovery_context=1`
+    : `?radiusKm=${radiusKm}`;
+  return apiFetch(`/api/availability${query}`, {
     signal,
     responseSchema: availabilityReadResponseSchema,
   });

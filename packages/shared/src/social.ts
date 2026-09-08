@@ -71,6 +71,14 @@ export const availablePersonSchema = z.strictObject({
   distanceKm: z.number().finite().nonnegative().max(26).multipleOf(2),
   relationship: z.enum(["friend", "none"]),
   sharedInterestNames: z.array(z.string().trim().min(1).max(64)).max(20),
+  discoveryReasons: z.array(z.enum([
+    "intent_match",
+    "nearby_friend",
+    "shared_interests",
+    "mutual_friends",
+    "connected_before",
+    "mutual_meetup",
+  ])).max(3).optional(),
 });
 
 export const availabilityReadResponseSchema = z.strictObject({

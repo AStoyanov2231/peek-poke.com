@@ -10,9 +10,10 @@ export async function readAvailability(
   viewerId: string,
   limit: number,
   radiusKm: number,
+  discoveryContext = false,
 ) {
   const { data, error } = await createServiceClient().rpc(
-    "get_available_people",
+    discoveryContext ? "get_available_people_v2" : "get_available_people",
     {
       p_viewer_id: viewerId,
       p_limit: limit,

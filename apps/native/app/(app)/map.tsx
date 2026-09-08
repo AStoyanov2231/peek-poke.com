@@ -35,7 +35,7 @@ import type {
   SearchTagResult,
   SearchUserResult,
 } from "@peekpoke/shared";
-import { inviteTokenSchema, parseQuery, safeQueryRetryDelay, shouldRetrySafeQuery } from "@peekpoke/shared";
+import { parseQuery, safeQueryRetryDelay, shouldRetrySafeQuery } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import {
   Avatar,
@@ -92,6 +92,7 @@ import { joinSharedGroup } from "@/data/shared-groups";
 import { fetchAvailability } from "@/data/availability";
 import { PokeComposer } from "@/components/poke-composer";
 import { planShareTokenFromQrContent } from "@/lib/plan-share-link";
+import { inviteTokenFromQrContent } from "@/lib/invite-qr-link";
 import {
   createOrFindThread,
   sendFriendRequest as createFriendRequest,
@@ -528,17 +529,13 @@ export default function MapScreen() {
       router.push(`/plan/${planToken}` as never);
       return;
     }
-    try {
-      const url = new URL(content);
-      const trusted = url.origin === "https://www.peek-poke.com" || url.origin === "https://peek-poke.com";
-      const match = /^\/invite\/([^/]+)$/.exec(url.pathname);
-      if (trusted && match && inviteTokenSchema.safeParse(match[1]).success) {
-        closeQrScanner();
-        clearSelection();
-        router.push(`/invite/${match[1]}` as never);
-        return;
-      }
-    } catch { /* Non-URL Circle QR payloads remain supported. */ }
+    const inviteToken = inviteTokenFromQrContent(content);
+    if (inviteToken) {
+      closeQrScanner();
+      clearSelection();
+      router.push(`/invite/${inviteToken}` as never);
+      return;
+    }
     const session = qrScannerSessionRef.current;
     const response = await joinSharedGroup(content);
     await Promise.all([

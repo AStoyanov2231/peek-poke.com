@@ -36,7 +36,8 @@ export const nativeQueryKeys = {
   presence: ["realtime", "presence"] as const,
   availability: {
     all: ["availability"] as const,
-    nearby: (radiusKm: 2 | 10 | 25) => ["availability", "nearby", radiusKm] as const,
+    nearby: (radiusKm: 2 | 10 | 25, discoveryContext = false) =>
+      ["availability", "nearby", radiusKm, discoveryContext ? "context-v2" : "legacy"] as const,
   },
   meetups: {
     all: ["meetups"] as const,

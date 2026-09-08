@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  availablePersonSchema,
   availabilityUpsertRequestSchema,
   pokeCreateRequestSchema,
   pokeResponseSchema,
@@ -11,6 +12,17 @@ const RECIPIENT = "22222222-2222-4222-8222-222222222222";
 const THREAD = "33333333-3333-4333-8333-333333333333";
 
 describe("social contracts", () => {
+  it("keeps discovery reasons opt-in, bounded, and non-identifying", () => {
+    const person = {
+      profile: { id: "11111111-1111-4111-8111-111111111111", username: "ada", display_name: "Ada", avatar_url: null, location_text: null, is_online: false, last_seen_at: null },
+      availability: { id: "22222222-2222-4222-8222-222222222222", userId: "11111111-1111-4111-8111-111111111111", activity: "coffee", customLabel: null, expiresAt: "2026-09-08T12:00:00.000Z", createdAt: "2026-09-08T11:00:00.000Z", updatedAt: "2026-09-08T11:00:00.000Z" },
+      distanceKm: 2, relationship: "none", sharedInterestNames: [],
+    };
+    expect(availablePersonSchema.parse(person).discoveryReasons).toBeUndefined();
+    expect(availablePersonSchema.parse({ ...person, discoveryReasons: ["intent_match", "shared_interests"] }).discoveryReasons).toEqual(["intent_match", "shared_interests"]);
+    expect(availablePersonSchema.safeParse({ ...person, discoveryReasons: ["intent_match", "shared_interests", "nearby_friend", "mutual_friends"] }).success).toBe(false);
+    expect(availablePersonSchema.safeParse({ ...person, discoveryReasons: ["mutual_friend_count"] }).success).toBe(false);
+  });
   it("requires and bounds custom activity labels", () => {
     expect(availabilityUpsertRequestSchema.safeParse({ activity: "custom", customLabel: null, durationMinutes: 60 }).success).toBe(false);
     expect(availabilityUpsertRequestSchema.safeParse({ activity: "coffee", customLabel: "Coffee", durationMinutes: 60 }).success).toBe(false);

@@ -204,7 +204,10 @@ test.describe("redesigned social journey", () => {
   test("Now saves expiring intent and retries a Poke without a new key", async ({
     page,
   }) => {
-    const fixture = await installSocialFixture(page, { retryPoke: true });
+    const fixture = await installSocialFixture(page, {
+      discoveryContext: true,
+      retryPoke: true,
+    });
     await page.goto("/login?redirectTo=/now");
     await page.getByPlaceholder("Email").fill(email);
     await page.getByPlaceholder("Password").fill(password);
@@ -214,6 +217,32 @@ test.describe("redesigned social journey", () => {
       page.getByRole("heading", { name: "What are you up for?" }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /Mila/ })).toBeVisible();
+    const discoveryCards = page.locator(".person-intent-card");
+    await expect(discoveryCards).toHaveCount(2);
+    await expect(discoveryCards.nth(0).getByRole("link", { name: /Sofia/ })).toBeVisible();
+    await expect(discoveryCards.nth(1).getByRole("link", { name: /Mila/ })).toBeVisible();
+    await expect(
+      discoveryCards.nth(0).getByText("You both marked a meetup · Connected before", { exact: true }),
+    ).toBeVisible();
+    await expect(discoveryCards.nth(0).getByText("Friends in common", { exact: true })).toHaveCount(0);
+    expect(fixture.apiUrls).toContain(
+      "/api/availability?limit=100&radiusKm=25&discovery_context=1",
+    );
+    await page.screenshot({
+      path: "test-results/e2e/now-context-desktop.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await discoveryCards.nth(0).evaluate((element) =>
+        element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: "test-results/e2e/now-context-mobile.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.getByRole("button", { name: "Coffee", exact: true }).click();
     await page
       .getByRole("button", { name: "I’m up for it", exact: true })

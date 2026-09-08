@@ -33,4 +33,13 @@ describe("native availability transport", () => {
       expect.objectContaining({ responseSchema: expect.anything() }),
     );
   });
+
+  it("opts into context-ranked discovery only when a caller requests it", async () => {
+    await fetchAvailability({ discoveryContext: true, radiusKm: 10 });
+
+    expect(mocks.apiFetch).toHaveBeenCalledWith(
+      "/api/availability?radiusKm=10&discovery_context=1",
+      expect.objectContaining({ responseSchema: expect.anything() }),
+    );
+  });
 });
