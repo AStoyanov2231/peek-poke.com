@@ -32,6 +32,7 @@ const preferenceApi = jest.requireMock("@/data/discovery-preferences") as {
   fetchDiscoveryPreference: jest.Mock;
   saveDiscoveryPreference: jest.Mock;
 };
+const linking = jest.requireMock("expo-linking") as { openURL: jest.Mock };
 
 function settingsSheet(client: QueryClient, open = true) {
   return render(
@@ -63,8 +64,12 @@ function DelayedSaveHarness() {
   </>;
 }
 
-describe("Discovery visibility persistence", () => {
-  beforeEach(() => jest.clearAllMocks());
+describe("Settings navigation and discovery visibility persistence", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    linking.openURL.mockReset();
+    linking.openURL.mockResolvedValue(undefined);
+  });
 
   it("updates the real query cache so closing and reopening settings uses the saved audience", async () => {
     let persistedAudience = "everyone";
@@ -102,6 +107,38 @@ describe("Discovery visibility persistence", () => {
     await user.press(result.getByRole("button", { name: "Discovery visibility" }));
     expect(await result.findByRole("radio", { checked: true, name: "Hidden" })).toBeTruthy();
     expect(result.getByRole("button", { name: "Save visibility", disabled: true })).toBeTruthy();
+    result.unmount();
+    client.clear();
+  });
+
+  it("opens the canonical terms and privacy pages from Settings", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0, retry: false } } });
+    const result = settingsSheet(client);
+    const user = userEvent.setup();
+
+    await user.press(result.getByRole("button", { name: "Terms & Privacy" }));
+    await user.press(result.getByRole("link", { name: "Read Community ground rules" }));
+    expect(jest.requireMock("expo-linking").openURL).toHaveBeenCalledWith("https://www.peek-poke.com/terms");
+
+    await user.press(result.getByRole("link", { name: "Read Privacy controls" }));
+    expect(jest.requireMock("expo-linking").openURL).toHaveBeenCalledWith("https://www.peek-poke.com/privacy");
+    result.unmount();
+    client.clear();
+  });
+
+  it("keeps a legal link recoverable when the device cannot open it", async () => {
+    linking.openURL.mockRejectedValueOnce(new Error("no browser"));
+    const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0, retry: false } } });
+    const result = settingsSheet(client);
+    const user = userEvent.setup();
+
+    await user.press(result.getByRole("button", { name: "Terms & Privacy" }));
+    await user.press(result.getByRole("link", { name: "Read Privacy controls" }));
+    expect(await result.findByRole("alert")).toHaveTextContent("Couldn’t open Privacy controls. Try again.");
+
+    await user.press(result.getByRole("button", { name: "Try again" }));
+    expect(linking.openURL).toHaveBeenLastCalledWith("https://www.peek-poke.com/privacy");
+    expect(result.queryByRole("alert")).toBeNull();
     result.unmount();
     client.clear();
   });
