@@ -222,13 +222,13 @@ test.describe("redesigned social journey", () => {
       .click();
     await expect(planDialog).toBeVisible();
     await planDialog.getByLabel("What are you doing?").fill("Coffee & a walk");
-    const nextHour = new Date(Date.now() + 60 * 60_000);
-    const localTime = new Date(
-      nextHour.getTime() - nextHour.getTimezoneOffset() * 60_000,
-    )
-      .toISOString()
-      .slice(0, 16);
+    const localTime = await page.evaluate(() => {
+      const nextHour = new Date(Date.now() + 60 * 60_000);
+      const twoDigits = (value: number) => String(value).padStart(2, "0");
+      return `${nextHour.getFullYear()}-${twoDigits(nextHour.getMonth() + 1)}-${twoDigits(nextHour.getDate())}T${twoDigits(nextHour.getHours())}:${twoDigits(nextHour.getMinutes())}`;
+    });
     await planDialog.getByLabel("When", { exact: true }).fill(localTime);
+    await expect(planDialog.getByLabel("When", { exact: true })).toHaveValue(localTime);
     await planDialog
       .getByLabel("Place or area", { exact: true })
       .fill("The café by the park");
