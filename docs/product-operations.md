@@ -10,7 +10,10 @@ The project has `pg_cron`, Vault, and `pg_net` installed.
 `pg_net` 0.19.5 is used only for the outbox HTTP invocation.
 Vercel Hobby permits one cron invocation per day with hour-level timing, so it cannot drive the one-minute outbox or location-retention cadence.
 
-## Production readiness snapshot - 2026-09-08
+## Initial scheduler release snapshot - 2026-09-08
+
+This section preserves the initial scheduler release evidence from PRs 7 and 8.
+Use [Progress.md](../Progress.md) for subsequent application releases and [SUPABASE_ROLLBACK.md](../SUPABASE_ROLLBACK.md) for the current migration-specific recovery package.
 
 The private pre-change snapshot is `.supabase-backups/deployment-20260908/ops-prechange-snapshot.json`.
 The original snapshot remains a valid chronological record of the pre-change state: `pg_cron` 1.6.4, no `pg_net`, one active weekly soft-deleted-message cleanup job, and no Vault entries.

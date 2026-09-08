@@ -43,18 +43,19 @@ The user subsequently approved production schema deployment and public publicati
 The existing QR migration-boundary test passed with real hosted authentication.
 The shared-group lifecycle passed concurrent creation, membership isolation, messaging, and retry checks before reproducing account deletion returning HTTP 500 from a legacy `pg_catalog.coalesce` call.
 The additional `20260908113704_legacy_sql_special_forms.sql` migration corrects only the 13 audited function signatures that contain invalid qualified SQL special forms.
-All nineteen migrations are installed with their actual hosted timestamps recorded in the repository, and the database now has 182 migration-history entries.
+All twenty migrations are installed with their actual hosted timestamps recorded in the repository, and the verified database has 183 migration-history entries.
 The fifteenth corrects hosted Poke outbox uniqueness and service-role access.
 The sixteenth removes product-social records when a profile is tombstoned and serializes concurrent writes with account erasure.
 The seventeenth migration adds adult admission with no birth-date storage.
 The eighteenth repairs the reproduced hosted group-reader and blocked-Plan regressions and revokes access to three retired chat RPCs.
 The nineteenth migration, `20260908150805_profile_photo_moderation_buckets`, fixes the old two-bucket profile-photo constraint that raised SQLSTATE `23514` by adding `approved` and `quarantine` buckets.
-The final live age-admission run passed four tests in 33.61 seconds, and the final live social run passed one test in 32.27 seconds, including Redis-backed rate-limit coverage.
+The twentieth migration adds `get_available_people_v2`, preserving the original discovery definition and contract while ranking eligible people by authorized social context before limiting results.
+The age-admission release run passed four tests in 33.61 seconds, and its social run passed one test in 32.27 seconds, including Redis-backed rate-limit coverage.
 Run `node test/sql/legacy-sql-special-forms.mjs` to reproduce the failure locally and verify the correction, preserved permissions, and safe reapplication.
 The scoped hosted runs removed their synthetic records and restored the observed baseline of 50 profiles, 11 Auth users, and 96 Storage objects.
-The complete nineteen-migration recovery archive verified 153 payloads with SHA-256 `551c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`; it preserves the nested eighteen-migration archive and adds guarded photo and operations reversals.
-Historical PR 7 and its deployment are superseded by [published PR 11](https://github.com/AStoyanov2231/peek-poke.com/pull/11), merged at `072fc488cc62a6274089e4722abbc076f708887f`.
-Production Ready was verified on 2026-09-08 at 17:23 UTC in `dub1`.
+The complete twenty-migration recovery archive preserves the unchanged nineteen-migration archive and adds the guarded discovery rollback; [SUPABASE_ROLLBACK.md](../SUPABASE_ROLLBACK.md) records its checksum and verification.
+The discovery release merged through [PR 12](https://github.com/AStoyanov2231/peek-poke.com/pull/12) at `b2668558a134deeac13582e7f2a10b847852da1a` with all eight checks passing and a Ready production deployment in `dub1`.
+Its scoped deployed social suite passed in 19.05 seconds, including v1 compatibility, v2 context, direct-client RPC denial, stale-location and block exclusion, and synthetic cleanup.
 
 ## Private Realtime provider proof
 
@@ -93,12 +94,15 @@ It supplies a deterministic authenticated user and minimal REST/RPC results with
 The signed iPhone 16 development build and Android compilation pass after the iOS scene-configuration fix and the Expo 57.0.20 / React Native 0.86.3 patch alignment.
 The unlocked Mac enabled actual fixture Login, Now availability, Poke sending/acceptance, Chat, Plan creation/detail/Back, recent meetup confirmation, location-decline recovery, Me, and discovery-sheet loading.
 The generated-username onboarding replay passes through chosen-username entry, three interests, optional intent/location decline, and return to Now with completion persisted.
-Direct privacy save/reload remains unverified.
-The Simulator bridge omitted the discovery radio/button targets despite their visible labels; an alternate Device Hub UI connection timed out.
-The fixture privacy PATCH/GET persistence was separately verified and restored to everyone.
+Direct privacy selection, save, close, and reopen passed on 2026-09-08 through a standalone XCUITest runner against the installed iPhone 16 Simulator app.
+The repeatable test selects a different audience from the initial state, saves, closes Settings, reopens Discovery visibility, and asserts the exact checked state.
+Review corrected a substring assertion that also matched unchecked; the corrected test passed in 21.9 seconds with Friends selected, and a separate read-only fixture GET confirmed the saved audience was friends.
+XCTest exposed the React Native radio controls as Other elements, resolving the earlier snapshot bridge limitation without changing application code.
+The repeatable opt-in harness and its initial-state prerequisites are in [test/native-ui](../test/native-ui/README.md).
+The inspected screenshot and private local result-bundle receipt are `test-results/native/discovery-visibility-reopen.jpg` and `test-results/native/discovery-visibility-reopen.receipt.txt`.
 New native screenshots are saved under `test-results/native` so rerunning Playwright does not remove them.
 The generated-username evidence is `test-results/native/onboarding-temporary-username.jpg`.
-The current native gate passed 508 Vitest tests and 98 Jest tests, for 606 tests total.
+The PR 12 native gate passed 516 Vitest tests and 98 Jest tests, for 614 tests total.
 The earlier 486-Vitest and 90-Jest result is historical evidence.
 The native Poke sender, note, absolute local expiry, accepted-chat navigation, and Inbox badge behavior were visually verified in `test-results/native/pokes-received.jpg`, `test-results/native/poke-accepted-chat.jpg`, and `test-results/native/pokes-cleared-after-accept.jpg`.
 The fixture intentionally omits accepted incoming Pokes and sent entries after acceptance, so those screenshots do not prove terminal-history or sent-card UI; unit presentation and state tests cover those paths.
@@ -150,12 +154,16 @@ E2E_FIXTURE=1 npm run test:e2e
 
 ## Current local verification evidence
 
-The current root web/server evidence records 1,361 passing tests and 10 intentional skips.
+The PR 12 root web/server evidence records 1,368 passing tests and 10 intentional skips.
 The earlier 1,314-test run in `/tmp/peek-product-final-web-tests-rerun.log` deliberately skipped three hosted suites because its approved target environment was not supplied.
 The new hosted Realtime and Storage suites also require explicit credentials and are excluded from ordinary fixture-only CI.
 Root lint and the production build passed in `/tmp/peek-product-final-web-lint.log` and `/tmp/peek-product-final-web-build.log`.
 The high-severity production dependency audit reported zero high or critical advisories and 15 moderate advisories.
 Five SQL suites are part of the current verification set.
+
+The opt-in `node test/sql/postgres-concurrency.mjs --load` run additionally passed on local PostgreSQL 17 with 100,000 stale rows, 1,000 fresh rows, and 3,000 committed concurrent updates.
+It verified bounded batches, exact stale-row removal, fresh-row retention, and a stale row refreshed while locked surviving cleanup after commit.
+The [load report](production-baseline/location-retention-load.md) records measured local timing and the hosted conditions it does not model.
 
 Install Playwright Chromium when it is not available, or provide `E2E_CHROMIUM_EXECUTABLE_PATH` for an existing compatible local executable.
 The fixture binds only to loopback, uses separate build output, overrides Supabase and provider credentials, and leaves the normal application authentication checks in place.
@@ -165,7 +173,7 @@ The fixture harness must always override real credentials with its loopback fixt
 
 The canonical SQL lives in `supabase/migrations` in timestamp dependency order.
 Review compatibility against the complete preexisting schema before applying it to an approved target.
-The approved nineteen-migration production batch is installed and its follow-up hosted regressions are tracked in `Progress.md`.
+The approved twenty-migration production batch is installed and its follow-up hosted regressions are tracked in `Progress.md`.
 The matching application release must follow successful hosted verification and the release configuration checks.
 `npm run test:product-db` executes the chain against a compact legacy fixture and checks domain invariants, but it does not simulate separate concurrent backend connections, full RLS roles, Storage, or Realtime infrastructure.
 Before promotion, run simultaneous duplicate Poke responses, last-capacity Plan joins, reciprocal acknowledgements, block changes, and legacy refund attempts using synthetic accounts.

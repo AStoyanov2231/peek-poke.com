@@ -50,8 +50,7 @@ clients, and do not roll the API back to a v1-calling deployment afterward.
 
 ## Backup/PITR rehearsal
 
-The repository cannot verify Supabase backup/PITR settings or restore a hosted
-project through the available read-only project tools. An owner must enable and
-verify PITR, restore into an isolated non-production project, run schema/RLS/
-RPC smoke checks, record recovery time and data-loss point, and retain the
-rollback/cleanup commands.
+The migration-specific package described in [SUPABASE_ROLLBACK.md](../../SUPABASE_ROLLBACK.md) is verified for the exact deployed changes; it is not a complete hosted disaster-recovery backup.
+A full hosted restore has not been rehearsed.
+Confirm the provider's backup/PITR capabilities and restore point, restore into an approved isolated non-production project, run schema/RLS/RPC smoke checks, record recovery time and data-loss point, and retain the rollback/cleanup commands.
+Include Auth, Storage files, Vault, and external provider configuration in the recovery inventory instead of assuming that a database schema export covers them.

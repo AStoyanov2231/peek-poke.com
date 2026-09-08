@@ -6,6 +6,24 @@ Updated: 2026-09-08.
 
 ## Current continuation
 
+The direct native discovery-privacy check now passes in the installed iPhone 16 Simulator app.
+A standalone XCUITest runner selected a different audience, saved, closed Settings, reopened Discovery visibility, and confirmed the selection persisted.
+Review corrected a checked-state assertion that could also match unchecked, and the repeatable test then passed in 21.9 seconds with Friends selected.
+An independent read-only fixture GET confirmed the saved audience was friends.
+The runner found React Native radio controls through XCTest's Other elements without changing application code or generated iOS files.
+The manual user check is no longer required; physical-device verification remains open.
+The repeatable runner is documented in [test/native-ui](test/native-ui/README.md), with the inspected screenshot saved in `test-results/native/discovery-visibility-reopen.jpg`.
+
+The opt-in PostgreSQL 17 load harness passed with 100,000 stale rows, 1,000 fresh rows, 3,000 individually committed concurrent updates, and 101 bounded purge calls.
+It also proved that a locked stale location refreshed by another transaction survives cleanup after commit.
+The local p95 call time was 31.43 ms; this is a local observation, not a hosted capacity guarantee.
+The workload, measured limits, and production index comparison are recorded in [location-retention-load.md](docs/production-baseline/location-retention-load.md).
+
+The section-by-section brief assessment is recorded in [product-brief-coverage.md](docs/product-brief-coverage.md).
+Meeting rewards still need an actual trusted-presence design and implementation, not just credentials.
+Apple App Attest and Google Play Integrity can protect request integrity but do not establish the truth of GPS coordinates.
+The current explicit mutual meetup acknowledgement remains the implemented recognition flow, and it does not issue location rewards.
+
 The discovery and signed-invitation batch merged through [PR #12](https://github.com/AStoyanov2231/peek-poke.com/pull/12) as `b2668558a134deeac13582e7f2a10b847852da1a` after all eight checks passed on the final source.
 The production deployment is Ready in Dublin and serves the canonical domains.
 The scoped deployed social API suite passed in 19.05 seconds, including v1 shape compatibility, v2 context, authenticated direct-RPC denial, prior accepted-Poke context, stale-location and block exclusion, transactional Plan/Poke behavior, and synthetic cleanup.
@@ -52,8 +70,8 @@ A separate unsigned iPhoneOS Debug build succeeded with a development bundle ide
 The Android SDK is installed, but no Android device or emulator is attached.
 The consolidated native gate passes typecheck, lint, 508 Vitest tests, and 94 iOS/Android renderer tests.
 The web gate passes lint and 1,361 tests; ten explicitly configured integration tests skip in the local fixture-free run.
-Direct Simulator privacy selection still cannot be automated through the available actionable element references.
-A direct user check of selection, save, close, and reopen is pending because the available Simulator automation cannot activate the radio controls.
+At that stage, the Simulator snapshot bridge could not activate the radio controls.
+The standalone XCUITest verification above subsequently completed selection, save, close, and reopen.
 
 The native Settings policy cards were reproduced as a navigation dead end in both platform renderers.
 They now link to the actual public community rules and privacy-control pages, recover from a failed browser launch, and use 44-point link targets.
@@ -74,11 +92,11 @@ That release passed the deployed age-admission and social API suites and public 
 PR #10 subsequently shipped the Plan association and optional provider code with its full CI and scoped live verification described above.
 All 31 authorized queued events completed, and the recurring worker returned HTTP 200 after deployment.
 The saved migration-specific recovery package covers all twenty changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
-The current database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 182 migration entries.
+The verified database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 183 migration entries after the twentieth migration.
 
 The native development build now includes editable chat reply suggestions, Now radius and low-density actions, prioritized Inbox selection, and removal of unavailable map-coin controls.
 Simulator verification reached pending age admission, date review, blocked-account recovery, and Now through Poke acceptance into chat.
-Direct native privacy save/reload remains unverified because the available Simulator automation cannot activate the rendered radio controls.
+Direct native privacy save/reopen now passes through XCTest against the installed Simulator app.
 Real separate-session PostgreSQL lock and bounded-retention verification passes with synthetic local data.
 Production has twenty-two verified Production-only variables, with no project variables in Preview or Development.
 An environment-scope operation accidentally deleted shared variable records; Production was restored, rebuilt, and passed deployed API verification as documented in [environment-isolation-recovery.md](docs/production-baseline/environment-isolation-recovery.md).
@@ -113,10 +131,11 @@ Existing records are preserved by the migration scripts; retention deletion runs
 - [20260908134739_account_age_admission.sql](supabase/migrations/20260908134739_account_age_admission.sql).
 - [20260908135910_adult_social_runtime_corrections.sql](supabase/migrations/20260908135910_adult_social_runtime_corrections.sql).
 - [20260908150805_profile_photo_moderation_buckets.sql](supabase/migrations/20260908150805_profile_photo_moderation_buckets.sql).
+- [20260908174342_discovery_context_ranking_v2.sql](supabase/migrations/20260908174342_discovery_context_ranking_v2.sql).
 
 The initial 13 redesign migrations passed hosted read-only compatibility review and the ordered embedded PostgreSQL chain.
 The fourteenth legacy SQL repair passed an execution-failure regression and permission/security-context preservation checks.
-The first sixteen migrations produced 179 history entries; the three subsequent corrections and admission changes bring the current total to 182.
+The first sixteen migrations produced 179 history entries, the next three brought the total to 182, and the versioned discovery function brings it to 183.
 Their SQL bytes match the reviewed SHA-256 values; only filenames and direct references changed to retain the actual remote migration versions.
 Hosted testing exposed Poke outbox uniqueness, server-role privilege, and soft-deletion cleanup defects.
 The hosted regressions now pass, and later sections record admission and worker verification after the remaining migrations.
@@ -182,7 +201,7 @@ The hosted regressions now pass, and later sections record admission and worker 
 - [x] Inspect the native chat empty-state screenshot; native fixture privacy PATCH/GET persistence passes independently.
 - [x] Replay native onboarding from interests through optional intent/location decline and confirm completion in fixture bootstrap.
 - [x] Verify native generated-username entry, chosen username persistence, and completion through interests and optional intent/location decline.
-- [ ] Verify direct native UI privacy save/reload; the UI bridges omit its radio/button targets or time out.
+- [x] Verify direct native UI privacy save/reopen using the standalone XCTest runner against the installed Simulator app.
 - [ ] Verify the hosted schema, real RLS/Storage/Realtime, provider behavior, and concurrent connections using dedicated synthetic accounts in the user-approved database.
 - [ ] Verify physical iOS/Android devices, real push delivery, camera, microphone/video, and production-like load/recovery.
 
