@@ -301,7 +301,7 @@ The push did not execute, so the GitHub workflow has not run and no draft pull r
 The prepared pull-request body is `/tmp/peek-product-redesign-pr.md`.
 Public branch publication and the production database migration deployment are separate pending approvals.
 The production migration blocker has recurred across three consecutive goal turns, and all remaining release actions now require user approval, operator information, or physical-device access.
-The goal is blocked rather than complete; local tests and build evidence do not establish production readiness.
+At that checkpoint, the goal was marked blocked rather than complete; local tests and build evidence do not establish production readiness.
 
 ## Supabase rollback package requested before deployment
 
@@ -329,3 +329,17 @@ Verified the archive checksum, extracted it into a private temporary directory, 
 Archive SHA-256: `a479d4b68b4d74bb1553d4e89472052289f070169d1482f02d4f3cd2f4e0e627`.
 The private recovery package is complete within its documented migration-specific scope; a full Auth/Vault backup remains excluded.
 Browser authentication is not needed to use this saved package.
+
+## Continuation after the rollback package
+
+The preceding goal turn completed the private recovery archive and its extraction/integrity check, so it made concrete progress.
+Read-only Supabase verification at 2026-09-08 11:10 UTC still found 163 baseline migrations and zero redesign migrations.
+GitHub still reports a public repository, with remote `master` at `d4cc8088590a468fd634d44fe1eea1865e743cf3` and no `product-redesign` branch.
+The independent remaining Simulator check was retried against the running native fixture.
+Restored its missing loopback Auth fixture temporarily and confirmed the privacy sheet loads, but the Xcode runtime snapshot still omits all radio choices and Save.
+The Device Hub computer-use connection timed out again.
+A temporary `serve-sim@0.1.46` browser mirror rendered the real Simulator frame and logged the attempted taps, but neither the visibility selection nor the visible error dismiss control responded.
+Direct native privacy save/reload therefore remains unverified; the existing QueryClient renderer evidence is unchanged.
+Closed the browser mirror and stopped its helper and the temporary Auth fixture, preserving the existing Metro and native fixture processes.
+Production migration deployment and publication of the prepared branch remain pending explicit approval after the earlier automatic approval review rejections.
+The broader goal remains incomplete because hosted, provider, physical-device, and operational release evidence is still outstanding.

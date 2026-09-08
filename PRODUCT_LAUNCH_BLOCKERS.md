@@ -1,5 +1,6 @@
 # Production launch requirements
 
+- [x] Save the pre-migration recovery package and verify its guarded rollback locally; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) describes the private archive and its limits.
 - [ ] Verify direct native privacy save/reload; generated-username onboarding and the core Now, Poke, Chat, Plan, and meetup-confirmation Simulator journeys pass.
 - [ ] Approve publication of the committed redesign source, tests, migrations, and documentation to the public GitHub repository; automatic approval review rejected the branch push pending explicit disclosure authorization.
 - [ ] Publish `product-redesign`, open the prepared draft pull request, run the verification workflow on GitHub, and configure required checks.
@@ -21,4 +22,5 @@ The user authorized verification against the existing MyaouDB database on 2026-0
 Preflight found no compatibility blocker for the 14 reviewed migrations, but their deployment still needs explicit approval after automatic approval review rejected the first apply attempt.
 No migration was applied by that attempt.
 Local browser fixtures and embedded PostgreSQL pass the implemented behavior but cannot establish production-provider or physical-device readiness.
+The saved recovery archive supports undoing the exact migration batch; it does not satisfy the separate full-backup, Auth/Vault recovery, or hosted restore requirements.
 Additional existing infrastructure prerequisites remain in [manual-actions.md](docs/production-baseline/manual-actions.md).
