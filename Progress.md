@@ -19,7 +19,8 @@ The inspected capture is saved locally as `test-results/native/chat-approximate-
 Native provider failures now show a short recovery message instead of the reproduced Expo Swift stack.
 Temporary diagnostic logging was removed, the app-specific Simulator location permission was restored to its original denied state, and the synthetic coordinate was cleared.
 The local gates pass 1,371 web tests with ten intentional skips, 521 native logic tests, 100 platform renderer tests, root/native lint, and native typecheck.
-The full browser suite and required release CI remain in progress.
+All twelve local browser journeys pass in 52.6 seconds.
+[PR #13](https://github.com/AStoyanov2231/peek-poke.com/pull/13) tracks the required CI, master merge, and deployment checks for this batch.
 The long multi-navigation privacy renderer test has a ten-second timeout; its assertions are unchanged.
 Browser fixtures now support a separate loopback Auth port so those checks can run alongside the native fixture without interrupting it.
 
