@@ -52,6 +52,35 @@ test.describe("redesigned social journey", () => {
     await expect(page.getByRole("textbox", { name: "Message...", exact: true })).toHaveValue("I can meet tomorrow");
     expect(fixture.apiRequests.filter((r) => r.path === `/api/dm/${threadId}` && r.method === "POST")).toHaveLength(0);
   });
+  test("chat expiry preserves an already-open independent Plan draft", async ({ page }) => {
+    const fixture = await installSocialFixture(page, { expiredPokeChat: true });
+    let expired = false;
+    await page.route(`**/api/dm/${threadId}/access`, (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ version: "v1", account_id: ownerId, thread_id: threadId, basis: "poke", expires_at: new Date(Date.now() + (expired ? -60_000 : 86_400_000)).toISOString(), server_now: new Date().toISOString() }),
+    }));
+    await page.goto(`/login?redirectTo=/chat/${threadId}`);
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === `/chat/${threadId}`);
+    await page.getByRole("button", { name: "Turn this into a plan", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Make a plan" });
+    await dialog.getByLabel("What are you doing?").fill("Coffee tomorrow");
+    await dialog.getByLabel("Place or area", { exact: true }).fill("The public park café");
+    expired = true;
+    const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/dm/${threadId}/access`));
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await refreshed;
+    await expect(page.getByText("This Poke conversation has ended.", { exact: true })).toBeVisible();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel("What are you doing?")).toHaveValue("Coffee tomorrow");
+    await expect(dialog.getByLabel("Place or area", { exact: true })).toHaveValue("The public park café");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Message...", exact: true })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Start video call" })).not.toBeVisible();
+    expect(fixture.apiRequests.filter((r) => r.method === "POST" && ["/api/plans", `/api/dm/${threadId}`].includes(r.path))).toHaveLength(0);
+  });
   test("age admission sends adults to their intended destination and keeps blocked accounts out of social routes", async ({ page, browser }) => {
     const adultFixture = await installSocialFixture(page, { ageAdmission: "pending" });
     await page.goto("/login?redirectTo=/now");

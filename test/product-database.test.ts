@@ -621,6 +621,19 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     expect(stored.error).toBeNull();
     expect(stored.data).toHaveLength(1);
 
+    // A Plan is independently owned; the source thread is attribution only.
+    const independent = await api(alice, "/api/plans", {
+      method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomUUID() },
+      body: JSON.stringify({ activity: "coffee", starts_at: new Date(Date.now() + 3_600_000).toISOString(), place_text: "Synthetic public café", visibility: "private", participant_limit: 2, source_thread_id: first.threadId }),
+    });
+    expect(independent.status).toBe(201);
+    const independentPlan = await independent.json();
+    planIds.push(independentPlan.plan.id);
+    const members = await service.from("plan_members").select("user_id").eq("plan_id", independentPlan.plan.id);
+    expect(members.error).toBeNull();
+    expect(members.data).toEqual([{ user_id: alice.id }]);
+    expect((await api(bob, `/api/plans/${independentPlan.plan.id}`)).status).toBe(404);
+
     const renewed = await acceptNewPoke();
     expect(renewed.threadId).toBe(first.threadId);
     expect((await send(randomUUID(), "Accepted renewal allows this message")).status).toBe(200);

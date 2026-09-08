@@ -512,6 +512,14 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
             </div>
           ) : null}
 
+      {/* An already-open Plan is owned independently of the chat window. */}
+      <PlanComposerDialog
+        key={`${user?.id ?? "unknown"}:${threadId}`}
+        open={planComposerOpen}
+        onOpenChange={setPlanComposerOpen}
+        sourceThreadId={threadId}
+        defaultPlaceText={planPlacePrefill}
+      />
       {pokeOpen && other && !isReadOnly ? <PokeDialog recipient={other} onClose={() => setPokeOpen(false)} onSent={() => { setPokeOpen(false); void access.refetch(); }} /> : null}
       {isReadOnly ? (
         <div className="border-t border-hairline bg-surface px-4 py-4 text-center t-caption text-ink-5">
@@ -576,12 +584,6 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
             editError={editError}
             onCancelEdit={handleCancelEdit}
             onSelectImage={(file) => void handleImage(file)}
-          />
-          <PlanComposerDialog
-            open={planComposerOpen}
-            onOpenChange={setPlanComposerOpen}
-            sourceThreadId={threadId}
-            defaultPlaceText={planPlacePrefill}
           />
         </>
       )}

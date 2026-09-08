@@ -18,6 +18,14 @@ The publication gate was resolved by recovering the earlier explicit user approv
 Automatic review accepted that evidence, the branch was pushed, and draft PR #17 was created.
 Web, native, and browser CI passed; the initial SQL job failed because the runner lacked the PostgreSQL APT repository.
 The workflow now installs the official signing key and explicitly configures the PostgreSQL repository before installing version 17.
+All eight CI checks passed on `8c1203735`, including the actual PostgreSQL 17 concurrency suites on Linux.
+The next browser flow reproduced an already-open Plan composer unmounting and losing its draft when the conversation expired.
+Web and native now keep that independent composer mounted, with account/thread keys resetting its data on identity changes.
+The new browser regression passes in 6.4 seconds, and the installed iOS Plan-draft XCUITest passes in 25.9 seconds.
+Creating a Plan does not enroll or message the conversation peer; the hosted journey now verifies owner-only membership after expiry.
+These follow-up changes still require the matching CI rerun.
+React Doctor reports 91/100 with five warnings and no errors: three existing chat-complexity warnings, related-state guidance, and a small environment-validation array-chain warning.
+No detector suppression was added.
 The hosted product suite now includes a dedicated temporary-conversation journey with synthetic accounts, actual accepted renewal, message replay/denial, call replay/cancellation/delayed-delivery denial, readable history, friendship, and block precedence.
 Its call, message, outbox, and user cleanup is explicitly scoped; this new hosted journey is not yet executed, and remains skipped without authorized integration configuration.
 Production still has 183 migrations, 50 profiles, 11 Auth users, and 96 Storage objects.

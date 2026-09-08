@@ -10,6 +10,8 @@ This resolves the brief's temporary-conversation requirement without deleting re
 - Accepted friendship makes the conversation ongoing.
 - Existing legacy conversations with no accepted Poke retain their current behavior.
 - Expiration preserves authorized message history and access to independently authorized Plans.
+- An already-open Plan composer retains its draft through chat expiry or access-check failure.
+- Creating that independent Plan enrolls only its owner; source-thread attribution does not invite, enroll, or message the peer.
 - Expiration prevents new messages, edits that deliver new content, new calls, typing broadcasts, and conversation-generated suggestions or venue requests.
 - Read receipts, deletion of one's own messages, ending an existing call, account erasure, and reporting/blocking remain available where their existing authorization permits them.
 - A new accepted Poke renews the conversation; merely sending a Poke does not.

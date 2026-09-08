@@ -38,3 +38,7 @@ Use a fresh empty draft for repeat runs; the test deliberately preserves its fin
 The fixture state endpoint is not a production API.
 The final iOS run passed in 54.3 seconds, and a separate fixture counter read confirmed zero message sends.
 This is installed development-app evidence, not release signing, physical-device, or store-distribution proof.
+
+`testConversationExpiryPreservesOpenPlanDraft` starts from Now or the synthetic chat, opens the Plan composer, types a title, refreshes access to a four-second window, and verifies the title survives expiry.
+After Cancel it checks that message and call actions are still absent.
+The installed iOS test passes in 25.9 seconds; it does not create a Plan or message the peer.

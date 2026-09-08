@@ -780,7 +780,7 @@ export default function ChatScreen() {
         onDelete={() => contextMessage && void deleteMessage(contextMessage)}
       />
       {pokeOpen && other && !isReadOnly ? <PokeComposer recipientId={other.id} name={displayName(other)} onClose={() => setPokeOpen(false)} onSent={() => { setPokeOpen(false); void access.refetch(); }} /> : null}
-      <PlanComposer open={canInteract && planComposerOpen} onClose={() => setPlanComposerOpen(false)} sourceThreadId={threadId} initialPlaceText={planPlacePrefill} onCreated={(planId) => router.push(`/plans/${planId}` as never)} />
+      <PlanComposer key={`${profile?.id ?? "unknown"}:${threadId}`} open={planComposerOpen} onClose={() => setPlanComposerOpen(false)} sourceThreadId={threadId} initialPlaceText={planPlacePrefill} onCreated={(planId) => router.push(`/plans/${planId}` as never)} />
       </SafeAreaView>
   );
 }

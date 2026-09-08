@@ -116,6 +116,38 @@ final class PeekPokePrivacyAuditUITests: XCTestCase {
     attachScreenshot("conversation-draft-recovered")
   }
 
+  func testConversationExpiryPreservesOpenPlanDraft() {
+    setConversationMode("active")
+    foregroundConversation()
+    let server = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "http://127.0.0.1:8081")).firstMatch
+    if server.waitForExistence(timeout: 3) { server.tap() }
+    if !app.buttons["Turn this into a plan"].exists {
+      requireButton("Inbox", timeout: 60).tap()
+      if app.buttons["I'm in"].waitForExistence(timeout: 3) {
+        app.buttons["I'm in"].tap()
+      } else {
+        requireButton("Chats").tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Mila,")).firstMatch.tap()
+      }
+    }
+    requireButton("Turn this into a plan", timeout: 15).tap()
+    let title = app.textFields["Title (optional)"]
+    XCTAssertTrue(title.waitForExistence(timeout: 8), app.debugDescription)
+    title.tap()
+    title.typeText("Picnic")
+    XCTAssertEqual(title.value as? String, "Picnic")
+    setConversationMode("active", durationMs: 4_000)
+    foregroundConversation()
+    // The refreshed window must expire while the Plan modal stays mounted.
+    RunLoop.current.run(until: Date().addingTimeInterval(6))
+    XCTAssertEqual(title.value as? String, "Picnic", app.debugDescription)
+    attachScreenshot("conversation-expired-plan-draft")
+    requireButton("Cancel").tap()
+    XCTAssertTrue(app.staticTexts["This Poke conversation has ended."].waitForExistence(timeout: 8), app.debugDescription)
+    XCTAssertFalse(app.buttons["Send message"].exists)
+    XCTAssertFalse(app.buttons["Start video call"].exists)
+  }
+
   func testDiscoveryVisibilitySelectionPersistsAfterCloseAndReopen() {
     app.activate()
 
