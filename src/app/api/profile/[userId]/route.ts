@@ -14,6 +14,7 @@ import {
 } from "@/lib/api-contract";
 import { withNoStore } from "@/lib/no-store-response";
 import { publicProfileResponseSchemaFor } from "@peekpoke/shared";
+import { canInteractWithSocialPeer } from "@/lib/social-peer-eligibility";
 
 export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { user, supabase, params }) => {
   const { userId } = params;
@@ -24,6 +25,15 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
 
   if (user.id !== userId && await isBlocked(supabase, user.id, userId)) {
     return apiError("Profile not found", 404, "USER_NOT_FOUND");
+  }
+  if (user.id !== userId) {
+    const eligibility = await canInteractWithSocialPeer(user.id, userId);
+    if (eligibility.unavailable) {
+      return apiError("Profile is temporarily unavailable", 503, "PROFILE_FETCH_FAILED");
+    }
+    if (!eligibility.eligible) {
+      return apiError("Profile not found", 404, "USER_NOT_FOUND");
+    }
   }
 
   // This RPC is service-role-only because it joins private profile/photo data.

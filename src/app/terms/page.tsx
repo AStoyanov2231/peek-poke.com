@@ -10,8 +10,9 @@ export default function Page() {
       <section>
         <h2>Be an adult. Be yourself.</h2>
         <p>
-          This community is intended for people aged 18 and over. Use an honest
-          profile and do not impersonate someone else or misrepresent a meetup.
+          You must be at least 18 to use Peek & Poke. Give your real birth date
+          when checking eligibility, use an honest profile, and do not impersonate
+          someone else or misrepresent a meetup.
         </p>
       </section>
       <section>

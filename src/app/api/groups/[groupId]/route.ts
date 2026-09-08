@@ -5,6 +5,7 @@ import {
   messageSchema,
   sharedGroupMessageCreateSchema,
   sharedGroupMessagesResponseSchema,
+  sharedGroupSummarySchema,
 } from "@peekpoke/shared";
 import { withAuth } from "@/lib/auth";
 import { apiError } from "@/lib/api-error";
@@ -15,18 +16,10 @@ import {
 import { createServiceClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { isValidUUID } from "@/lib/validation";
-import {
-  getSharedGroupMembership,
-  getSharedGroupSummary,
-  mapSharedGroupMessage,
-  SHARED_GROUP_MESSAGE_COLUMNS,
-} from "@/lib/shared-groups";
+import { mapSharedGroupMessage } from "@/lib/shared-groups";
 import { parseBody } from "@/lib/validators";
 import { decodeCursor } from "@peekpoke/shared";
-import {
-  finalizeDescendingSequencePage,
-  olderThanSequenceCursor,
-} from "@/lib/message-history";
+import { finalizeDescendingSequencePage } from "@/lib/message-history";
 
 const groupMessageRpcSchema = z.strictObject({
   message: z.unknown(),
@@ -40,29 +33,16 @@ const groupMessageRpcErrorSchema = z.strictObject({
     "IDEMPOTENCY_KEY_REUSED",
   ]),
 });
+const groupDetailRpcSchema = z.strictObject({
+  group: sharedGroupSummarySchema,
+  messages: z.array(z.unknown()).max(101),
+  last_read_sequence: z.number().int().nonnegative(),
+});
+const groupDetailRpcErrorSchema = z.strictObject({ error: z.literal("GROUP_NOT_FOUND") });
 
 export const GET = withAuth<{ groupId: string }>(async (request, { user, params }) => {
   const { groupId } = params;
   if (!isValidUUID(groupId)) return apiError("Group not found", 404, "GROUP_NOT_FOUND");
-
-  const service = createServiceClient();
-  let membership: Awaited<ReturnType<typeof getSharedGroupMembership>>;
-  try {
-    membership = await getSharedGroupMembership(service, groupId, user.id);
-  } catch (error) {
-    console.error("groups/[groupId]: membership check failed", error);
-    return apiError("Group messages are temporarily unavailable", 503, "GROUP_MESSAGES_FETCH_FAILED");
-  }
-  if (!membership) return apiError("Group not found", 404, "GROUP_NOT_FOUND");
-  const lastReadSequence = Number(membership.last_read_sequence ?? 0);
-  let group: Awaited<ReturnType<typeof getSharedGroupSummary>>;
-  try {
-    group = await getSharedGroupSummary(service, groupId, lastReadSequence);
-  } catch (error) {
-    console.error("groups/[groupId]: summary failed", error);
-    return apiError("Group messages are temporarily unavailable", 503, "GROUP_MESSAGES_FETCH_FAILED");
-  }
-  if (!group) return apiError("Group not found", 404, "GROUP_NOT_FOUND");
 
   const pagination = parseContractPagination(request);
   if (pagination.error) return pagination.error;
@@ -76,29 +56,33 @@ export const GET = withAuth<{ groupId: string }>(async (request, { user, params 
   )) {
     return apiError("Invalid cursor", 400, "INVALID_CURSOR");
   }
-  let query = service
-    .from("shared_group_messages")
-    .select(SHARED_GROUP_MESSAGE_COLUMNS)
-    .eq("group_id", groupId)
-    .order("sequence", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(pagination.data.limit + 1);
-  if (decodedCursor) query = query.or(olderThanSequenceCursor(decodedCursor));
-  const { data: rows, error } = await query;
+  const { data, error } = await createServiceClient().rpc("get_shared_group_detail_for_user_v1", {
+    p_group_id: groupId,
+    p_user_id: user.id,
+    p_before_sequence: sequenceCursor,
+    p_before_id: decodedCursor?.id ?? null,
+    p_limit: pagination.data.limit,
+  });
   if (error) {
-    console.error("groups/[groupId]: messages failed", error);
+    console.error("groups/[groupId]: detail reader failed", error);
+    return apiError("Group messages are temporarily unavailable", 503, "GROUP_MESSAGES_FETCH_FAILED");
+  }
+  if (groupDetailRpcErrorSchema.safeParse(data).success) return apiError("Group not found", 404, "GROUP_NOT_FOUND");
+  const detail = groupDetailRpcSchema.safeParse(data);
+  if (!detail.success) {
+    console.error("groups/[groupId]: malformed detail reader response");
     return apiError("Group messages are temporarily unavailable", 503, "GROUP_MESSAGES_FETCH_FAILED");
   }
 
   const page = finalizeDescendingSequencePage(
-    (rows ?? []) as unknown as Array<{ id: string; sequence: number }>,
+    detail.data.messages as Array<{ id: string; sequence: number }>,
     pagination.data.limit,
   );
   const messages = page.items
-    .map((row) => mapSharedGroupMessage(row, groupId, lastReadSequence))
+    .map((row) => mapSharedGroupMessage(row, groupId, detail.data.last_read_sequence))
     .reverse();
   const response = sharedGroupMessagesResponseSchema.safeParse({
-    group,
+    group: detail.data.group,
     messages,
     pagination: {
       version: "v1",

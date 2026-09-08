@@ -95,7 +95,15 @@ describe("chat meetup confirmation parity", () => {
     expect(nativeRoot).toContain("observeMeetingAuthOwner(eventKey.userId)");
     expect(nativeRoot.indexOf("observeMeetingAuthOwner(null)"))
       .toBeLessThan(nativeRoot.indexOf("bootstrapCoordinator.invalidate()"));
-    expect(nativeRoot.indexOf("observeMeetingAuthOwner(eventKey.userId)"))
-      .toBeLessThan(nativeRoot.indexOf("nativePushRegistration.observeAuth(eventKey"));
+    const signedInBranch = nativeRoot.match(/if \(event === "SIGNED_IN" && session\?\.user\) \{([\s\S]*?)\n      \}/)?.[1];
+    expect(signedInBranch).toBeDefined();
+    expect(signedInBranch).toMatch(
+      /observeMeetingAuthOwner\(eventKey\.userId\);[\s\S]*setSessionUserId\(eventKey\.userId\);/,
+    );
+    const bootstrapBranch = nativeRoot.match(/\(session: Session\) => \{([\s\S]*?)const promise = bootstrapCoordinator\.start/)?.[1];
+    expect(bootstrapBranch).toBeDefined();
+    expect(bootstrapBranch).toMatch(
+      /observeMeetingAuthOwner\(key\.userId\);[\s\S]*bootstrapUserIdRef\.current = key\.userId;/,
+    );
   });
 });

@@ -20,6 +20,7 @@ export const coreNativeStackRoutes = [
   "/(auth)/login",
   "/auth/callback",
   "/auth/reset-password",
+  "/age-admission",
   "/onboarding",
   "/(app)",
   "/chat/[threadId]",

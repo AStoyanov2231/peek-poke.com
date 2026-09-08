@@ -45,6 +45,8 @@ describe("friend-request outbox delivery", () => {
   it("broadcasts one claimed friendship event to exactly the two private user topics", async () => {
     let claimed = false;
     database.rpc.mockImplementation(async (name: string) => {
+      if (name === "can_users_interact_v1") return { data: true, error: null };
+      if (name === "is_adult_social_admitted_v1") return { data: true, error: null };
       if (name === "claim_outbox_events") {
         if (claimed) return { data: [], error: null };
         claimed = true;
@@ -89,6 +91,8 @@ describe("friend-request outbox delivery", () => {
 
   it("broadcasts one accepted response event to both participants", async () => {
     database.rpc.mockImplementation(async (name: string) => {
+      if (name === "can_users_interact_v1") return { data: true, error: null };
+      if (name === "is_adult_social_admitted_v1") return { data: true, error: null };
       if (name === "claim_outbox_events") {
         return {
           data: [{
@@ -130,6 +134,8 @@ describe("friend-request outbox delivery", () => {
 
   it("broadcasts removal to both participants and refund convergence only to its owner", async () => {
     database.rpc.mockImplementation(async (name: string) => {
+      if (name === "can_users_interact_v1") return { data: true, error: null };
+      if (name === "is_adult_social_admitted_v1") return { data: true, error: null };
       if (name === "claim_outbox_events") {
         return {
           data: [{
@@ -179,6 +185,8 @@ describe("friend-request outbox delivery", () => {
 
   it("broadcasts a durable blocked event to both affected users", async () => {
     database.rpc.mockImplementation(async (name: string) => {
+      if (name === "can_users_interact_v1") return { data: true, error: null };
+      if (name === "is_adult_social_admitted_v1") return { data: true, error: null };
       if (name === "claim_outbox_events") {
         return {
           data: [{
@@ -218,8 +226,46 @@ describe("friend-request outbox delivery", () => {
     ]);
   });
 
+  it("uses an adult-only generic cache hint after a block or pending admission", async () => {
+    database.rpc.mockImplementation(async (name: string, args: unknown) => {
+      if (name === "can_users_interact_v1") {
+        expect(args).toEqual({ p_user_a: REQUESTER_ID, p_user_b: ADDRESSEE_ID });
+        return { data: false, error: null };
+      }
+      if (name === "is_adult_social_admitted_v1") {
+        return { data: (args as { p_user_id: string }).p_user_id === REQUESTER_ID, error: null };
+      }
+      if (name === "claim_outbox_events") return { data: [{
+        id: "10000000-0000-4000-8000-000000000011",
+        event_type: "user.blocked",
+        aggregate_id: FRIENDSHIP_ID,
+        payload: {
+          friendship_id: FRIENDSHIP_ID,
+          requester_id: REQUESTER_ID,
+          addressee_id: ADDRESSEE_ID,
+          action: "blocked",
+        },
+        attempts: 1,
+      }], error: null };
+      if (name === "complete_outbox_event") return { data: true, error: null };
+      if (name === "cleanup_completed_workflow_rows") return { data: 0, error: null };
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+
+    await expect(processOutboxBatch()).resolves.toMatchObject({ claimed: 1, completed: 1 });
+
+    expect(broadcastPrivateRealtimeEvent).toHaveBeenCalledTimes(1);
+    expect(broadcastPrivateRealtimeEvent).toHaveBeenCalledWith(
+      `sync:user:${REQUESTER_ID}`,
+      "friendships-changed",
+      { changed: true },
+    );
+  });
+
   it("broadcasts meeting coin convergence to exactly both awarded users", async () => {
     database.rpc.mockImplementation(async (name: string) => {
+      if (name === "can_users_interact_v1") return { data: true, error: null };
+      if (name === "is_adult_social_admitted_v1") return { data: true, error: null };
       if (name === "claim_outbox_events") {
         return {
           data: [{
@@ -264,5 +310,40 @@ describe("friend-request outbox delivery", () => {
         },
       ],
     ]);
+  });
+
+  it("removes meeting identity and skips non-adult recipients when the pair is no longer eligible", async () => {
+    database.rpc.mockImplementation(async (name: string, args: unknown) => {
+      if (name === "can_users_interact_v1") {
+        expect(args).toEqual({ p_user_a: REQUESTER_ID, p_user_b: ADDRESSEE_ID });
+        return { data: false, error: null };
+      }
+      if (name === "is_adult_social_admitted_v1") {
+        return { data: (args as { p_user_id: string }).p_user_id === REQUESTER_ID, error: null };
+      }
+      if (name === "claim_outbox_events") return { data: [{
+        id: "10000000-0000-4000-8000-000000000012",
+        event_type: "coin.meeting_awarded",
+        aggregate_id: "10000000-0000-4000-8000-000000000013",
+        payload: {
+          meeting_id: "10000000-0000-4000-8000-000000000013",
+          user_a_id: REQUESTER_ID,
+          user_b_id: ADDRESSEE_ID,
+        },
+        attempts: 1,
+      }], error: null };
+      if (name === "complete_outbox_event") return { data: true, error: null };
+      if (name === "cleanup_completed_workflow_rows") return { data: 0, error: null };
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+
+    await expect(processOutboxBatch()).resolves.toMatchObject({ completed: 1 });
+
+    expect(broadcastPrivateRealtimeEvent).toHaveBeenCalledWith(
+      `sync:user:${REQUESTER_ID}`,
+      "coins-changed",
+      { changed: true, reason: "meeting_awarded" },
+    );
+    expect(broadcastPrivateRealtimeEvent).toHaveBeenCalledTimes(1);
   });
 });

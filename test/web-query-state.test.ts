@@ -156,6 +156,7 @@ describe("web remote-state queries", () => {
         version: "v1",
         identity: { id: "11111111-1111-4111-8111-111111111111", email: "a@example.com" },
         onboarding_completed: true,
+        age_admission: { status: "adult", decided_at: "2026-09-08T00:00:00.000Z" },
         roles: ["user"],
         feature_config_version: "v1",
         unread_summary: { threads: 0 },

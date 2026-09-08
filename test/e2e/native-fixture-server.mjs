@@ -18,6 +18,24 @@ let incomingPokeAccepted = false;
 let planMeetupViewerConfirmed = false;
 let chatMeetupViewerConfirmed = false;
 let discoveryPreference = { audience: "everyone" };
+let ageAdmission = { status: "adult", decided_at: "2026-09-08T00:00:00.000Z" };
+
+function admission(status) {
+  return {
+    status,
+    decided_at: status === "pending" ? null : now(),
+  };
+}
+
+function isAdultBirthDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (year < 1900 || month < 1 || month > 12 || date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  const today = new Date();
+  const threshold = new Date(Date.UTC(today.getUTCFullYear() - 18, today.getUTCMonth(), today.getUTCDate()));
+  return date <= threshold;
+}
 
 const owner = {
   id: ownerId,
@@ -177,6 +195,13 @@ createServer(async (req, res) => {
     onboarding = body.completed === true;
     return json(res, { completed: onboarding });
   }
+  if (url.pathname === "/__test/age-admission" && method === "POST") {
+    if (!Object.hasOwn(body, "status") || !["pending", "adult", "blocked"].includes(body.status)) {
+      return json(res, { error: "invalid admission fixture state", code: "VALIDATION_ERROR" }, 400);
+    }
+    ageAdmission = admission(body.status);
+    return json(res, ageAdmission);
+  }
   if (url.pathname === "/api/auth/profile" && method === "POST")
     return json(res, { created: false, profile: { id: ownerId, onboarding_completed: onboarding } });
   if (url.pathname === "/api/bootstrap")
@@ -184,10 +209,20 @@ createServer(async (req, res) => {
       version: "v1",
       identity: { id: ownerId, email: "e2e@peek-poke.test" },
       onboarding_completed: onboarding,
+      age_admission: ageAdmission,
       roles: ["user"],
       feature_config_version: "v1",
       unread_summary: { threads: 0 },
     });
+  if (url.pathname === "/api/age-admission") {
+    if (method === "GET") return json(res, ageAdmission, 200, { "cache-control": "no-store" });
+    if (method === "POST") {
+      const isAdult = isAdultBirthDate(body.birth_date);
+      if (isAdult === null) return json(res, { error: "Enter a valid birth date", code: "INVALID_BIRTH_DATE" }, 400);
+      if (ageAdmission.status === "pending") ageAdmission = admission(isAdult ? "adult" : "blocked");
+      return json(res, ageAdmission, 200, { "cache-control": "no-store" });
+    }
+  }
   if (url.pathname === "/api/profile/username" && method === "PATCH") {
     owner.username = body.username;
     return json(res, { profile: ownerProfile() });

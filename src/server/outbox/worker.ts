@@ -46,6 +46,36 @@ function stringField(payload: Record<string, unknown>, key: string) {
   return value;
 }
 
+async function usersCanReceiveSocialDelivery(
+  supabase: SupabaseClient,
+  userAId: string,
+  userBId: string,
+) {
+  const { data, error } = await supabase.rpc("can_users_interact_v1", {
+    p_user_a: userAId,
+    p_user_b: userBId,
+  });
+  if (error) throw error;
+  if (data !== true && data !== false) {
+    throw new Error("Social delivery authorization returned an invalid decision");
+  }
+  return data;
+}
+
+async function userCanReceiveSocialDelivery(
+  supabase: SupabaseClient,
+  userId: string,
+) {
+  const { data, error } = await supabase.rpc("is_adult_social_admitted_v1", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  if (data !== true && data !== false) {
+    throw new Error("Social delivery admission returned an invalid decision");
+  }
+  return data;
+}
+
 async function handleMessageEvent(
   supabase: SupabaseClient,
   event: OutboxEvent,
@@ -64,9 +94,12 @@ async function handleMessageEvent(
   const sequence = typeof event.payload.sequence === "number"
     ? event.payload.sequence
     : undefined;
-  const userIds = [...new Set([recipientId, senderId, actorId].filter(
-    (value): value is string => Boolean(value),
-  ))];
+  const originId = action === "read" ? actorId : senderId;
+  if (!recipientId || !originId
+    || !await usersCanReceiveSocialDelivery(supabase, originId, recipientId)) {
+    return;
+  }
+  const userIds = [...new Set([originId, recipientId])];
 
   const delivered = await Promise.all(userIds.map((userId) =>
     broadcastPrivateRealtimeEvent(
@@ -219,20 +252,34 @@ async function handleSharedGroupMessageEvent(
   }
 }
 
-async function handleFriendshipChanged(event: OutboxEvent) {
+async function handleFriendshipChanged(
+  supabase: SupabaseClient,
+  event: OutboxEvent,
+) {
   const friendshipId = stringField(event.payload, "friendship_id");
   const requesterId = stringField(event.payload, "requester_id");
   const addresseeId = stringField(event.payload, "addressee_id");
   const action = stringField(event.payload, "action");
-  const delivered = await Promise.all([requesterId, addresseeId].map((userId) =>
+  const pairEligible = await usersCanReceiveSocialDelivery(
+    supabase,
+    requesterId,
+    addresseeId,
+  );
+  const recipients = pairEligible
+    ? [requesterId, addresseeId]
+    : (await Promise.all([requesterId, addresseeId].map((userId) =>
+      userCanReceiveSocialDelivery(supabase, userId)
+    ))).flatMap((isAdult, index) => isAdult
+      ? [[requesterId, addresseeId][index]]
+      : []);
+  const payload = pairEligible
+    ? { changed: true, friendship_id: friendshipId, action }
+    : { changed: true };
+  const delivered = await Promise.all(recipients.map((userId) =>
     broadcastPrivateRealtimeEvent(
       `sync:user:${userId}`,
       "friendships-changed",
-      {
-        changed: true,
-        friendship_id: friendshipId,
-        action,
-      },
+      payload,
     )));
   if (delivered.some((value) => !value)) {
     throw new Error("Realtime Broadcast delivery failed");
@@ -243,26 +290,44 @@ async function handleFriendshipChanged(event: OutboxEvent) {
     if (refundOwnerId !== requesterId) {
       throw new Error("Friendship refund owner does not match requester");
     }
-    const refundDelivered = await broadcastPrivateRealtimeEvent(
-      `sync:user:${refundOwnerId}`,
-      "coins-changed",
-      { changed: true, reason: "friendship_refund" },
-    );
-    if (!refundDelivered) {
-      throw new Error("Realtime refund delivery failed");
+    if (await userCanReceiveSocialDelivery(supabase, refundOwnerId)) {
+      const refundDelivered = await broadcastPrivateRealtimeEvent(
+        `sync:user:${refundOwnerId}`,
+        "coins-changed",
+        { changed: true, reason: "friendship_refund" },
+      );
+      if (!refundDelivered) {
+        throw new Error("Realtime refund delivery failed");
+      }
     }
   }
 }
 
-async function handleCoinMeetingAwarded(event: OutboxEvent) {
+async function handleCoinMeetingAwarded(
+  supabase: SupabaseClient,
+  event: OutboxEvent,
+) {
   const meetingId = stringField(event.payload, "meeting_id");
   const userAId = stringField(event.payload, "user_a_id");
   const userBId = stringField(event.payload, "user_b_id");
-  const delivered = await Promise.all([userAId, userBId].map((userId) =>
+  const pairEligible = await usersCanReceiveSocialDelivery(
+    supabase,
+    userAId,
+    userBId,
+  );
+  const recipients = pairEligible
+    ? [userAId, userBId]
+    : (await Promise.all([userAId, userBId].map((userId) =>
+      userCanReceiveSocialDelivery(supabase, userId)
+    ))).flatMap((isAdult, index) => isAdult ? [[userAId, userBId][index]] : []);
+  const payload = pairEligible
+    ? { changed: true, reason: "meeting_awarded", meeting_id: meetingId }
+    : { changed: true, reason: "meeting_awarded" };
+  const delivered = await Promise.all(recipients.map((userId) =>
     broadcastPrivateRealtimeEvent(
       `sync:user:${userId}`,
       "coins-changed",
-      { changed: true, reason: "meeting_awarded", meeting_id: meetingId },
+      payload,
     )));
   if (delivered.some((value) => !value)) {
     throw new Error("Realtime meeting coin delivery failed");
@@ -604,11 +669,11 @@ async function dispatchOutboxEvent(
     || event.event_type === "friendship.removed"
     || event.event_type === "user.blocked"
   ) {
-    await handleFriendshipChanged(event);
+    await handleFriendshipChanged(supabase, event);
     return;
   }
   if (event.event_type === "coin.meeting_awarded") {
-    await handleCoinMeetingAwarded(event);
+    await handleCoinMeetingAwarded(supabase, event);
     return;
   }
   if (event.event_type === "poke.created" || event.event_type === "poke.accepted") {

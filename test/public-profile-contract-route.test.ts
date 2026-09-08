@@ -32,6 +32,7 @@ const database = vi.hoisted(() => ({
 const storage = vi.hoisted(() => ({
   sign: vi.fn(),
 }));
+const eligibility = vi.hoisted(() => ({ canInteract: vi.fn() }));
 
 vi.mock("@/lib/auth", () => ({
   withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
@@ -51,6 +52,9 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/storage-urls", () => ({
   signPrivateProfilePhotos: storage.sign,
+}));
+vi.mock("@/lib/social-peer-eligibility", () => ({
+  canInteractWithSocialPeer: eligibility.canInteract,
 }));
 
 import { GET } from "@/app/api/profile/[userId]/route";
@@ -135,6 +139,7 @@ describe("public profile route contract", () => {
     state.subscriber = false;
     state.rpcData = rpcPayload();
     state.photoRows = [photo(PUBLIC_PHOTO_ID, false), photo(PRIVATE_PHOTO_ID, true)];
+    eligibility.canInteract.mockResolvedValue({ eligible: true });
 
     database.rpc.mockImplementation(async () => ({ data: state.rpcData, error: null }));
     database.order.mockImplementation(async () => ({ data: state.photoRows, error: null }));
@@ -255,6 +260,17 @@ describe("public profile route contract", () => {
       code: "USER_NOT_FOUND",
       message: "Profile not found",
     });
+  });
+
+  it("does not fetch a pending or blocked peer profile", async () => {
+    eligibility.canInteract.mockResolvedValue({ eligible: false });
+
+    const response = await requestProfile();
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: "USER_NOT_FOUND" });
+    expect(database.rpc).not.toHaveBeenCalled();
+    expect(database.from).not.toHaveBeenCalled();
   });
 
   it.each([

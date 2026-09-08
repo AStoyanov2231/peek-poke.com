@@ -22,6 +22,7 @@ const boundaries = vi.hoisted(() => ({
   isDeletedProfile: vi.fn(),
   verifyThreadMembership: vi.fn(),
 }));
+const eligibility = vi.hoisted(() => ({ canInteract: vi.fn() }));
 
 vi.mock("@/lib/auth", () => ({
   withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
@@ -48,6 +49,9 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/rate-limit", () => ({
   enforceRateLimit: boundaries.enforceRateLimit,
+}));
+vi.mock("@/lib/social-peer-eligibility", () => ({
+  canInteractWithSocialPeer: eligibility.canInteract,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -172,6 +176,7 @@ function allowValidIngress() {
     participant_1_id: USER_ID,
     participant_2_id: PEER_ID,
   });
+  eligibility.canInteract.mockResolvedValue({ eligible: true });
 }
 
 function expectNoPostValidationSideEffects() {

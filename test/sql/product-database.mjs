@@ -25,11 +25,29 @@ try {
   // intentionally not a substitute for the legacy friendship/outbox baseline.
   await db.exec(`
     create role anon; create role authenticated; create role service_role;
+    create schema app_private; create schema auth; create schema realtime;
+    create table realtime.messages (id bigint primary key, topic text, extension text, private boolean);
+    create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
     create table public.profiles (id uuid primary key, username text not null, display_name text, avatar_url text, location_text text, is_online boolean not null default false, last_seen_at timestamptz, deleted_at timestamptz, onboarding_completed boolean not null default true);
     create table public.user_blocks (id uuid primary key default gen_random_uuid(), blocker_id uuid not null references public.profiles(id), blocked_id uuid not null references public.profiles(id));
     create table public.friendships (id uuid primary key default gen_random_uuid(), requester_id uuid not null references public.profiles(id), addressee_id uuid not null references public.profiles(id), status text not null, requested_at timestamptz not null default now(), responded_at timestamptz);
+    -- Legacy rows and composite RPCs referenced by the assembled age migration.
+    -- These are metadata-shaped compiler fixtures, not a reconstructed baseline.
+    create type public.friendship_status as enum ('pending', 'accepted', 'declined', 'blocked');
+    create table public.dm_messages (id uuid primary key default gen_random_uuid(), thread_id uuid, sender_id uuid, client_id uuid, content text, message_type text default 'text', media_url text, media_thumbnail_url text, reply_to_id uuid, sequence bigint default 0, is_read boolean default false, is_deleted boolean default false, created_at timestamptz default now(), updated_at timestamptz default now());
+    create table public.call_sessions (id uuid primary key default gen_random_uuid(), thread_id uuid, initiator_id uuid, recipient_id uuid, status text, created_at timestamptz default now(), updated_at timestamptz default now(), ended_at timestamptz, answered_at timestamptz, offer_sdp text, answer_sdp text, version bigint default 0);
+    create table public.call_signal_commands (id uuid primary key default gen_random_uuid(), call_session_id uuid, actor_id uuid, command text, client_id uuid, created_at timestamptz default now());
+    create table public.shared_groups (id uuid primary key default gen_random_uuid(), name text, created_by uuid, created_at timestamptz default now(), next_message_sequence bigint default 0, last_message_at timestamptz, last_message_preview text);
+    create table public.shared_group_messages (id uuid primary key default gen_random_uuid(), group_id uuid, sender_id uuid, client_id uuid, content text, sequence bigint default 0, is_read boolean default false, created_at timestamptz default now());
+    create table public.shared_group_delivery_leases (group_id uuid, user_id uuid, lease_token uuid, leased_at timestamptz default now(), primary key(group_id,user_id));
+    create table public.dm_media_claims (message_id uuid primary key, claimant_id uuid, claimed_at timestamptz default now());
+    create table public.dm_media_cleanup_snapshots (message_id uuid primary key, payload jsonb default '{}'::jsonb);
+    create table public.dm_media_path_generations (path text primary key, generation bigint default 0);
+    create table public.chat_rooms (id uuid primary key default gen_random_uuid(), created_by uuid, created_at timestamptz default now());
+    create table public.chat_room_members (room_id uuid, user_id uuid, primary key(room_id,user_id));
+    create table public.chat_room_messages (id uuid primary key default gen_random_uuid(), room_id uuid, sender_id uuid, reply_to_id uuid, created_at timestamptz default now());
     create table public.user_locations (user_id uuid primary key references public.profiles(id), lat double precision not null, lng double precision not null, updated_at timestamptz not null default now());
-    create table public.interest_tags (id uuid primary key default gen_random_uuid(), name text not null);
+    create table public.interest_tags (id uuid primary key default gen_random_uuid(), name text not null, icon text);
     create table public.profile_interests (id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles(id), tag_id uuid not null references public.interest_tags(id));
     create table public.user_coins (user_id uuid primary key references public.profiles(id), balance integer not null default 5, updated_at timestamptz not null default now());
     create table public.coin_transactions (id uuid primary key default gen_random_uuid(), user_id uuid, amount integer, reason text, related_user_id uuid);
@@ -59,6 +77,7 @@ try {
     create function extensions.gen_random_uuid() returns uuid language sql as $$ select public.gen_random_uuid() $$;
     create function extensions.gen_random_bytes(integer) returns bytea language sql as $$ select public.gen_random_bytes($1) $$;
     create function extensions.digest(text, text) returns bytea language sql as $$ select public.digest($1, $2) $$;
+    create function extensions.similarity(text, text) returns real language sql immutable as $$ select 0::real $$;
   `);
   await db.exec(await sql("supabase/migrations/20260908113140_free_social_graph_and_coarse_nearby.sql"));
   await db.exec(await sql("supabase/migrations/20260908113317_product_social_intent.sql"));
@@ -487,6 +506,50 @@ try {
   assert(weeklyMetrics.rows.at(-1).socially_active_accounts >= 2 && weeklyMetrics.rows.at(-1).repeat_week_socially_active_accounts >= 1, "weekly social activity must count durable repeat social actors, not readers");
   const metricsRoleGate = await db.query("select has_function_privilege('authenticated', 'public.product_daily_funnel_metrics(date, date)', 'EXECUTE') app_read, has_function_privilege('service_role', 'public.product_daily_funnel_metrics(date, date)', 'EXECUTE') service_read, has_function_privilege('authenticated', 'public.product_weekly_social_activity_metrics(date, date)', 'EXECUTE') app_weekly_read, has_function_privilege('service_role', 'public.product_weekly_social_activity_metrics(date, date)', 'EXECUTE') service_weekly_read");
   assert(metricsRoleGate.rows[0].app_read === false && metricsRoleGate.rows[0].service_read === true && metricsRoleGate.rows[0].app_weekly_read === false && metricsRoleGate.rows[0].service_weekly_read === true, "product metrics must be service-only");
+
+  await db.exec(await sql("supabase/migrations/20260908125054_account_age_admission.sql"));
+  const pendingAdmission = await db.query("select public.read_account_age_admission_v1($1::uuid) payload", [ids.alex]);
+  const adultAdmission = await db.query("select public.record_account_age_admission_v1($1::uuid,true) payload", [ids.alex]);
+  const immutableAdmission = await db.query("select public.record_account_age_admission_v1($1::uuid,false) payload", [ids.alex]);
+  const blockedAdmission = await db.query("select public.record_account_age_admission_v1($1::uuid,false) payload", [ids.blair]);
+  let pendingDenied = false;
+  let blockedDenied = false;
+  try { await db.query("select public.require_adult_social_admission_v1($1::uuid)", [ids.casey]); } catch (error) { pendingDenied = error?.message?.includes("AGE_ADMISSION_REQUIRED"); }
+  try { await db.query("select public.require_adult_social_admission_v1($1::uuid)", [ids.blair]); } catch (error) { blockedDenied = error?.message?.includes("AGE_NOT_ELIGIBLE"); }
+  await db.query("select public.require_adult_social_admission_v1($1::uuid)", [ids.alex]);
+  const admissionRoleGate = await db.query("select has_table_privilege('authenticated','public.account_age_admissions','select') table_read, has_function_privilege('authenticated','public.read_account_age_admission_v1(uuid)','execute') app_read, has_function_privilege('service_role','public.read_account_age_admission_v1(uuid)','execute') service_read");
+  assert(pendingAdmission.rows[0].payload.status === 'pending' && pendingAdmission.rows[0].payload.decided_at === null && adultAdmission.rows[0].payload.status === 'adult' && immutableAdmission.rows[0].payload.status === 'adult' && blockedAdmission.rows[0].payload.status === 'blocked', "age admission must default to pending and keep its first self-declaration immutable");
+  assert(pendingDenied && blockedDenied && admissionRoleGate.rows[0].table_read === false && admissionRoleGate.rows[0].app_read === false && admissionRoleGate.rows[0].service_read === true, "age admission must deny pending and blocked social actors while remaining service-only");
+
+  // Exercise the assembled product RPC replacements after the adult decision.
+  // Casey stays pending and Blair stays blocked to verify actor and peer gates.
+  // Dana and Erin are deliberately tombstoned by the preceding erasure tests.
+  // Use newly-created accounts so this verifies age gates without weakening that coverage.
+  const adultA = "66666666-6666-4666-8666-666666666666";
+  const adultB = "77777777-7777-4777-8777-777777777777";
+  await db.query("insert into public.profiles(id,username,display_name) values ($1::uuid,'frank','Frank'),($2::uuid,'grace','Grace')", [adultA, adultB]);
+  await db.query("select public.record_account_age_admission_v1($1::uuid,true)", [adultA]);
+  await db.query("select public.record_account_age_admission_v1($1::uuid,true)", [adultB]);
+  const adultAvailability = await db.query("select public.upsert_user_availability($1::uuid,'coffee',null,30) payload", [adultA]);
+  const adultPoke = await db.query("select public.create_poke($1::uuid,$2::uuid,'coffee',null,'Age-gated hello','age-poke-happy-0001') payload", [adultA, adultB]);
+  const adultInbox = await db.query("select public.get_active_pokes($1::uuid,20) payload", [adultB]);
+  const acceptedPoke = await db.query("select public.respond_to_poke($1::uuid,$2::uuid,'accept','age-poke-accept-001') payload", [adultB, adultPoke.rows[0].payload.poke.id]);
+  const adultPlan = await db.query("select public.plan_create_v2($1::uuid,'Coffee','Age verified plan',now()+interval '2 hours','Public cafe','private',null::uuid,2::smallint,null::uuid,'age-plan-happy-0001',repeat('a',64),false) payload", [adultA]);
+  const adultPlans = await db.query("select public.plans_list_v2($1::uuid) payload", [adultA]);
+  let pendingAvailabilityDenied = false;
+  let blockedPokesDenied = false;
+  try { await db.query("select public.upsert_user_availability($1::uuid,'coffee',null,30)", [ids.casey]); } catch (error) { pendingAvailabilityDenied = error?.message?.includes("AGE_ADMISSION_REQUIRED"); }
+  try { await db.query("select public.get_active_pokes($1::uuid,20)", [ids.blair]); } catch (error) { blockedPokesDenied = error?.message?.includes("AGE_NOT_ELIGIBLE"); }
+  const pendingPeerPoke = await db.query("select public.create_poke($1::uuid,$2::uuid,'coffee',null,'Must not persist','age-poke-pending-01') payload", [adultA, ids.casey]);
+  const pendingPeerRows = await db.query("select count(*)::int count from public.pokes where sender_id=$1::uuid and recipient_id=$2::uuid and note='Must not persist'", [adultA, ids.casey]);
+  assert(adultAvailability.rows[0].payload.availability?.userId === adultA && adultInbox.rows[0].payload.received.length === 1 && acceptedPoke.rows[0].payload.threadId && adultPlan.rows[0].payload.plan?.id && adultPlans.rows[0].payload.plans.some((plan) => plan.id === adultPlan.rows[0].payload.plan.id), "adult admission must preserve availability, Poke acceptance into a DM, and Plan creation/listing");
+  assert(pendingAvailabilityDenied && blockedPokesDenied && pendingPeerPoke.rows[0].payload.error === "BLOCKED" && pendingPeerRows.rows[0].count === 0, "pending or blocked actors and pending peers must be denied before social writes");
+
+  await db.query("update public.profiles set deleted_at=now() where id=$1::uuid", [ids.alex]);
+  const tombstonedAdmission = await db.query("select public.read_account_age_admission_v1($1::uuid) payload", [ids.alex]);
+  let tombstonedAdmissionWriteRejected = false;
+  try { await db.query("select public.record_account_age_admission_v1($1::uuid,true)", [ids.alex]); } catch (error) { tombstonedAdmissionWriteRejected = error?.code === 'P0002'; }
+  assert(tombstonedAdmission.rows[0].payload.status === 'pending' && tombstonedAdmissionWriteRejected, "soft account erasure must purge admission and reject a stale declaration write");
   console.log("product database validation passed");
 } finally {
   await db.close();

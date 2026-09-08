@@ -12,9 +12,9 @@ It fails for high- or critical-severity production dependency advisories and del
 The gate reports risk only; it never changes dependency manifests or the lockfile automatically.
 The latest local production audit reported zero high or critical advisories and 15 moderate advisories.
 The web job then runs root linting, browser-independent tests, and a production Next build with loopback fixture values only in `.next-ci-verify`.
-The SQL job runs the two embedded PGlite fixture scripts.
+The SQL job runs the legacy SQL compatibility fixture and three product PGlite suites covering the complete migration chain, restrictive age policies, and filtered group pagination.
 The native job runs the Expo TypeScript, lint, Vitest, and Jest checks.
-The browser job installs Chromium with the [Playwright CI installation command](https://playwright.dev/docs/ci) and runs all nine Playwright journeys with `E2E_FIXTURE=1`.
+The browser job installs Chromium with the [Playwright CI installation command](https://playwright.dev/docs/ci) and runs all eleven Playwright journeys with `E2E_FIXTURE=1`.
 The fixture launcher overwrites Supabase, Stripe, Redis, TURN, cron, and app-URL settings with loopback or inert values.
 Fixture mode opts into software WebGL for its test-owned Map scene, matching the previously passing browser verification.
 [Chromium documents this explicit SwiftShader opt-in](https://chromium.googlesource.com/chromium/src/+/main/docs/gpu/swiftshader.md) for headless testing because automatic fallback is deprecated.
@@ -26,7 +26,9 @@ This uses Vercel's documented [branch-specific deployment control](https://verce
 Remove that branch entry when the target database is migrated and an application deployment is approved.
 
 GitHub Actions must be enabled for the repository and the workflow must be present on the target branch before it can run.
-Repository administrators must configure the resulting job names as required checks in branch protection if merge enforcement is wanted.
+Master now requires all four job names from the GitHub Actions app, requires an up-to-date branch, and enforces the checks for administrators.
+Force pushes and branch deletion are disabled.
+The prior master branch had no protection; the new policy adds no human-review requirement.
 The workflow does not prove hosted authentication, RLS, Storage, Realtime, push delivery, third-party venue behavior, production migration deployment, or physical-device behavior.
 Those checks require separately approved environments, credentials, and release procedures.
 
@@ -38,4 +40,4 @@ The first Linux run exposed a missing `source-map@0.6.1` lockfile entry, which i
 The browser run exposed a timezone mismatch between the UTC runner and the Europe/Sofia browser.
 The Plan journey now calculates its future local datetime inside the browser, verifies the successful creation response, and checks that the creation dialog closes.
 All four jobs pass for commit `cecc8e17f` in the [PR verification run](https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34222558669) and its matching push run.
-The additional hosted-test regressions and recorded production migration versions require a new run after their release commit is pushed.
+The hosted-regression commit `9037c032c` also passes all four jobs in both its [PR run](https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34226760374) and [push run](https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34226755067).

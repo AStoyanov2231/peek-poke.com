@@ -97,7 +97,7 @@ The two corrective migrations are installed; their final hosted verification is 
 - [x] Prepare a read-only GitHub Actions gate for locked installs, web lint/tests/build, both SQL fixtures, native checks, and nine browser fixture journeys.
 - [x] Validate the CI-equivalent production build with inert environment values on Node 24.10.0; the tracked process exited 0 (`/tmp/peek-ci-build-root.log`).
 - [x] Run the initial GitHub workflow on the published branch and repair the clean-install and browser-timezone failures.
-- [ ] Pass GitHub CI on the final hosted-regression commit.
+- [x] Pass all four GitHub CI jobs on hosted-regression commit `9037c032c`, for both push and pull-request triggers.
 
 - [x] Web/server: 1,314 tests pass across 147 files; three hosted-database integration suites deliberately skip without explicit target credentials.
 - [x] Root lint and the production build pass in `/tmp/peek-product-final-web-lint.log` and `/tmp/peek-product-final-web-build.log`.
@@ -406,3 +406,66 @@ This verifies the actual server-mediated Storage architecture without assuming t
 All five hosted suites now pass individually: shared-group lifecycle, shared-group migration boundary, product-social flow, private Realtime, and private Storage.
 
 Final read-only verification confirms 50 profiles, 11 Auth users, 96 Storage objects, zero Pokes, zero Plans, and 179 migration entries after all hosted tests and fixture cleanup.
+
+## Verified public release candidate
+
+Commit `9037c032ce9e8dae40ffe91d23a29bda342a61ba` is published on `product-redesign` in draft PR #7.
+Both GitHub Verify runs pass all four jobs, including clean Linux install, production dependency audit, web tests/build, SQL fixtures, native checks, and nine browser journeys.
+The run URLs are https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34226760374 and https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34226755067.
+Configured master branch protection with those four required GitHub Actions checks, strict up-to-date enforcement, administrator enforcement, and force-push/deletion prevention.
+Master previously had no branch protection.
+The source and test payload passed the private-value scan; no backup files or live credentials were staged or published.
+
+## Confirmed adult-only admission
+
+The user confirmed that Peek & Poke must be restricted to adults aged 18 and over and has not yet selected a support/privacy email.
+Implementing an eligibility gate for all accounts, including existing accounts, before onboarding and social access.
+The server validates a calendar birth date against the current UTC date, then persists only an adult or blocked decision, timestamp, and policy version.
+Birth dates are request-local and must not appear in logs, analytics, browser storage, or the database.
+The first valid decision is immutable; invalid dates can be corrected without creating a decision.
+Leap-day births reach the eighteenth anniversary on March 1 in non-leap years under this product rule.
+Self-declaration does not prove age or prevent someone from lying; the existing underage-report option remains available to admitted members.
+No age-verification vendor, paid service, or support address has been invented or configured.
+The shared contract and server route are implemented locally, while web/native routing, database enforcement, new rollback capture, and end-to-end verification are still in progress.
+The sealed 16-migration recovery archive remains unchanged and migration 17 has not been applied.
+Recorded the implementation contract, self-declaration limits, unresolved support/correction process, and primary design references in [age-admission.md](docs/age-admission.md).
+
+The first browser age-gate run reproduced a missing QueryClientProvider error in the auth shell.
+The page now uses request-local state, which also prevents the submitted birth date from being retained as mutation-cache variables or an unscoped account query.
+The rerun passes pending-to-adult navigation and blocked-account confinement; blocked, pending, and unavailable states provide sign-out and confirmed account deletion.
+The shared contract tests reject missing admission state, inconsistent timestamps, and any raw birth-date field in a response.
+Account deletion now bypasses admission-storage lookup entirely, while ordinary social handlers still fail closed when the admission provider is unavailable.
+Native router protection prevents social screens from mounting before admission, and account-bound checks prevent stale bootstrap results from starting Realtime, calls, or push registration for a different account.
+Peer eligibility is also enforced in service-backed friend, DM, profile, invite, and call routes through bounded batch or scalar RPCs; the matching new database RPCs remain local release dependencies.
+Saved exact legacy function definitions, ownership, ACLs, and public/Realtime policies privately before expanding migration 17.
+Database enforcement is being assembled from reviewed legacy, product, and restrictive-policy sections, with no production DDL applied yet.
+
+The previously reported ProfileInterests bounce easing is fixed to a smooth decelerating curve.
+No ignore or suppression was added for that finding, and no part of it remains standing.
+
+The full browser fixture suite passes 11 journeys, including actual under-18 submission, an immutable blocked result after reload, and password recovery through a real fixture PKCE exchange before admission.
+Mobile visual inspection found the date fields were using an undefined CSS class and rendered only 16 pixels high.
+Replaced them with the existing Input component at 48 pixels; the focused browser rerun passes and now checks a minimum 44-pixel target for each field.
+All 491 native Vitest tests and 90 native platform-renderer tests pass.
+Root lint and the production Next build pass; the initial broad web test run exposed two missing age-provider mocks and a native owner-ordering assertion, which are fixed and pass their focused reruns.
+The full new migration now compiles and runs in embedded PostgreSQL, including post-admission availability, Poke acceptance, Plan creation/listing, blocked and pending denial, and no persisted Poke to an ineligible peer.
+The separate SQL permission suite executes the actual migration sections and passes all twelve restrictive policies, own-profile bootstrap access, unchanged existing authorization limits, Realtime denial, peer filtering, and absence of a birth-date column.
+
+Saved a complete current pre-age-migration snapshot under `.supabase-backups/deployment-20260908/age-pre-migration/`.
+It contains 61 exact current function definitions with verified database MD5 values, ownership and effective ACLs, all 60 current public/Realtime policies, and all 179 migration versions.
+It confirms the new age table and helper names are absent, and the database still has 50 profiles, 11 Auth users, 96 Storage objects, zero Pokes, and zero Plans.
+The function snapshot SHA-256 is `ad56f261d7a978a661ffc4c7d1fb3799c4a3e06b015a2f0fa7094d8380cd9467`.
+No Auth or Vault rows, secret values, or new production migrations are included in this capture.
+The planned recovery path is a guarded age-layer rollback to migration 179, followed by the unchanged sealed sixteen-migration rollback to the original 163-entry baseline.
+That age-layer rollback still needs generation and rehearsal before migration 17 can be applied.
+The native fixture now serves the new contract and age states, but direct Simulator age-gate visual testing is unverified because the Device Hub bridge returns error `-10005`.
+
+Assembled the final group-detail SQL reader with filtering before member counts, unread totals, previews, and cursor pagination.
+All three product SQL suites pass, including a 200-member group with an ineligible message author.
+The root web suite passes 1,347 tests across 153 files, with ten hosted-only tests skipped until migration 17 is installed; root lint passes.
+Final outbox review found a queued meeting-award hint without an admission check.
+It now rechecks pair eligibility and sends only an anonymous coin-sync hint to eligible individuals when the pair can no longer interact; all nine focused worker tests pass.
+The latest local production build is blocked by Turbopack's CSS worker being denied a port bind, including an escalated attempt, before application compilation.
+The earlier production build passed; the final source still requires a successful CI build.
+Generated a separate guarded age-layer rollback restoring all 61 captured functions, removing eleven helpers and twelve restrictive policies, and returning exactly to the captured 179-entry history.
+Its embedded PostgreSQL rehearsal is in progress and the production age migration remains unapplied.

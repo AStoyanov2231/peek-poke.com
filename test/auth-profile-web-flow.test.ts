@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   getUser: vi.fn(),
   signOut: vi.fn(),
   ensureAuthProfile: vi.fn(),
+  readAccountAgeAdmission: vi.fn(),
   redirect: vi.fn(),
 }));
 
@@ -26,6 +27,10 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/auth-profile", () => ({
   ensureAuthProfile: state.ensureAuthProfile,
+}));
+
+vi.mock("@/features/age-admission/server/age-admission", () => ({
+  readAccountAgeAdmission: state.readAccountAgeAdmission,
 }));
 
 vi.mock("next/navigation", () => ({ redirect: state.redirect }));
@@ -63,6 +68,9 @@ describe("web authenticated profile flow", () => {
     state.exchangeCodeForSession.mockResolvedValue({ error: null });
     state.getUser.mockResolvedValue({ data: { user }, error: null });
     state.signOut.mockResolvedValue({ error: null });
+    state.readAccountAgeAdmission.mockResolvedValue({
+      data: { status: "adult", decided_at: "2026-09-08T12:00:00.000Z" },
+    });
     state.ensureAuthProfile.mockResolvedValue({
       status: "ready",
       created: true,
@@ -101,7 +109,7 @@ describe("web authenticated profile flow", () => {
     expect(state.redirect).not.toHaveBeenCalled();
   });
 
-  it("ensures an OAuth profile and preserves the invite through onboarding", async () => {
+  it("ensures an admitted OAuth profile and preserves the invite through onboarding", async () => {
     const user = authUser({ full_name: "Ada Lovelace" });
     state.getUser.mockResolvedValue({ data: { user }, error: null });
 
@@ -113,6 +121,45 @@ describe("web authenticated profile flow", () => {
     expect(state.ensureAuthProfile).toHaveBeenCalledWith(user);
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://example.test/onboarding?redirectTo=%2Finvite%2Fabc-123&invite=abc-123");
+  });
+
+  it.each(["pending", "blocked"])("preserves the invite through admission for a %s OAuth account", async (status) => {
+    state.readAccountAgeAdmission.mockResolvedValue({
+      data: { status, decided_at: status === "pending" ? null : "2026-09-08T12:00:00.000Z" },
+    });
+
+    const response = await authCallback(new Request(
+      "https://example.test/auth/callback?code=oauth-code&next=%2Finvite%2Fabc-123",
+    ));
+
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/age-gate");
+    expect(location.searchParams.get("redirectTo")).toBe("/invite/abc-123");
+    expect(location.searchParams.get("invite")).toBe("abc-123");
+    expect(state.readAccountAgeAdmission).toHaveBeenCalledWith(USER_ID);
+  });
+
+  it("keeps an authenticated account at the gate when admission is unavailable", async () => {
+    state.readAccountAgeAdmission.mockResolvedValue({ unavailable: true });
+
+    const response = await authCallback(new Request(
+      "https://example.test/auth/callback?code=oauth-code&next=%2Fprofile",
+    ));
+
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/age-gate");
+    expect(state.signOut).not.toHaveBeenCalled();
+  });
+
+  it("keeps password recovery independent of admission availability and onboarding", async () => {
+    state.readAccountAgeAdmission.mockResolvedValue({ unavailable: true });
+
+    const response = await authCallback(new Request(
+      "https://example.test/auth/callback?code=recovery-code&next=%2Freset-password",
+    ));
+
+    expect(response.headers.get("location")).toBe("https://example.test/reset-password");
+    expect(state.exchangeCodeForSession).toHaveBeenCalledWith("recovery-code");
+    expect(state.readAccountAgeAdmission).not.toHaveBeenCalled();
   });
 
   it("lets an existing completed profile continue to the safe intended route", async () => {

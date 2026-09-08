@@ -1437,10 +1437,28 @@ export const moderationPhotoMutationResponseSchema = z.strictObject({
   photo: moderationPhotoSchema,
 });
 
+export const ageAdmissionSchema = z.strictObject({
+  status: z.enum(["pending", "adult", "blocked"]),
+  decided_at: utcTimestampSchema.nullable(),
+}).superRefine((admission, context) => {
+  if ((admission.status === "pending") !== (admission.decided_at === null)) {
+    context.addIssue({
+      code: "custom",
+      path: ["decided_at"],
+      message: "Only a pending age decision may have no decision time",
+    });
+  }
+});
+
+export const ageAdmissionRequestSchema = z.strictObject({
+  birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 export const bootstrapSchema = z.object({
   version: z.literal(API_VERSION),
   identity: z.object({ id: z.uuid(), email: z.email().nullable() }),
   onboarding_completed: z.boolean(),
+  age_admission: ageAdmissionSchema,
   roles: z.array(z.string()),
   feature_config_version: z.string().min(1),
   unread_summary: z.object({ threads: z.number().int().nonnegative() }),
@@ -1876,6 +1894,8 @@ export type ModerationReportMutationResponse = z.infer<typeof moderationReportMu
 export type ModerationReportsResponse = z.infer<typeof moderationReportsResponseSchema>;
 export type ModerationPhoto = z.infer<typeof moderationPhotoSchema>;
 export type Bootstrap = z.infer<typeof bootstrapSchema>;
+export type AgeAdmission = z.infer<typeof ageAdmissionSchema>;
+export type AgeAdmissionRequest = z.infer<typeof ageAdmissionRequestSchema>;
 export type AuthProfileEnsureResponse = z.infer<typeof authProfileEnsureResponseSchema>;
 export type PageInfo = z.infer<typeof pageInfoSchema>;
 export type MessagesResponse = z.infer<typeof messagesResponseSchema>;

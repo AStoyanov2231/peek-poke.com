@@ -93,4 +93,4 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
   }
 
   return NextResponse.json({ success: true, queued: true }, { status: 202 });
-});
+}, { skipAgeAdmissionLookup: true });

@@ -51,6 +51,12 @@ async function createTestUser() {
     username: `qr_migration_${suffix}`,
   });
   if (error) throw error;
+  const admission = await supabase.rpc("record_account_age_admission_v1", {
+    p_user_id: userId,
+    p_is_adult: true,
+  });
+  if (admission.error || admission.data?.status !== "adult")
+    throw admission.error ?? new Error("Synthetic QR user age admission was not recorded as adult");
 }
 
 describe.skipIf(!databaseTestConfigured)("shared QR group migration semantics", { timeout: 30_000, hookTimeout: 30_000 }, () => {

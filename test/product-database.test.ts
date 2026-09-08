@@ -59,6 +59,12 @@ async function createSyntheticUser(label: string): Promise<TestUser> {
     onboarding_completed: true,
   }, { onConflict: "id" });
   if (profile.error) throw profile.error;
+  const admission = await service.rpc("record_account_age_admission_v1", {
+    p_user_id: id,
+    p_is_adult: true,
+  });
+  if (admission.error || admission.data?.status !== "adult")
+    throw admission.error ?? new Error("Synthetic user age admission was not recorded as adult");
   const client = createClient(url!, anonKey!);
   const login = await client.auth.signInWithPassword({ email, password });
   if (login.error) throw login.error;

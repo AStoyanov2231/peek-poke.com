@@ -81,4 +81,5 @@ export const RATE_LIMITS = {
   chatSuggestions: { limit: 20, window: 60 },
   discoveryPreferences: { limit: 20, window: 60 },
   profileSocialContext: { limit: 60, window: 60 },
+  ageAdmission: { limit: 5, window: 3_600 },
 } as const;

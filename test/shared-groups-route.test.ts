@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/groups/route";
-import { POST as sendGroupMessage } from "@/app/api/groups/[groupId]/route";
+import { GET as getGroupMessages, POST as sendGroupMessage } from "@/app/api/groups/[groupId]/route";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const GROUP_ID = "33333333-3333-4333-8333-333333333333";
 const CLIENT_ID = "44444444-4444-4444-8444-444444444444";
-
 const database = vi.hoisted(() => ({ rpc: vi.fn() }));
 
 vi.mock("@/lib/auth", () => ({
@@ -148,6 +147,30 @@ describe("shared group API routes", () => {
       p_sender_id: USER_ID,
       p_client_id: CLIENT_ID,
       p_content: "hello",
+    });
+  });
+
+  it("uses the bounded server-side group detail reader before producing a message cursor", async () => {
+    database.rpc.mockResolvedValueOnce({
+      data: { group: { ...group, member_count: 199 }, messages: [message], last_read_sequence: 0 },
+      error: null,
+    });
+
+    const response = await getGroupMessages(
+      new Request(`http://localhost/api/groups/${GROUP_ID}?limit=20`),
+      { params: { groupId: GROUP_ID } } as never,
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.group).toMatchObject({ member_count: 199, last_message_preview: null });
+    expect(body.messages).toHaveLength(1);
+    expect(database.rpc).toHaveBeenCalledWith("get_shared_group_detail_for_user_v1", {
+      p_group_id: GROUP_ID,
+      p_user_id: USER_ID,
+      p_before_sequence: null,
+      p_before_id: null,
+      p_limit: 20,
     });
   });
 });

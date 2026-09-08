@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSafeInternalRedirect } from "@/lib/internal-redirect";
+import { ageAdmissionRedirect } from "@/lib/age-admission-redirect";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -19,6 +21,25 @@ function onboardingUrlFor(request: NextRequest) {
   const intended = request.nextUrl.searchParams.get("redirectTo") ?? request.nextUrl.pathname + request.nextUrl.search;
   if (isValidInternalPath(intended) && intended !== "/onboarding") url.searchParams.set("redirectTo", intended);
   return url;
+}
+
+function ageGateUrlFor(request: NextRequest) {
+  const intended = request.nextUrl.searchParams.get("redirectTo") ?? request.nextUrl.pathname + request.nextUrl.search;
+  return new URL(ageAdmissionRedirect(intended), request.url);
+}
+
+async function readAgeAdmissionStatus(userId: string) {
+  const service = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+  const { data, error } = await service.rpc("read_account_age_admission_v1", {
+    p_user_id: userId,
+  });
+  if (error || !data || typeof data !== "object") return null;
+  const status = (data as { status?: unknown }).status;
+  return status === "pending" || status === "adult" || status === "blocked" ? status : null;
 }
 
 function hasMatchingOrigin(request: NextRequest) {
@@ -85,6 +106,7 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith("/login") ||
                      request.nextUrl.pathname.startsWith("/welcome");
   const isOnboardingPage = request.nextUrl.pathname === "/onboarding";
+  const isAgeGatePage = request.nextUrl.pathname === "/age-gate";
   const isPasswordRecoveryPage = request.nextUrl.pathname === "/reset-password";
 
   const isPublicPage = pathname === "/" || /^\/(icon|apple-icon|opengraph-image|robots\.txt|sitemap\.xml)$/.test(pathname) || pathname === "/privacy" || pathname === "/terms" || pathname === "/safety" || /^\/plan\/[a-zA-Z0-9_-]+$/.test(pathname);
@@ -138,6 +160,25 @@ export async function proxy(request: NextRequest) {
         loginResponse.cookies.delete("pp_onboarded");
         return loginResponse;
       }
+    }
+
+    // Admission is server-owned and deliberately checked before the onboarding
+    // cookie fast path so every authenticated social route reaches this gate.
+    // Password recovery remains available to an authenticated account before
+    // admission so a pending or blocked user can still recover credentials.
+    if (isPasswordRecoveryPage) return response;
+
+    const ageAdmission = await readAgeAdmissionStatus(user.id);
+    if (ageAdmission !== "adult") {
+      if (isAgeGatePage) return response;
+      return NextResponse.redirect(ageGateUrlFor(request));
+    }
+
+    // Redirect an admitted adult away from the gate using the same safe intent.
+    if (isAgeGatePage) {
+      if (!onboardingComplete) return NextResponse.redirect(onboardingUrlFor(request));
+      const intended = request.nextUrl.searchParams.get("redirectTo");
+      return NextResponse.redirect(new URL(intended && isValidInternalPath(intended) && !intended.startsWith("/login") && !intended.startsWith("/onboarding") && !intended.startsWith("/age-gate") ? intended : "/now", request.url));
     }
 
     // Redirect auth pages to home (or onboarding if incomplete)

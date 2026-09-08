@@ -9,6 +9,15 @@ export default function Page() {
       intro="Make connections without making your precise location public. Here’s how the main privacy controls in Peek & Poke work."
     >
       <section>
+        <h2>Checking adult eligibility</h2>
+        <p>
+          Peek & Poke is for adults aged 18 and over. Your birth date is used to
+          make an eligibility decision and is not saved. We keep the decision,
+          when it was made, and the policy version until you delete your account.
+          Your eligibility record is not visible on your profile.
+        </p>
+      </section>
+      <section>
         <h2>Your profile and interests</h2>
         <p>
           Your name, avatar, chosen interests, and availability help other

@@ -7,6 +7,76 @@ const canRun = process.env.E2E_FIXTURE === "1";
 test.describe("redesigned social journey", () => {
   test.use({ timezoneId: "Europe/Sofia" });
   test.skip(!canRun, "Requires an isolated loopback environment.");
+  test("age admission sends adults to their intended destination and keeps blocked accounts out of social routes", async ({ page, browser }) => {
+    const adultFixture = await installSocialFixture(page, { ageAdmission: "pending" });
+    await page.goto("/login?redirectTo=/now");
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === "/age-gate");
+    await expect(page.getByRole("heading", { name: "Are you 18 or older?" })).toBeVisible();
+    await page.getByLabel("Day of birth").fill("1");
+    await page.getByLabel("Month of birth").fill("1");
+    await page.getByLabel("Year of birth").fill("2000");
+    await page.getByRole("button", { name: "Review date", exact: true }).click();
+    await expect(page.getByText("1 January 2000", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Confirm and continue", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/now");
+    await expect(page.getByRole("heading", { name: "What are you up for?" })).toBeVisible();
+    expect(adultFixture.apiPaths).toContain("/api/age-admission");
+
+    const blockedContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const blockedPage = await blockedContext.newPage();
+    try {
+      const blockedFixture = await installSocialFixture(blockedPage, { ageAdmission: "pending" });
+      await blockedPage.goto("/login?redirectTo=/now");
+      await blockedPage.getByPlaceholder("Email").fill(email);
+      await blockedPage.getByPlaceholder("Password").fill(password);
+      await blockedPage.getByRole("button", { name: /^sign in$/i }).click();
+      await blockedPage.waitForURL((url) => url.pathname === "/age-gate");
+      await expect(blockedPage.getByRole("heading", { name: "Are you 18 or older?" })).toBeVisible();
+      const dateInputs = [
+        blockedPage.getByLabel("Day of birth"),
+        blockedPage.getByLabel("Month of birth"),
+        blockedPage.getByLabel("Year of birth"),
+      ];
+      const inputHeights = await Promise.all(dateInputs.map((input) => input.evaluate((element) => element.getBoundingClientRect().height)));
+      expect(inputHeights.every((height) => height >= 44)).toBe(true);
+      await blockedPage.screenshot({ path: "test-results/e2e/age-admission-pending-mobile.png", fullPage: true });
+      await blockedPage.getByLabel("Day of birth").fill("1");
+      await blockedPage.getByLabel("Month of birth").fill("1");
+      await blockedPage.getByLabel("Year of birth").fill("2010");
+      await blockedPage.getByRole("button", { name: "Review date", exact: true }).click();
+      await expect(blockedPage.getByText("1 January 2010", { exact: true })).toBeVisible();
+      await blockedPage.screenshot({ path: "test-results/e2e/age-admission-review-mobile.png", fullPage: true });
+      await blockedPage.getByRole("button", { name: "Confirm and continue", exact: true }).click();
+      await expect(blockedPage.getByRole("heading", { name: "Peek & Poke is for adults" })).toBeVisible();
+      await blockedPage.screenshot({ path: "test-results/e2e/age-admission-blocked-mobile.png", fullPage: true });
+      await blockedPage.reload();
+      await expect(blockedPage.getByRole("heading", { name: "Peek & Poke is for adults" })).toBeVisible();
+      expect(blockedFixture.apiPaths).toContain("/api/age-admission");
+      expect(blockedFixture.apiPaths.every((path) => path === "/api/age-admission")).toBe(true);
+      await blockedPage.setViewportSize({ width: 1280, height: 720 });
+      await blockedPage.screenshot({ path: "test-results/e2e/age-admission-blocked.png", fullPage: true });
+    } finally {
+      await blockedContext.close();
+    }
+  });
+  test("password recovery callback remains reachable for a pending account", async ({ page }) => {
+    await page.request.post("http://127.0.0.1:54321/__test/age-admission", {
+      data: { status: "pending" },
+    });
+
+    // The fixture callback server reports localhost as its request origin, so
+    // keep the PKCE verifier cookie on that same loopback host.
+    await page.goto("http://localhost:3001/login");
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByRole("button", { name: "Forgot password?" }).click();
+    await expect(page.getByText("If an account exists for that email, a password-reset link has been sent.")).toBeVisible();
+    await page.goto("http://localhost:3001/auth/callback?code=fixture-recovery-code&next=/reset-password");
+    await page.waitForURL((url) => url.pathname === "/reset-password");
+    await expect(page.getByRole("heading", { name: "Set a new password" })).toBeVisible();
+  });
   test("a specific Plan needs explicit confirmation and retries the same acknowledgement", async ({ page }) => {
     const fixture = await installSocialFixture(page, { planMeetup: true });
     await page.goto("/login?redirectTo=/inbox?tab=plans");

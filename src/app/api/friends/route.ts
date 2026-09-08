@@ -18,6 +18,7 @@ import {
   utcTimestampSchema,
 } from "@peekpoke/shared";
 import { z } from "zod";
+import { filterEligibleSocialPeerIds } from "@/lib/social-peer-eligibility";
 
 const friendshipProfileRowSchema = z.strictObject({
   id: z.uuid(),
@@ -241,10 +242,22 @@ export const GET = withAuth(async (request, { user }) => {
     return apiError("Internal server error", 500, "FRIENDS_FETCH_FAILED");
   }
 
+  const peerEligibility = await filterEligibleSocialPeerIds(user.id, [
+    ...accepted.data.map((row) => row.requester_id === user.id ? row.addressee_id : row.requester_id),
+    ...incoming.data.map((row) => row.requester_id),
+    ...sent.data.map((row) => row.addressee_id),
+  ]);
+  if (peerEligibility.unavailable) {
+    console.error("friends: peer eligibility unavailable");
+    return apiError("Friends are temporarily unavailable", 503, "FRIENDS_FETCH_FAILED");
+  }
+
   const legacyRolesByPeerId = new Map(
     legacy.data.friends.map((friend) => [friend.id, friend.roles] as const),
   );
-  const friends = accepted.data.map((row) => {
+  const friends = accepted.data.filter((row) => peerEligibility.ids.has(
+    row.requester_id === user.id ? row.addressee_id : row.requester_id,
+  )).map((row) => {
     const peerId = row.requester_id === user.id ? row.addressee_id : row.requester_id;
     const peerRoles = legacyRolesByPeerId.get(peerId);
     return {
@@ -257,8 +270,8 @@ export const GET = withAuth(async (request, { user }) => {
         : {}),
     };
   });
-  const requests = incoming.data;
-  const sentRequests = sent.data;
+  const requests = incoming.data.filter((row) => peerEligibility.ids.has(row.requester_id));
+  const sentRequests = sent.data.filter((row) => peerEligibility.ids.has(row.addressee_id));
   const page = cursorPage(request, friends, (item) => item.id, (item) => item.requested_at);
   if (page.error) return page.error;
   const requestPage = cursorPage(request, requests, (item) => item.id, (item) => item.requested_at);

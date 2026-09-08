@@ -7,6 +7,8 @@ const harness = vi.hoisted(() => ({
   rpc: vi.fn(),
   globalSignOut: vi.fn(async () => ({ error: null })),
   localSignOut: vi.fn(async () => ({ error: null })),
+  withAuth: vi.fn(),
+  withAuthOptions: [] as unknown[],
   maybeSingle: vi.fn(async () => ({
     data: { stripe_customer_id: "cus_account_delete" },
     error: null,
@@ -14,8 +16,9 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({
-  withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
-    withRequestContext(async (request: Request) => handler(request, {
+  withAuth: harness.withAuth.mockImplementation((handler: (request: Request, context: unknown) => Promise<Response>, options?: unknown) => {
+    harness.withAuthOptions.push(options);
+    return withRequestContext(async (request: Request) => handler(request, {
       user: { id: USER_ID },
       supabase: {
         auth: {
@@ -25,7 +28,8 @@ vi.mock("@/lib/auth", () => ({
           signOut: harness.localSignOut,
         },
       },
-    })),
+    }));
+  }),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -67,6 +71,12 @@ describe("atomic account deletion route", () => {
     harness.globalSignOut.mockResolvedValue({ error: null });
     harness.localSignOut.mockResolvedValue({ error: null });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  it("uses the dedicated no-age-lookup authorization escape hatch", () => {
+    expect(harness.withAuthOptions).toContainEqual(
+      { skipAgeAdmissionLookup: true },
+    );
   });
 
   it("fails closed with the canonical cross-platform error when the atomic RPC is absent", async () => {

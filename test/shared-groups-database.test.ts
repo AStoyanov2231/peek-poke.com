@@ -59,6 +59,12 @@ async function createTestUser(suffix: string) {
     username: `qr_group_${suffix}`,
   });
   if (error) throw error;
+  const admission = await supabase.rpc("record_account_age_admission_v1", {
+    p_user_id: userId,
+    p_is_adult: true,
+  });
+  if (admission.error || admission.data?.status !== "adult")
+    throw admission.error ?? new Error("Synthetic shared-group user age admission was not recorded as adult");
   return { email, password, userId };
 }
 

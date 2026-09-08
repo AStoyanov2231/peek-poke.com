@@ -5,7 +5,7 @@
 - [x] Approve publication of the committed redesign source, tests, migrations, and documentation to the public GitHub repository.
 - [x] Publish `product-redesign` and open draft PR #7.
 - [x] Pass the initial Linux verification workflow after repairing the lockfile and browser timezone failure.
-- [ ] Pass CI on the final hosted-regression commit and configure required checks on master.
+- [x] Pass all four CI jobs on the hosted-regression commit `9037c032c` and require those checks on master.
 - [x] Approve and apply the 14 reviewed migrations, including the reproduced legacy account-deletion repair, to MyaouDB.
 - [x] Repair hosted Poke outbox uniqueness, service-role grants, and account-erasure cleanup, including late-write rejection.
 - [x] Pass the hosted product/shared-group suites and private Realtime delivery/authorization test, with exact scoped cleanup.
@@ -21,6 +21,9 @@
 - [ ] Exercise the complete journey on physical iOS and Android devices, including denied permissions, camera Scan, push delivery/navigation, media/video calls, relaunch, and sign-out/account-switch isolation.
 - [ ] Enable Supabase leaked-password protection after confirming the Auth plan supports it; the live security advisor reports it disabled.
 - [ ] Complete an operator-specific privacy notice, supported privacy contact, formal terms, retention policy, age policy, and moderation/support response process.
+- [x] Confirm the product is restricted to adults aged 18 and over.
+- [ ] Complete and verify default-deny age admission across web, native, server, database RPCs, and private Realtime before publishing the matching app release.
+- [ ] Choose and operate a support/privacy contact; the user has not selected an address.
 - [ ] Rehearse backups/PITR, restore, provider outages, load limits, canary release, and rollback using the existing production-baseline checklist.
 - [ ] Before enabling meetup coin rewards, integrate server-verified device attestations and prove freshness, replay rejection, blocks, exact proximity, concurrent awards, and two-device behavior.
 - [ ] Before accepting new Peek+ payments, implement the advertised optional benefits and confirm storefront eligibility.

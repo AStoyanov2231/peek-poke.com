@@ -44,6 +44,8 @@ const runTag = `pprt${Date.now().toString(36)}${randomUUID().slice(0, 6)}`;
 let service: SupabaseClient;
 let owner: TestUser;
 let outsider: TestUser;
+let pendingOwner: TestUser;
+let blockedOwner: TestUser;
 const authUserIds: string[] = [];
 const channels: Array<{ client: SupabaseClient; channel: RealtimeChannel }> = [];
 const sessionClients = new Set<SupabaseClient>();
@@ -58,7 +60,10 @@ function requireConfig() {
   );
 }
 
-async function createSyntheticUser(label: string): Promise<TestUser> {
+async function createSyntheticUser(
+  label: string,
+  admission: "adult" | "pending" | "blocked" = "adult",
+): Promise<TestUser> {
   const email = `peek-poke-realtime-${runTag}-${label}@test.invalid`;
   const password = `RealtimeIntegration-${randomUUID()}!`;
   const result = await service.auth.admin.createUser({ email, email_confirm: true, password });
@@ -78,6 +83,14 @@ async function createSyntheticUser(label: string): Promise<TestUser> {
   const verification = await service.from("profiles").select("id").eq("id", id).maybeSingle();
   if (verification.error || verification.data?.id !== id)
     throw verification.error ?? new Error("Synthetic Realtime profile verification failed");
+  if (admission !== "pending") {
+    const recorded = await service.rpc("record_account_age_admission_v1", {
+      p_user_id: id,
+      p_is_adult: admission === "adult",
+    });
+    if (recorded.error || recorded.data?.status !== admission)
+      throw recorded.error ?? new Error("Synthetic Realtime user age admission was not recorded");
+  }
   const client = await createAuthenticatedClient(email, password);
   return { id, email, password, client };
 }
@@ -215,7 +228,12 @@ describe.skipIf(!configured)("private user-sync Realtime authorization", { timeo
     requireConfig();
     service = createClient(url!, serviceRoleKey!);
     countsBefore = await catalogCounts();
-    [owner, outsider] = await Promise.all([createSyntheticUser("owner"), createSyntheticUser("outsider")]);
+    [owner, outsider, pendingOwner, blockedOwner] = await Promise.all([
+      createSyntheticUser("owner"),
+      createSyntheticUser("outsider"),
+      createSyntheticUser("pending", "pending"),
+      createSyntheticUser("blocked", "blocked"),
+    ]);
   });
 
   afterAll(async () => {
@@ -280,5 +298,16 @@ describe.skipIf(!configured)("private user-sync Realtime authorization", { timeo
     } finally {
       reconnectEvent.cancel();
     }
+  });
+
+  it("denies pending and blocked owners while permitting an admitted owner channel", async () => {
+    const admitted = owner.client.channel(userSyncChannelName(owner.id), { config: { private: true } });
+    await expect(trackSubscription(owner.client, admitted)).resolves.toMatchObject({ status: "SUBSCRIBED" });
+
+    const pending = pendingOwner.client.channel(userSyncChannelName(pendingOwner.id), { config: { private: true } });
+    await expect(trackSubscription(pendingOwner.client, pending)).resolves.toMatchObject({ status: "CHANNEL_ERROR" });
+
+    const blocked = blockedOwner.client.channel(userSyncChannelName(blockedOwner.id), { config: { private: true } });
+    await expect(trackSubscription(blockedOwner.client, blocked)).resolves.toMatchObject({ status: "CHANNEL_ERROR" });
   });
 });

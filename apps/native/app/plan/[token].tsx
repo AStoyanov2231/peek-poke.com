@@ -17,11 +17,14 @@ import {
 } from "@peekpoke/design";
 import { fetchPublicPlanPreview, joinSharedPlan } from "@/data/plans";
 import { getAccessToken } from "@/lib/api";
+import { useAgeAdmission } from "@/components/age-admission-context";
+import { publicPlanJoinDestination } from "@/lib/age-admission-navigation";
 
 const shareTokenPattern = /^[A-Za-z0-9_-]{43}$/;
 
 export default function PublicPlanPreviewScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
+  const { admission } = useAgeAdmission();
   const validToken = typeof token === "string" && shareTokenPattern.test(token);
   const previewQuery = useQuery({
     queryKey: ["plans", "share", token],
@@ -31,11 +34,13 @@ export default function PublicPlanPreviewScreen() {
   const joinMutation = useMutation({
     mutationFn: async () => {
       const session = await getAccessToken();
-      if (!session) {
-        router.push({
-          pathname: "/(auth)/login",
-          params: { plan_token: token },
-        });
+      const destination = publicPlanJoinDestination({
+        token,
+        hasSession: Boolean(session),
+        admission,
+      });
+      if (destination) {
+        router.push(destination);
         return null;
       }
       if (!previewQuery.data) throw new Error("Plan preview is unavailable.");

@@ -15,6 +15,7 @@ const authBoundary = vi.hoisted(() => ({
   serviceDelete: vi.fn(),
   serviceOr: vi.fn(),
   serviceEq: vi.fn(),
+  ageAdmissionRpc: vi.fn(),
   enforceRateLimit: vi.fn(),
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 import { DELETE } from "@/app/api/profile/interests/[interestId]/route";
+import { withAuth } from "@/lib/auth";
 
 describe("profile interest DELETE authentication boundary", () => {
   beforeEach(() => {
@@ -47,7 +49,14 @@ describe("profile interest DELETE authentication boundary", () => {
     authBoundary.serviceOr.mockReturnValue({ eq: authBoundary.serviceEq });
     authBoundary.serviceDelete.mockReturnValue({ or: authBoundary.serviceOr });
     authBoundary.serviceFrom.mockReturnValue({ delete: authBoundary.serviceDelete });
-    authBoundary.createServiceClient.mockReturnValue({ from: authBoundary.serviceFrom });
+    authBoundary.ageAdmissionRpc.mockResolvedValue({
+      data: { status: "adult", decided_at: "2026-09-08T00:00:00.000Z" },
+      error: null,
+    });
+    authBoundary.createServiceClient.mockReturnValue({
+      from: authBoundary.serviceFrom,
+      rpc: authBoundary.ageAdmissionRpc,
+    });
     authBoundary.enforceRateLimit.mockResolvedValue(null);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
@@ -137,12 +146,66 @@ describe("profile interest DELETE authentication boundary", () => {
     expect(authBoundary.authEq).toHaveBeenCalledWith("id", USER_ID);
     expect(authBoundary.authMaybeSingle).toHaveBeenCalledOnce();
     expect(authBoundary.enforceRateLimit).toHaveBeenCalledWith("profileMutation", USER_ID);
-    expect(authBoundary.createServiceClient).toHaveBeenCalledOnce();
+    expect(authBoundary.createServiceClient).toHaveBeenCalledTimes(2);
+    expect(authBoundary.ageAdmissionRpc).toHaveBeenCalledWith(
+      "read_account_age_admission_v1",
+      { p_user_id: USER_ID },
+    );
     expect(authBoundary.serviceFrom).toHaveBeenCalledWith("profile_interests");
     expect(authBoundary.serviceDelete).toHaveBeenCalledOnce();
     expect(authBoundary.serviceOr).toHaveBeenCalledWith(
       `id.eq.${interestId},tag_id.eq.${interestId}`,
     );
     expect(authBoundary.serviceEq).toHaveBeenCalledWith("user_id", USER_ID);
+  });
+
+  it.each([
+    ["pending", { status: "pending", decided_at: null }, "AGE_ADMISSION_REQUIRED"],
+    ["blocked", { status: "blocked", decided_at: "2026-09-08T00:00:00.000Z" }, "AGE_NOT_ELIGIBLE"],
+  ])("rejects a %s age-admission decision before route work", async (_state, admission, code) => {
+    const interestId = "22222222-2222-4222-8222-222222222222";
+    authBoundary.getUser.mockResolvedValue({ data: { user: { id: USER_ID } } });
+    authBoundary.ageAdmissionRpc.mockResolvedValue({ data: admission, error: null });
+
+    const response = await DELETE(
+      new Request(`https://example.test/api/profile/interests/${interestId}`, {
+        method: "DELETE",
+        headers: { "x-request-id": REQUEST_ID },
+      }),
+      { params: Promise.resolve({ interestId }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(apiErrorEnvelopeSchema.parse(await response.json()).code).toBe(code);
+    expect(authBoundary.enforceRateLimit).not.toHaveBeenCalled();
+    expect(authBoundary.serviceDelete).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for a social handler when admission storage is unavailable", async () => {
+    authBoundary.getUser.mockResolvedValue({ data: { user: { id: USER_ID } } });
+    authBoundary.ageAdmissionRpc.mockResolvedValue({ data: null, error: { code: "PGRST202" } });
+    const handler = vi.fn(async () => new Response(null, { status: 204 }));
+
+    const response = await withAuth(handler as never)(
+      new Request("https://example.test/api/social") as never,
+    );
+
+    expect(response.status).toBe(503);
+    expect(apiErrorEnvelopeSchema.parse(await response.json()).code).toBe("AGE_ADMISSION_UNAVAILABLE");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("permits the account-deletion escape hatch when admission storage is unavailable", async () => {
+    authBoundary.getUser.mockResolvedValue({ data: { user: { id: USER_ID } } });
+    authBoundary.ageAdmissionRpc.mockResolvedValue({ data: null, error: { code: "PGRST202" } });
+    const handler = vi.fn(async () => new Response(null, { status: 204 }));
+
+    const response = await withAuth(handler as never, { skipAgeAdmissionLookup: true })(
+      new Request("https://example.test/api/account/delete") as never,
+    );
+
+    expect(response.status).toBe(204);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(authBoundary.ageAdmissionRpc).not.toHaveBeenCalled();
   });
 });

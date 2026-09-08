@@ -59,8 +59,11 @@ export default function Page() {
       <section>
         <h2>A space for adults</h2>
         <p>
-          Peek & Poke is intended for people aged 18 and over. Do not use it to
-          contact or arrange meetings with minors.
+          Peek & Poke is restricted to people aged 18 and over. The eligibility
+          check relies on the birth date a person provides; it does not verify
+          their identity or prove their age. If you think someone may be underage,
+          use “May be underage” in their profile’s report options and do not
+          arrange a meeting with them.
         </p>
       </section>
     </InformationPage>

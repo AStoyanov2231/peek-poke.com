@@ -15,6 +15,7 @@ const database = vi.hoisted(() => ({
   },
   thread: { data: null, error: null } as { data: unknown; error: unknown },
 }));
+const eligibility = vi.hoisted(() => ({ canInteract: vi.fn() }));
 
 vi.mock("@/lib/auth", () => ({
   withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
@@ -35,6 +36,10 @@ vi.mock("@/lib/supabase/server", () => ({
     rpc: database.rpc,
     from: database.from,
   }),
+}));
+vi.mock("@/lib/social-peer-eligibility", () => ({
+  canInteractWithSocialPeer: eligibility.canInteract,
+  filterEligibleSocialPeerIds: vi.fn(),
 }));
 
 import { POST } from "@/app/api/dm/threads/route";
@@ -81,6 +86,7 @@ describe("POST /api/dm/threads contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     database.blocked = false;
+    eligibility.canInteract.mockResolvedValue({ eligible: true });
     database.from.mockImplementation((table: string) => ({
       select: () => ({
         eq: () => table === "profiles"
@@ -111,6 +117,17 @@ describe("POST /api/dm/threads contract", () => {
       unread_count: 0,
     } });
     expect(response.headers.get("idempotency-key")).toBe("thread-create-key-000001");
+  });
+
+  it("conceals a non-admitted target before profile lookup or thread creation", async () => {
+    eligibility.canInteract.mockResolvedValue({ eligible: false });
+
+    const response = await request();
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: "USER_NOT_FOUND" });
+    expect(database.from).not.toHaveBeenCalled();
+    expect(database.rpc).not.toHaveBeenCalled();
   });
 
   it.each([

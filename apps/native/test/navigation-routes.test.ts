@@ -31,6 +31,7 @@ describe("native navigation definitions", () => {
       "/(auth)/login",
       "/auth/callback",
       "/auth/reset-password",
+      "/age-admission",
       "/onboarding",
       "/(app)",
       "/chat/[threadId]",

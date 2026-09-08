@@ -8,6 +8,7 @@ const database = vi.hoisted(() => ({
   rpc: vi.fn(),
   limited: null as Response | null,
 }));
+const eligibility = vi.hoisted(() => ({ canInteract: vi.fn() }));
 
 vi.mock("@/lib/auth", () => ({
   withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
@@ -37,6 +38,9 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createServiceClient: () => ({ rpc: database.rpc }),
 }));
+vi.mock("@/lib/social-peer-eligibility", () => ({
+  canInteractWithSocialPeer: eligibility.canInteract,
+}));
 
 import { GET } from "@/app/api/invites/route";
 import { POST } from "@/app/api/invites/[inviterId]/route";
@@ -48,6 +52,7 @@ describe("invite routes", () => {
     database.authenticated = true;
     database.limited = null;
     database.rpc.mockResolvedValue({ data: undefined, error: null });
+    eligibility.canInteract.mockResolvedValue({ eligible: true });
     process.env.SUPABASE_SERVICE_ROLE_KEY = "route-test-service-role";
     process.env.NODE_ENV = "test";
     delete process.env.NEXT_PUBLIC_APP_URL;
@@ -200,6 +205,16 @@ describe("invite routes", () => {
       p_user_id: VIEWER_ID,
       p_inviter_id: INVITER_ID,
     });
+  });
+
+  it("does not accept a pending or blocked inviter", async () => {
+    eligibility.canInteract.mockResolvedValue({ eligible: false });
+
+    const response = await post(createInviteToken(INVITER_ID));
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: "INVITE_NOT_FOUND" });
+    expect(database.rpc).not.toHaveBeenCalled();
   });
 
   it("preserves invalid-token, rate-limit, and RPC failures", async () => {

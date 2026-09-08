@@ -71,6 +71,12 @@ async function createSyntheticUser(label: string): Promise<TestUser> {
     deleted_at: null,
   }, { onConflict: "id" });
   if (profile.error) throw profile.error;
+  const admission = await service.rpc("record_account_age_admission_v1", {
+    p_user_id: id,
+    p_is_adult: true,
+  });
+  if (admission.error || admission.data?.status !== "adult")
+    throw admission.error ?? new Error("Synthetic Storage user age admission was not recorded as adult");
   const verified = await service.from("profiles").select("id").eq("id", id).maybeSingle();
   if (verified.error || verified.data?.id !== id)
     throw verified.error ?? new Error("Synthetic Storage profile verification failed");

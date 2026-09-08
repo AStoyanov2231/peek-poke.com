@@ -12,7 +12,7 @@ const pageInfo = {
 };
 export async function installSocialFixture(
   page: Page,
-  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean } = {},
+  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean; ageAdmission?: "pending" | "adult" | "blocked" } = {},
 ) {
   const now = new Date().toISOString();
   const later = new Date(Date.now() + 60 * 60_000).toISOString();
@@ -55,6 +55,7 @@ export async function installSocialFixture(
     member_count: 2, status: "active", created_at: now, updated_at: now, viewer_is_member: true, viewer_is_owner: true, source_thread_id: threadId,
   } : null;
   let pokeAttempts = 0;
+  const apiPaths: string[] = [];
   const keys: string[] = [];
   const joins: string[] = [];
   const meetups: string[] = [];
@@ -62,6 +63,13 @@ export async function installSocialFixture(
   let planMeetupConfirmed = false;
   let viewerConfirmed = false;
   let onboardingCompleted = !options.onboarding;
+  let ageAdmission = {
+    status: options.ageAdmission ?? "adult",
+    decided_at: options.ageAdmission === "pending" ? null : "2026-09-08T00:00:00.000Z",
+  };
+  await page.request.post("http://127.0.0.1:54321/__test/age-admission", {
+    data: { status: ageAdmission.status },
+  });
   let audience = "everyone";
   let visibilityAttempts = 0;
   const tags = ["Coffee", "Design", "Walking", "Music", "Books"].map((name, index) => ({ id: `99999999-9999-4999-8999-99999999999${index}`, name, category: "Social", icon: null, display_order: index }));
@@ -79,7 +87,7 @@ export async function installSocialFixture(
             topic: data.topic,
             event: "phx_reply",
             ref: data.ref,
-            payload: { status: "ok", response: {} },
+            payload: { status: ageAdmission.status === "adult" ? "ok" : "error", response: {} },
           }),
         );
       } catch {
@@ -91,6 +99,7 @@ export async function installSocialFixture(
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();
+    apiPaths.push(path);
     const json = (body: unknown, status = 200) =>
       route.fulfill({
         status,
@@ -102,10 +111,26 @@ export async function installSocialFixture(
         version: "v1",
         identity: { id: ownerId, email: "e2e@peek-poke.test" },
         onboarding_completed: onboardingCompleted,
+        age_admission: ageAdmission,
         roles: ["user"],
         feature_config_version: "v1",
         unread_summary: { threads: 0 },
       });
+    if (path === "/api/age-admission") {
+      if (method === "POST" && ageAdmission.status === "pending") {
+        const birthDate = request.postDataJSON().birth_date;
+        ageAdmission = {
+          status: typeof birthDate === "string" && /^\d{4}/.test(birthDate) && Number(birthDate.slice(0, 4)) <= 2008
+            ? "adult"
+            : "blocked",
+          decided_at: "2026-09-08T00:00:00.000Z",
+        };
+        await page.request.post("http://127.0.0.1:54321/__test/age-admission", {
+          data: { status: ageAdmission.status },
+        });
+      }
+      return json(ageAdmission);
+    }
     if (path === "/api/profile/username") {
       owner.username = request.postDataJSON().username;
       return json({ profile: { ...owner, bio: null, cover_image_url: null, created_at: now, onboarding_completed: onboardingCompleted, roles: ["user"] } });
@@ -369,5 +394,11 @@ export async function installSocialFixture(
       });
     return json({ error: `Unimplemented test-only fixture: ${path}` }, 503);
   });
-  return { pokeKeys: keys, planJoins: joins, meetupPosts: meetups, planMeetupPosts: planMeetups };
+  return {
+    apiPaths,
+    pokeKeys: keys,
+    planJoins: joins,
+    meetupPosts: meetups,
+    planMeetupPosts: planMeetups,
+  };
 }

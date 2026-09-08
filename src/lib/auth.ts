@@ -3,18 +3,31 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { SupabaseClient, User } from "@supabase/supabase-js";
 import { withRequestContext } from "@/lib/request-context";
 import { apiError } from "@/lib/api-error";
+import {
+  readAccountAgeAdmission,
+  type AgeAdmission,
+} from "@/features/age-admission/server/age-admission";
 
 type AuthContext<P = Record<string, never>> = {
   user: User;
   supabase: SupabaseClient;
   params: P;
+  ageAdmission?: AgeAdmission;
+};
+
+type WithAuthOptions = {
+  /** Allows bootstrap and admission routes to return non-adult decision states. */
+  allowPendingAgeAdmission?: boolean;
+  /** Reserved for the account-deletion escape hatch when admission storage is unavailable. */
+  skipAgeAdmissionLookup?: boolean;
 };
 
 export function withAuth<P = Record<string, never>>(
   handler: (
     request: NextRequest,
     ctx: AuthContext<P>
-  ) => Promise<Response>
+  ) => Promise<Response>,
+  options: WithAuthOptions = {},
 ) {
   return withRequestContext(async (
     request: NextRequest,
@@ -47,11 +60,35 @@ export function withAuth<P = Record<string, never>>(
       return apiError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
+    let ageAdmission: AgeAdmission | undefined;
+    if (!options.skipAgeAdmissionLookup) {
+      const admission = await readAccountAgeAdmission(user.id);
+      if (admission.unavailable) {
+        return apiError(
+          "Age admission is temporarily unavailable",
+          503,
+          "AGE_ADMISSION_UNAVAILABLE",
+        );
+      }
+      ageAdmission = admission.data;
+      if (!options.allowPendingAgeAdmission && ageAdmission.status !== "adult") {
+        return apiError(
+          ageAdmission.status === "blocked"
+            ? "You are not eligible to use Peek & Poke"
+            : "Age admission is required before using Peek & Poke",
+          403,
+          ageAdmission.status === "blocked"
+            ? "AGE_NOT_ELIGIBLE"
+            : "AGE_ADMISSION_REQUIRED",
+        );
+      }
+    }
+
     const params = routeCtx
       ? await routeCtx.params
       : ({} as P);
 
-    return handler(request, { user, supabase, params });
+    return handler(request, { user, supabase, params, ageAdmission });
   });
 }
 

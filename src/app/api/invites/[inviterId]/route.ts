@@ -9,6 +9,7 @@ import { inviteAcceptanceResponseSchemaFor } from "@peekpoke/shared";
 import { profileCardSchema } from "@peekpoke/shared";
 import { z } from "zod";
 import { withNoStore } from "@/lib/no-store-response";
+import { canInteractWithSocialPeer } from "@/lib/social-peer-eligibility";
 
 export const POST = withNoStore(withAuth<{ inviterId: string }>(async (_request, { user, params }) => {
   const inviterId = verifyInviteToken(params.inviterId);
@@ -23,6 +24,13 @@ export const POST = withNoStore(withAuth<{ inviterId: string }>(async (_request,
         profile_id: inviterId,
       }),
     );
+  }
+  const eligibility = await canInteractWithSocialPeer(user.id, inviterId);
+  if (eligibility.unavailable) {
+    return apiError("Could not accept invite", 503, "INVITE_ACCEPT_FAILED");
+  }
+  if (!eligibility.eligible) {
+    return apiError("This invite is unavailable", 404, "INVITE_NOT_FOUND");
   }
   const limited = await enforceRateLimit("inviteAccept", user.id);
   if (limited) return limited;
@@ -51,6 +59,15 @@ export const GET = withNoStore(withAuth<{ inviterId: string }>(async (_request, 
   if (!inviterId || !isValidUUID(inviterId)) return apiError("This invite is invalid or expired", 400, "INVALID_INVITE");
   if (user.id !== inviterId && await isBlocked(supabase, user.id, inviterId)) {
     return apiError("This invite is unavailable", 404, "INVITE_NOT_FOUND");
+  }
+  if (user.id !== inviterId) {
+    const eligibility = await canInteractWithSocialPeer(user.id, inviterId);
+    if (eligibility.unavailable) {
+      return apiError("This invite is temporarily unavailable", 503, "INVITE_PREVIEW_UNAVAILABLE");
+    }
+    if (!eligibility.eligible) {
+      return apiError("This invite is unavailable", 404, "INVITE_NOT_FOUND");
+    }
   }
   const { data, error } = await createServiceClient()
     .from("profiles")
