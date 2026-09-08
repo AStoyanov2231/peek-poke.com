@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { availabilityReadResponseSchema } from "@peekpoke/shared";
 export const ownerId = "11111111-1111-4111-8111-111111111111";
 export const peerId = "22222222-2222-4222-8222-222222222222";
 export const threadId = "33333333-3333-4333-8333-333333333333";
@@ -231,7 +232,7 @@ export async function installSocialFixture(
       }
       const includeDiscoveryContext = options.discoveryContext
         && requestUrl.searchParams.get("discovery_context") === "1";
-      return json({
+      const response = {
         availability,
         people: options.empty
           ? []
@@ -240,7 +241,7 @@ export async function installSocialFixture(
                 {
                   profile: contextPeer,
                   availability: contextPeerAvailability,
-                  distanceKm: 1.9,
+                  distanceKm: 2,
                   relationship: "none",
                   sharedInterestNames: [],
                   discoveryReasons: ["mutual_meetup", "connected_before", "mutual_friends"],
@@ -248,7 +249,7 @@ export async function installSocialFixture(
                 {
                   profile: peer,
                   availability: peerAvailability,
-                  distanceKm: 0.2,
+                  distanceKm: 2,
                   relationship: "none",
                   sharedInterestNames: ["Coffee", "Design"],
                   discoveryReasons: ["intent_match", "shared_interests"],
@@ -263,7 +264,8 @@ export async function installSocialFixture(
                 sharedInterestNames: ["Coffee", "Design"],
               },
             ],
-      });
+      };
+      return json(availabilityReadResponseSchema.parse(response));
     }
     if (path === "/api/pokes") {
       if (method === "POST") {
