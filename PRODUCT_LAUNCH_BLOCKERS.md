@@ -2,7 +2,7 @@
 
 - [x] Save the pre-migration recovery package and verify its guarded rollback locally; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) describes the private archive and its limits.
 - [x] Verify the native Now radius and low-density empty state, Inbox priority, editable chat suggestions and draft safety, removal of disabled Map coin controls, and the core Now-to-Poke-to-accepted-chat Simulator journey.
-- [ ] Verify direct native discovery-privacy save and reopen with a real fixture account; the controls are visible, but the Simulator automation cannot yet target their save/reopen actions.
+- [x] Verify direct native discovery-privacy selection, save, close, and reopen against a fixture account in the installed iPhone Simulator app using the [standalone XCTest runner](test/native-ui/README.md).
 - [x] Approve publication of the committed redesign source, tests, migrations, and documentation to the public GitHub repository.
 - [x] Publish `product-redesign` and open draft PR #7.
 - [x] Pass the initial Linux verification workflow after repairing the lockfile and browser timezone failure.
@@ -27,7 +27,8 @@
 - [ ] Configure a restricted server-only Google Places API key for each environment, enable Nearby Search (New), apply API and billing restrictions, and verify that venue cards remain unavailable when the key is absent or the provider fails.
 - [x] Schedule the bounded stale-location cleanup directly in Supabase each minute and verify a successful scheduled run.
 - [x] Schedule `purge_product_daily_activity_v1(31)` directly in Supabase daily and verify its manual execution.
-- [ ] Verify the first daily-metrics scheduled run, configure retention failure alerts, and test stale-coordinate deletion under load.
+- [x] Test stale-coordinate deletion under synthetic local load, including concurrent committed updates and a stale-row refresh race; [location-retention-load.md](docs/production-baseline/location-retention-load.md) records the scope and measurements.
+- [ ] Verify the first daily-metrics scheduled run, configure retention failure alerts, and establish hosted load limits in an approved environment.
 - [ ] Exercise the complete journey on physical iOS and Android devices, including denied permissions, camera Scan, push delivery/navigation, media/video calls, relaunch, and sign-out/account-switch isolation.
 - [ ] Enable Supabase leaked-password protection after confirming the Auth plan supports it; the live security advisor reports it disabled.
 - [ ] Complete an operator-specific privacy notice, supported privacy contact, formal terms, retention policy, age policy, and moderation/support response process.
@@ -36,8 +37,10 @@
 - [x] Reproduce and repair hosted age-release regressions, close retired chat RPC access, and seal the eighteen-migration rollback.
 - [x] Verify the native pending birth-date, review-before-submit, and blocked age-admission recovery screens in the Simulator.
 - [ ] Choose and operate a support/privacy contact; the user has not selected an address.
+- [ ] Decide the accepted-Poke chat lifecycle from the brief's temporary-chat requirement; current chats stay open without automatic friendship, and the user has been asked about optional 24-hour closure with readable history preserved.
 - [ ] Rehearse backups/PITR, restore, provider outages, load limits, canary release, and rollback using the existing production-baseline checklist.
-- [ ] Before enabling meetup coin rewards, integrate server-verified device attestations and prove freshness, replay rejection, blocks, exact proximity, concurrent awards, and two-device behavior.
+- [ ] Before enabling meetup coin rewards, select and implement trusted-presence verification with server challenges, assertion validation, replay protection, and atomic award consumption; device/app integrity alone does not verify GPS proximity.
+- [ ] Prove the selected reward mechanism on two physical devices, including freshness, replay rejection, blocks, distant participants, and concurrent awards.
 - [ ] Before accepting new Peek+ payments, implement the advertised optional benefits and confirm storefront eligibility.
 
 The user authorized verification against the existing MyaouDB database on 2026-09-08 instead of creating a paid branch.

@@ -1,8 +1,9 @@
 # Remaining manual actions
 
-- Rehearse a fresh project from the complete hosted baseline and 182-migration history.
-  The current release has 19 migrations installed, while the compact local fixture does not recreate every legacy or provider-managed object.
-- Configure separate development, preview/staging, and production Supabase/Vercel/EAS variables and project references. Do not reuse production values in preview.
+- Rehearse a fresh project from the complete hosted baseline and migration history recorded in [SUPABASE_ROLLBACK.md](../../SUPABASE_ROLLBACK.md).
+  The compact local fixture does not recreate every legacy or provider-managed object.
+- Configure separate development, preview/staging, and production Supabase/Vercel/EAS variables and project references.
+  Do not reuse production values in preview.
 - Configure a restricted server-only `GOOGLE_PLACES_API_KEY` in each environment, enable Nearby Search (New), and verify API and billing restrictions. The venue endpoint intentionally returns no cards until this key is present.
 - The production `CRON_SECRET`, matching Vault secret, `pg_net` 0.19.5, and active every-minute outbox cron job 7 are configured.
   The explicitly authorized 31-event queue completed with zero pending, processing, or dead rows.
@@ -14,7 +15,9 @@
   Alert on missed runs and purge failures using the reversible scheduler runbook in `../product-operations.md`.
 - Configure Vercel WAF/rate-limit rules for authentication-related traffic. Supabase Auth is a direct client integration and needs provider/edge coverage.
 - Enable/verify Supabase backups and PITR; rehearse restore into an isolated non-production project and record RTO/RPO, gaps, and rollback steps.
-- Create Vercel dashboard views/alerts from the structured log fields and generate real preview samples. Query-level DB/RPC, Realtime, cache, and queue metrics remain unavailable until those systems expose telemetry.
+- Configure an approved external monitor and notification recipient for the structured worker records and scheduler checks in [observability.md](observability.md).
+  The current Hobby plan does not include Vercel Alerts.
+  Query-level DB/RPC, Realtime, and cache metrics remain unavailable until those systems expose telemetry.
 - Keep production secret values only in Vercel, Supabase, and EAS. Rotate any credential that may have been exposed outside those stores before production use.
 - Configure and validate APNs/FCM/Expo credentials plus universal/app-link provider association. Confirm iOS and Android notification delivery and allowlisted navigation in approved internal builds.
   Follow `../app-links.md` for canonical invitation and Plan paths, certificate requirements, and OS-level device verification.

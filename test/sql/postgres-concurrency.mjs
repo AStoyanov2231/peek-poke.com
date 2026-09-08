@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "../..");
+const loadMode = process.argv.slice(2).includes("--load");
+assert.deepEqual(process.argv.slice(2), loadMode ? ["--load"] : [], "usage: node test/sql/postgres-concurrency.mjs [--load]");
 function discoverPostgresBin() {
   if (process.env.POSTGRES_BIN) return process.env.POSTGRES_BIN;
   try {
@@ -229,6 +231,89 @@ async function purgeBatching() {
   assert.equal(await query("SELECT count(*) FROM public.user_locations WHERE updated_at >= clock_timestamp() - interval '10 minutes'"), "1", "fresh locations remain untouched");
 }
 
+function percentile(samples, percentile) {
+  const sorted = [...samples].sort((left, right) => left - right);
+  return sorted[Math.ceil(sorted.length * percentile) - 1];
+}
+
+async function staleLocationLoadValidation() {
+  const staleRows = 100_000;
+  const freshRows = 1_000;
+  const batchSize = 1_000;
+  await query(`
+    CREATE UNLOGGED TABLE public.location_load_update_events(worker smallint NOT NULL, updated_at timestamptz NOT NULL DEFAULT clock_timestamp());
+    INSERT INTO public.user_locations(user_id,updated_at)
+    SELECT ('30000000-0000-4000-8000-' || lpad(item::text, 12, '0'))::uuid, clock_timestamp() - interval '20 minutes'
+    FROM generate_series(1, ${staleRows}) item;
+    INSERT INTO public.user_locations(user_id,updated_at)
+    SELECT ('30000001-0000-4000-8000-' || lpad(item::text, 12, '0'))::uuid, clock_timestamp()
+    FROM generate_series(1, ${freshRows}) item;
+  `);
+  assert.equal(await query(`SELECT count(*) FROM public.user_locations WHERE user_id::text LIKE '30000000-%'`), String(staleRows), "load fixture must contain every stale location");
+  assert.equal(await query(`SELECT count(*) FROM public.user_locations WHERE user_id::text LIKE '30000001-%'`), String(freshRows), "load fixture must contain every fresh location");
+
+  const updaterSql = (worker) => {
+    const updates = Array.from({ length: 1000 }, (_, index) => {
+      const userNumber = (index % 333) * 3 + worker + 1;
+      return `
+        UPDATE public.user_locations
+        SET updated_at = clock_timestamp()
+        WHERE user_id = '30000001-0000-4000-8000-${String(userNumber).padStart(12, "0")}';
+        INSERT INTO public.location_load_update_events(worker) VALUES (${worker});
+        SELECT pg_sleep(0.001);
+      `;
+    }).join("\n");
+    return `SELECT pg_backend_pid();\n${updates}\n\\q\n`;
+  };
+  const updaters = [0, 1, 2].map((worker) => startSession(updaterSql(worker)));
+  await Promise.all(updaters.map((updater) => sessionPid(updater)));
+
+  const durationsMs = [];
+  let totalDeleted = 0;
+  const startedAt = process.hrtime.bigint();
+  while (true) {
+    const batchStartedAt = process.hrtime.bigint();
+    const deleted = Number(await query(`SELECT public.purge_stale_user_locations(${batchSize})`));
+    durationsMs.push(Number(process.hrtime.bigint() - batchStartedAt) / 1_000_000);
+    assert(deleted >= 0 && deleted <= batchSize, "every purge batch must remain bounded to one thousand rows");
+    totalDeleted += deleted;
+    const [freshRemaining, staleRemaining] = (await Promise.all([
+      query(`SELECT count(*) FROM public.user_locations WHERE user_id::text LIKE '30000001-%'`),
+      query(`SELECT count(*) FROM public.user_locations WHERE user_id::text LIKE '30000000-%'`),
+    ])).map(Number);
+    assert.equal(freshRemaining, freshRows, "concurrent fresh-location updates must be retained after every purge batch");
+    assert.equal(staleRemaining, staleRows - totalDeleted, "each batch must drain exactly its deleted stale rows without duplicates or drops");
+    if (deleted === 0) break;
+  }
+  const elapsedSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+  const updaterExitCodes = await Promise.all(updaters.map(waitForExit));
+  assert.deepEqual(updaterExitCodes, [0, 0, 0], "all concurrent fresh-location updaters must complete successfully");
+  const updateEvents = Number(await query("SELECT count(*) FROM public.location_load_update_events"));
+  const finalFresh = Number(await query(`SELECT count(*) FROM public.user_locations WHERE user_id::text LIKE '30000001-%'`));
+  const finalStale = Number(await query(`SELECT count(*) FROM public.user_locations WHERE user_id::text LIKE '30000000-%'`));
+  assert.equal(totalDeleted, staleRows, "all and only stale locations must be drained exactly once");
+  assert.equal(finalStale, 0, "no stale load rows may remain after draining");
+  assert.equal(finalFresh, freshRows, "no concurrent fresh row may be deleted");
+  assert.equal(updateEvents, 3_000, "the workload must record every concurrent fresh-location update");
+  const refreshedStaleId = "30000002-0000-4000-8000-000000000001";
+  await query(`INSERT INTO public.user_locations(user_id,updated_at) VALUES('${refreshedStaleId}',clock_timestamp()-interval '20 minutes')`);
+  const refresher = startSession(`BEGIN;\nSELECT pg_backend_pid();\nUPDATE public.user_locations SET updated_at=clock_timestamp() WHERE user_id='${refreshedStaleId}';\nSELECT 'fresh_update_locked';\n`);
+  await sessionPid(refresher);
+  await waitFor("locked fresh location update", async () => refresher.stdout.includes("fresh_update_locked"));
+  assert.equal(await query(`SELECT public.purge_stale_user_locations(${batchSize})`), "0", "SKIP LOCKED must not delete a stale row being refreshed");
+  refresher.finish("COMMIT;");
+  assert.equal(await waitForExit(refresher), 0, "the stale-row refresh transaction must commit");
+  assert.equal(await query(`SELECT count(*) FROM public.user_locations WHERE user_id='${refreshedStaleId}' AND updated_at >= clock_timestamp()-interval '10 minutes'`), "1", "a stale row refreshed while locked must survive after commit");
+  return {
+    batchCount: durationsMs.length,
+    elapsedSeconds,
+    p50Ms: percentile(durationsMs, 0.5),
+    p95Ms: percentile(durationsMs, 0.95),
+    rowsPerSecond: staleRows / elapsedSeconds,
+    updateEvents,
+  };
+}
+
 let started = false;
 try {
   tempRoot = mkdtempSync("/tmp/ppc-");
@@ -243,11 +328,14 @@ try {
   await writerBeforeErasure();
   await erasureBeforeWriter();
   await purgeBatching();
+  const loadResult = loadMode ? await staleLocationLoadValidation() : null;
   process.stdout.write("PostgreSQL concurrency validation passed: lock barriers, tombstone ordering, and SKIP LOCKED bounded purge\n");
+  if (loadResult) process.stdout.write(`PostgreSQL stale-location load validation passed: ${JSON.stringify(loadResult)}\n`);
 } finally {
   await stopSessions();
-  if (started) {
-    try { await run(pgCtl, ["-D", dataDir, "-m", "immediate", "stop"]); } catch {}
+  if (started) await run(pgCtl, ["-D", dataDir, "-m", "immediate", "-w", "stop"]);
+  if (tempRoot) {
+    rmSync(tempRoot, { recursive: true, force: true });
+    assert.ok(!existsSync(tempRoot), "temporary PostgreSQL load-test files must be removed");
   }
-  if (tempRoot) rmSync(tempRoot, { recursive: true, force: true });
 }

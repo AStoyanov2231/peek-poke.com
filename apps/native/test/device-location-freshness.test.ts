@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as Location from "expo-location";
 import {
   LOCATION_ACK_FRESHNESS_TTL_MS,
   LOCATION_ACK_TIMER_MAX_RECHECK_MS,
@@ -49,6 +50,50 @@ afterEach(() => {
 });
 
 describe("device location acknowledgement freshness", () => {
+  it("keeps native provider diagnostics out of the location recovery message", async () => {
+    vi.mocked(Location.getCurrentPositionAsync).mockRejectedValueOnce(
+      new Error("FunctionCallException at ExpoLocation/LocationRequester.swift:33"),
+    );
+    await expect(refreshDeviceLocation()).rejects.toThrow(
+      "Couldn’t get a current location. Try again in a moment.",
+    );
+    expect(getDeviceLocationSnapshot()).toMatchObject({
+      status: "error",
+      error: "Couldn’t get a current location. Try again in a moment.",
+      freshForUserId: null,
+    });
+  });
+
+  it("rejects an already-aborted compatible signal before resolving coordinates", async () => {
+    const getCurrentPosition = vi.mocked(Location.getCurrentPositionAsync);
+    const deadline = new Error("Location sync timed out.");
+    deadline.name = "LocationSyncDeadlineError";
+    getCurrentPosition.mockClear();
+
+    await expect(refreshDeviceLocation({
+      aborted: true,
+      reason: deadline,
+    } as AbortSignal)).rejects.toBe(deadline);
+
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(getDeviceLocationSnapshot()).toMatchObject({
+      coords: null,
+      status: "idle",
+      error: null,
+      freshForUserId: null,
+      acknowledgedAt: null,
+    });
+  });
+
+  it("works with a React Native AbortSignal that has no throwIfAborted method", async () => {
+    const signal = { aborted: false } as AbortSignal;
+
+    await expect(refreshDeviceLocation(signal)).resolves.toMatchObject({
+      lat: COORDS.lat,
+      lng: COORDS.lng,
+    });
+  });
+
   it("stays fresh below the TTL and atomically expires while no route is mounted", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-07T12:00:00.000Z"));

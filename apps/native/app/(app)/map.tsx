@@ -105,6 +105,7 @@ import {
   userMarkerAccessibility,
 } from "@/lib/map-marker-accessibility";
 import {
+  getDeviceLocationSnapshot,
   markDeviceLocationStale,
   markDeviceLocationSynced,
   refreshDeviceLocation,
@@ -303,7 +304,9 @@ export default function MapScreen() {
       resolveCoordinates,
       sync: (coords, signal) => mutateLocation({ coords, signal }),
       onFailure: (error, phase) => {
-        if (locationFailureRequiresRecovery(phase, Boolean(location))) {
+        // Reading the store here keeps coordinate updates from restarting the
+        // refresh effect and cancelling the acknowledgement in flight.
+        if (locationFailureRequiresRecovery(phase, Boolean(getDeviceLocationSnapshot().coords))) {
           markDeviceLocationStale(
             userId,
             error instanceof Error ? error.message : "Could not refresh your location",
@@ -325,7 +328,7 @@ export default function MapScreen() {
         void refetchNearbyAfterLocationSync(queryClient, userId);
       },
     });
-  }, [location, locationSyncCoordinator, mutateLocation, queryClient, showNotice]);
+  }, [locationSyncCoordinator, mutateLocation, queryClient, showNotice]);
 
   const refreshAndSyncLocation = useCallback(() => {
     return runLocationSync(locationAccountScope, refreshDeviceLocation);

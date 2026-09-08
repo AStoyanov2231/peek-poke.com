@@ -1,3 +1,4 @@
+import { fixtureSupabaseOrigin } from "./fixture-origin";
 import { expect, test } from "@playwright/test";
 import { installSocialFixture, peerId, planId, threadId } from "./social-fixture";
 const email = process.env.E2E_EMAIL ?? "e2e@peek-poke.test";
@@ -63,7 +64,7 @@ test.describe("redesigned social journey", () => {
     }
   });
   test("password recovery callback remains reachable for a pending account", async ({ page }) => {
-    await page.request.post("http://127.0.0.1:54321/__test/age-admission", {
+    await page.request.post(`${fixtureSupabaseOrigin}/__test/age-admission`, {
       data: { status: "pending" },
     });
 
@@ -147,9 +148,69 @@ test.describe("redesigned social journey", () => {
     expect(await page.locator("body").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: "test-results/e2e/profile-context-mobile.png", fullPage: true });
   });
+  test("an accepted Poke can show and dismiss a current approximate-area hint without acknowledging a meetup", async ({ page, context }) => {
+    await page.addInitScript(() => {
+      const syntheticPosition = { latitude: 42.7, longitude: 23.32 };
+      const geolocation = navigator.geolocation;
+      geolocation.getCurrentPosition = (success, _failure, options) => {
+        if (options?.maximumAge !== 0) return;
+        queueMicrotask(() => success({
+          coords: {
+            latitude: syntheticPosition.latitude,
+            longitude: syntheticPosition.longitude,
+            accuracy: 1,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now(),
+        } as GeolocationPosition));
+      };
+    });
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: 42.7, longitude: 23.32 });
+    const fixture = await installSocialFixture(page, { map: true });
+
+    await page.goto("/login?redirectTo=/map");
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === "/map");
+    await expect.poll(() => fixture.apiPaths.includes("/api/location")).toBe(true);
+    await expect.poll(() => fixture.apiPaths.includes("/api/nearby")).toBe(true);
+    // Do not navigate away merely because the transport started. This visible
+    // control proves the app accepted the fresh, server-authorized nearby
+    // result that the chat may later use as its coarse presence signal.
+    await expect(page.getByRole("button", { name: "View Mila, up for coffee", exact: true })).toBeVisible();
+
+    await page.getByRole("link", { name: /^Inbox/ }).click();
+    await page.waitForURL((url) => url.pathname === "/inbox");
+    await page.getByRole("button", { name: "I’m in", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === `/chat/${threadId}`);
+
+    await expect(page.getByText("You're in the same approximate area as Mila")).toBeVisible();
+    await expect(page.getByText("Did you meet up?", { exact: true })).toBeVisible();
+    expect(fixture.meetupPosts).toHaveLength(0);
+    expect(fixture.apiRequests).not.toContainEqual({ path: "/api/coins/meeting", method: "POST" });
+    await page.screenshot({ path: "test-results/e2e/chat-approximate-area-desktop.png" });
+    await page.getByRole("button", { name: "Make a plan", exact: true }).click();
+    await expect(page.getByRole("dialog").getByRole("heading", { name: "Make a plan", exact: true })).toBeVisible();
+    expect(fixture.apiRequests).not.toContainEqual({ path: "/api/plans", method: "POST" });
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByText("You're in the same approximate area as Mila")).toBeVisible();
+    expect(await page.locator("body").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: "test-results/e2e/chat-approximate-area-mobile.png", fullPage: true });
+    await page.getByRole("button", { name: "Dismiss proximity message" }).click();
+    await expect(page.getByText("You're in the same approximate area as Mila")).not.toBeVisible();
+    await expect(page.getByText("Did you meet up?", { exact: true })).toBeVisible();
+    expect(fixture.meetupPosts).toHaveLength(0);
+  });
   test("first visit reaches real intent after a name and three interests", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.request.post("http://127.0.0.1:54321/__test/onboarding", { data: { completed: false } });
+    await page.request.post(`${fixtureSupabaseOrigin}/__test/onboarding`, { data: { completed: false } });
     try {
       await installSocialFixture(page, { onboarding: true });
       await page.goto("/login?redirectTo=/now");
@@ -175,7 +236,7 @@ test.describe("redesigned social journey", () => {
       await expect(page.getByText("You’re up for coffee", { exact: false })).toBeVisible();
       expect(await page.locator("body").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     } finally {
-      await page.request.post("http://127.0.0.1:54321/__test/onboarding", { data: { completed: true } });
+      await page.request.post(`${fixtureSupabaseOrigin}/__test/onboarding`, { data: { completed: true } });
     }
   });
   test("public page is useful before sign-in and fits a phone", async ({

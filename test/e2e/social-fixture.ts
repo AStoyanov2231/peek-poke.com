@@ -1,3 +1,4 @@
+import { fixtureSupabaseOrigin, fixtureSupabasePort } from "./fixture-origin";
 import type { Page } from "@playwright/test";
 import { availabilityReadResponseSchema } from "@peekpoke/shared";
 export const ownerId = "11111111-1111-4111-8111-111111111111";
@@ -73,6 +74,7 @@ export async function installSocialFixture(
   let pokeAttempts = 0;
   const apiPaths: string[] = [];
   const apiUrls: string[] = [];
+  const apiRequests: Array<{ path: string; method: string }> = [];
   const keys: string[] = [];
   const joins: string[] = [];
   const meetups: string[] = [];
@@ -84,7 +86,7 @@ export async function installSocialFixture(
     status: options.ageAdmission ?? "adult",
     decided_at: options.ageAdmission === "pending" ? null : "2026-09-08T00:00:00.000Z",
   };
-  await page.request.post("http://127.0.0.1:54321/__test/age-admission", {
+  await page.request.post(`${fixtureSupabaseOrigin}/__test/age-admission`, {
     data: { status: ageAdmission.status },
   });
   let audience = "everyone";
@@ -95,7 +97,7 @@ export async function installSocialFixture(
     await page.route("https://api.mapbox.com/**", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ version: 8, sources: {}, layers: [], imports: [{ id: "basemap", data: { version: 8, schema: { lightPreset: { default: "day", type: "string" } }, sources: {}, layers: [{ id: "fixture-background", type: "background", paint: { "background-color": "#ebe7df" } }] } }] }) }));
     await page.route("https://events.mapbox.com/**", (route) => route.fulfill({ status: 204 }));
   }
-  await page.routeWebSocket(/127\.0\.0\.1:54321/, (ws) => {
+  await page.routeWebSocket(new RegExp(`127\\.0\\.0\\.1:${fixtureSupabasePort}(?:/|$)`), (ws) => {
     ws.onMessage((message) => {
       try {
         const data = JSON.parse(String(message));
@@ -119,6 +121,7 @@ export async function installSocialFixture(
     const method = request.method();
     apiPaths.push(path);
     apiUrls.push(`${path}${requestUrl.search}`);
+    apiRequests.push({ path, method });
     const json = (body: unknown, status = 200) =>
       route.fulfill({
         status,
@@ -144,7 +147,7 @@ export async function installSocialFixture(
             : "blocked",
           decided_at: "2026-09-08T00:00:00.000Z",
         };
-        await page.request.post("http://127.0.0.1:54321/__test/age-admission", {
+        await page.request.post(`${fixtureSupabaseOrigin}/__test/age-admission`, {
           data: { status: ageAdmission.status },
         });
       }
@@ -160,7 +163,7 @@ export async function installSocialFixture(
     }
     if (path === "/api/profile/complete-onboarding") {
       onboardingCompleted = true;
-      await page.request.post("http://127.0.0.1:54321/__test/onboarding", { data: { completed: true } });
+      await page.request.post(`${fixtureSupabaseOrigin}/__test/onboarding`, { data: { completed: true } });
       return json({ success: true, profile: { id: ownerId, username: owner.username, onboarding_completed: true } });
     }
     if (path === "/api/profile")
@@ -438,6 +441,7 @@ export async function installSocialFixture(
   return {
     apiPaths,
     apiUrls,
+    apiRequests,
     pokeKeys: keys,
     planJoins: joins,
     meetupPosts: meetups,

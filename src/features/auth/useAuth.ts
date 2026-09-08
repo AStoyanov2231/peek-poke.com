@@ -58,6 +58,9 @@ export function useAuth() {
         setUser(authUser);
 
         if (authUser) {
+          if (useAppStore.getState().locationFreshForUserId !== authUser.id) {
+            useAppStore.getState().markLocationStale();
+          }
           currentUserIdRef.current = authUser.id;
           const fetchedProfile = await fetchProfile();
           if (isCurrentAuth(initialAuthGeneration)) {
@@ -101,8 +104,18 @@ export function useAuth() {
             currentUserIdRef.current !== authUser.id
             || profileOwnerIdRef.current !== authUser.id
           ) {
+            const changedAccount = currentUserIdRef.current !== null
+              && currentUserIdRef.current !== authUser.id;
             if (currentUserIdRef.current !== null) resetFriendMutationAttempts();
-            useAppStore.getState().markLocationStale();
+            // Auth providers can remount during an in-app route transition.
+            // Keep an acknowledged location only for that same account; a
+            // different account must always acquire a new sample.
+            if (
+              changedAccount
+              || useAppStore.getState().locationFreshForUserId !== authUser.id
+            ) {
+              useAppStore.getState().markLocationStale();
+            }
             currentUserIdRef.current = authUser.id;
             const fetchedProfile = await fetchProfile();
             if (isCurrentAuth(eventAuthGeneration)) {

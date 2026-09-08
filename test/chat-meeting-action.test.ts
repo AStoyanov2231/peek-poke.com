@@ -16,12 +16,11 @@ const nativeRoot = readFileSync("apps/native/app/_layout.tsx", "utf8");
 const nativeRecovery = readFileSync("apps/native/src/lib/session-recovery.ts", "utf8");
 
 describe("chat meetup confirmation parity", () => {
-  it("uses the coarse-cell candidate radius before server-side exact verification", () => {
+  it("keeps the dormant reward candidate radius separate from chat acknowledgements", () => {
     expect(meetingProximityEligible(null)).toBe(false);
     expect(meetingProximityEligible(-1)).toBe(false);
     expect(meetingProximityEligible(1_000)).toBe(true);
     expect(meetingProximityEligible(1_001)).toBe(false);
-    expect(webEligibility).toContain("sociallyEligible && meetingProximityEligible");
     expect(webEligibility).toContain("eligiblePeerIds.has(otherUserId) || hasCurrentPlanForThread");
     expect(nativeScreen).toContain("ChatMeetupAcknowledgement");
   });
