@@ -21,6 +21,7 @@
     "test": "vitest run",
     "test:product-db": "node test/sql/product-database.mjs && node test/sql/age-admission-rls.mjs && node test/sql/age-group-detail.mjs && node test/sql/age-shared-groups-compat.mjs && node test/sql/profile-photo-buckets.mjs",
     "test:watch": "vitest",
+    "test:postgres-concurrency": "node test/sql/postgres-concurrency.mjs",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "native:start": "npm run start -w @peekpoke/native",

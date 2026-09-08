@@ -21,6 +21,7 @@ export const nativeQueryKeys = {
   chat: {
     all: ["chat"] as const,
     messages: (threadId: string) => ["chat", threadId, "messages"] as const,
+    suggestions: (threadId: string) => ["chat", threadId, "suggestions"] as const,
     groupMessages: (groupId: string) => ["chat", "group", groupId, "messages"] as const,
   },
   discovery: {
@@ -33,7 +34,10 @@ export const nativeQueryKeys = {
   coins: ["coins"] as const,
   entitlements: ["billing", "entitlements"] as const,
   presence: ["realtime", "presence"] as const,
-  availability: ["availability"] as const,
+  availability: {
+    all: ["availability"] as const,
+    nearby: (radiusKm: 2 | 10 | 25) => ["availability", "nearby", radiusKm] as const,
+  },
   meetups: {
     all: ["meetups"] as const,
     peer: (peerId: string) => ["meetups", peerId] as const,

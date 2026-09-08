@@ -3,6 +3,8 @@
 This file is the project's committed home for project-intrinsic agent knowledge: build, test, release, architecture, and sharp-edge notes that should travel with the code.
 
 - Shared QR group payload semantics, migration setup, and native build prerequisites are documented in `docs/shared-qr-groups.md`.
+- Vercel CLI 59.10 `env rm NAME preview` deletes the entire matching multi-target record; use a verified target-only PATCH for scope changes and verify each mutation before continuing.
+  The incident and recovery checks are documented in `docs/production-baseline/environment-isolation-recovery.md`.
 
 ## Maintaining this file
 

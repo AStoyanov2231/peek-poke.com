@@ -6,6 +6,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  Share,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,9 +30,12 @@ import { nativeQueryKeys } from "@/data/query-keys";
 import { displayName } from "@/components/ui-helpers";
 import { AvailabilityEditor, availabilityActivities } from "@/components/availability-editor";
 import { PokeComposer } from "@/components/poke-composer";
+import { PlanComposer } from "@/components/plan-composer";
+import { fetchInviteLink } from "@/data/social/api";
 import { fetchPlans } from "@/data/plans";
 import { sharedGroupsQuery } from "@/data/social/queries";
 import { refreshDeviceLocation, useDeviceLocation } from "@/lib/location";
+import { nextDiscoveryRadius, splitNearbyPeople, supportedDiscoveryRadii } from "@/lib/now-discovery";
 import type { Activity, AvailabilityUpsertRequest } from "@peekpoke/shared";
 
 function labelForActivity(activity: Activity, customLabel: string | null) {
@@ -55,6 +59,9 @@ export default function NowScreen() {
   const queryClient = useQueryClient();
   const [pokePerson, setPokePerson] = useState<{ id: string; name: string; activity: Activity; customLabel: string | null } | null>(null);
   const [locationPrimerVisible, setLocationPrimerVisible] = useState(false);
+  const [planComposerOpen, setPlanComposerOpen] = useState(false);
+  const [invitePending, setInvitePending] = useState(false);
+  const [radius, setRadius] = useState<(typeof supportedDiscoveryRadii)[number]>(2);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30_000);
@@ -62,12 +69,14 @@ export default function NowScreen() {
   }, []);
   const deviceLocation = useDeviceLocation();
   const availabilityQuery = useQuery({
-    queryKey: nativeQueryKeys.availability,
-    queryFn: ({ signal }) => fetchAvailability(signal),
+    queryKey: nativeQueryKeys.availability.nearby(radius),
+    queryFn: ({ signal }) => fetchAvailability({ radiusKm: radius, signal }),
     staleTime: 20_000,
   });
   const availability = availabilityQuery.data?.availability ?? null;
   const people = availabilityQuery.data?.people ?? [];
+  const { friends: nearbyFriends, others: nearbyNewPeople } = splitNearbyPeople(people, radius);
+  const nearbyPeople = [...nearbyFriends, ...nearbyNewPeople];
   const plansQuery = useQuery({ queryKey: nativeQueryKeys.plans.all, queryFn: ({ signal }) => fetchPlans(signal), staleTime: 30_000 });
   const circlesQuery = useQuery(sharedGroupsQuery());
   const joinablePlans = (plansQuery.data?.plans ?? [])
@@ -76,32 +85,18 @@ export default function NowScreen() {
   const circles = (circlesQuery.data?.groups ?? []).slice(0, 3);
   const mutation = useMutation<Awaited<ReturnType<typeof saveAvailability>>, Error, AvailabilityUpsertRequest>({
     mutationFn: (request) => saveAvailability(request),
-    onSuccess: (result) =>
-      queryClient.setQueryData(
-        nativeQueryKeys.availability,
-        (current: typeof availabilityQuery.data) => ({
-          availability: result.availability,
-          people: current?.people ?? [],
-        }),
-      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability.all }),
   });
   const clearMutation = useMutation({
     mutationFn: () => clearAvailability(),
-    onSuccess: () =>
-      queryClient.setQueryData(
-        nativeQueryKeys.availability,
-        (current: typeof availabilityQuery.data) => ({
-          availability: null,
-          people: current?.people ?? [],
-        }),
-      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability.all }),
   });
 
   async function enableNearby() {
     setLocationPrimerVisible(false);
     try {
       await refreshDeviceLocation();
-      await availabilityQuery.refetch();
+      await queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability.all });
     } catch (error) {
       Alert.alert(
         "Location unavailable",
@@ -112,6 +107,22 @@ export default function NowScreen() {
     }
   }
 
+  async function inviteFriend() {
+    if (invitePending) return;
+    setInvitePending(true);
+    try {
+      const { invite_url: inviteUrl } = await fetchInviteLink();
+      await Share.share({
+        title: "Join me on Peek & Poke!",
+        message: inviteUrl,
+        url: inviteUrl,
+      });
+    } catch (error) {
+      Alert.alert("Invite unavailable", error instanceof Error ? error.message : "Try again in a moment.");
+    } finally {
+      setInvitePending(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -189,6 +200,21 @@ export default function NowScreen() {
             <Text style={styles.mapLink}>Map</Text>
           </Pressable>
         </View>
+        <View accessibilityRole="radiogroup" accessibilityLabel="Discovery radius" style={styles.radiusOptions}>
+          {supportedDiscoveryRadii.map((option) => (
+            <Pressable
+              key={option}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: radius === option }}
+              onPress={() => setRadius(option)}
+              style={[styles.radiusOption, radius === option && styles.radiusOptionSelected]}
+            >
+              <Text style={[styles.radiusOptionText, radius === option && styles.radiusOptionTextSelected]}>
+                {option} km
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         {deviceLocation.status !== "granted" ? (
           <Pressable
             accessibilityRole="button"
@@ -224,22 +250,27 @@ export default function NowScreen() {
         ) : null}
         {!availabilityQuery.isPending &&
         !availabilityQuery.isError &&
-        people.length === 0 ? (
+        nearbyPeople.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No one is active nearby yet.</Text>
+            <Text style={styles.emptyTitle}>No one is active within {radius} km yet.</Text>
             <Text style={styles.emptyText}>
-              Set your intent so friends and new people can find a reason to
-              reach out.
+              A small invitation can still make something happen.
             </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.navigate("/(app)/map" as never)}
-            >
-              <Text style={styles.mapLink}>Explore the map</Text>
+            <View style={styles.emptyActions}>
+              {radius < 25 ? <Pressable accessibilityRole="button" onPress={() => setRadius(nextDiscoveryRadius(radius))} style={styles.secondaryAction}>
+                <Text style={styles.secondaryActionText}>Look {nextDiscoveryRadius(radius)} km away</Text>
+              </Pressable> : null}
+              <Pressable accessibilityRole="button" onPress={() => setPlanComposerOpen(true)} style={styles.primaryAction}>
+                <Text style={styles.primaryActionText}>Start a plan</Text>
+              </Pressable>
+            </View>
+            <Pressable accessibilityRole="button" disabled={invitePending} onPress={() => void inviteFriend()} style={styles.inviteAction}>
+              {invitePending ? <ActivityIndicator color={colors.primary[500]} size="small" /> : <Text style={styles.mapLink}>Invite someone along</Text>}
             </Pressable>
           </View>
         ) : null}
-        {people.map((person) => (
+        {nearbyNewPeople.length ? <Text style={styles.subsectionTitle}>People up for something</Text> : null}
+        {nearbyNewPeople.map((person) => (
           <View
             key={person.profile.id}
             style={styles.personCard}
@@ -292,9 +323,30 @@ export default function NowScreen() {
             </Pressable>
           </View>
         ))}
+        {nearbyFriends.length ? <>
+          <View style={styles.friendSectionHeader}>
+            <Text style={styles.subsectionTitle}>Friends nearby</Text>
+            <Text style={styles.friendSectionHint}>Familiar faces, free right now</Text>
+          </View>
+          {nearbyFriends.map((person) => (
+            <View key={person.profile.id} style={styles.personCard}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`View ${displayName(person.profile)}'s profile`} onPress={() => router.push(`/(app)/profile/${person.profile.id}` as never)} style={styles.personProfileButton}>
+                <Avatar uri={person.profile.avatar_url} name={displayName(person.profile)} size={48} ringColor={colors.primary[500]} />
+                <View style={styles.personCopy}>
+                  <Text style={styles.personIntent}>{labelForActivity(person.availability.activity, person.availability.customLabel)}</Text>
+                  <Text style={styles.personName}>{displayName(person.profile)} · {person.distanceKm < 1 ? `${Math.round(person.distanceKm * 1000)}m` : `${person.distanceKm.toFixed(1)}km`}</Text>
+                  <Text numberOfLines={1} style={styles.personMeta}>{remainingTime(person.availability.expiresAt)}</Text>
+                </View>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Poke ${displayName(person.profile)}`} onPress={(event) => { event.stopPropagation(); setPokePerson({ id: person.profile.id, name: displayName(person.profile), activity: person.availability.activity, customLabel: person.availability.customLabel }); }} style={styles.pokeButton}>
+                <Text style={styles.pokeButtonText}>Poke</Text>
+              </Pressable>
+            </View>
+          ))}
+        </> : null}
         <View style={styles.emptyCard}>
           <Text style={styles.sectionTitle}>Plans</Text>
-          <Text style={styles.emptyText}>These are available through your current Plan feed. Location is not inferred here.</Text>
+          <Text style={styles.emptyText}>Join something coming up, or bring people together with a plan of your own.</Text>
           {joinablePlans.map((plan) => <Pressable key={plan.id} accessibilityRole="button" onPress={() => router.push(`/plans/${plan.id}` as never)} style={styles.nowRow}><Text style={styles.nowRowTitle}>{plan.title ?? plan.activity}</Text><Text style={styles.nowRowMeta}>{plan.place_text} · {plan.member_count}/{plan.participant_limit} going</Text></Pressable>)}
           {!plansQuery.isPending && joinablePlans.length === 0 ? <Text style={styles.emptyText}>No plans are available in your feed yet. Start a simple one.</Text> : null}
           <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/plans" as never)}><Text style={styles.mapLink}>Browse or create a plan</Text></Pressable>
@@ -307,6 +359,7 @@ export default function NowScreen() {
         </View>
       </ScrollView>
       {pokePerson ? <PokeComposer recipientId={pokePerson.id} name={pokePerson.name} defaultActivity={pokePerson.activity} defaultCustomLabel={pokePerson.customLabel} onClose={() => setPokePerson(null)} onSent={() => Alert.alert("Poke sent", "They can accept, reply later, or decline. It expires automatically.")} /> : null}
+      <PlanComposer open={planComposerOpen} onClose={() => setPlanComposerOpen(false)} onCreated={(planId) => router.push(`/plans/${planId}` as never)} />
       <Modal
         transparent
         animationType="fade"
@@ -518,6 +571,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  radiusOptions: {
+    flexDirection: "row",
+    gap: spacing[2],
+  },
+  radiusOption: {
+    minHeight: 44,
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.ink[2],
+  },
+  radiusOptionSelected: {
+    backgroundColor: colors.ink[9],
+  },
+  radiusOptionText: {
+    color: colors.ink[6],
+    fontFamily: fontFamilies.semibold,
+    fontSize: 13,
+  },
+  radiusOptionTextSelected: {
+    color: colors.surface,
+  },
   mapLink: {
     color: colors.primary[500],
     fontFamily: fontFamilies.semibold,
@@ -542,6 +618,60 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.regular,
     fontSize: 14,
     lineHeight: 20,
+  },
+  emptyActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  primaryAction: {
+    minHeight: 44,
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary[500],
+  },
+  primaryActionText: {
+    color: colors.surface,
+    fontFamily: fontFamilies.semibold,
+    fontSize: 14,
+  },
+  secondaryAction: {
+    minHeight: 44,
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.ink[2],
+  },
+  secondaryActionText: {
+    color: colors.ink[8],
+    fontFamily: fontFamilies.semibold,
+    fontSize: 14,
+  },
+  inviteAction: {
+    minHeight: 44,
+    alignSelf: "flex-start",
+    justifyContent: "center",
+  },
+  subsectionTitle: {
+    marginTop: spacing[2],
+    color: colors.ink[8],
+    fontFamily: fontFamilies.semibold,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  friendSectionHeader: {
+    marginTop: spacing[3],
+    gap: 2,
+  },
+  friendSectionHint: {
+    color: colors.ink[5],
+    fontFamily: fontFamilies.regular,
+    fontSize: 13,
+    lineHeight: 18,
   },
   personCard: {
     padding: spacing[3],

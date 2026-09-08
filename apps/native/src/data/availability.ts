@@ -8,10 +8,15 @@ import {
 } from "@peekpoke/shared";
 import { apiFetch, jsonBody } from "@/lib/api";
 
+export type AvailabilityReadOptions = {
+  radiusKm?: 2 | 10 | 25;
+  signal?: AbortSignal;
+};
+
 export function fetchAvailability(
-  signal?: AbortSignal,
+  { radiusKm = 25, signal }: AvailabilityReadOptions = {},
 ): Promise<AvailabilityReadResponse> {
-  return apiFetch("/api/availability", {
+  return apiFetch(`/api/availability?radiusKm=${radiusKm}`, {
     signal,
     responseSchema: availabilityReadResponseSchema,
   });

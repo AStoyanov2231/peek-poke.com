@@ -1,3 +1,4 @@
+/* global __dirname */
 const platform = process.env.NATIVE_TEST_PLATFORM;
 
 if (platform && platform !== "ios" && platform !== "android") {
@@ -25,6 +26,7 @@ module.exports = {
       "<rootDir>/test/error-recovery-pressability.test.tsx",
       "<rootDir>/test/chat-meeting-action-pressability.test.tsx",
       "<rootDir>/test/chat-meeting-action-capability.test.tsx",
+      "<rootDir>/test/chat-momentum-actions.test.tsx",
       "<rootDir>/test/chat-meetup-acknowledgement.test.tsx",
       "<rootDir>/test/owner-display-name-editor-pressability.test.tsx",
       "<rootDir>/test/admin-report-actions-pressability.test.tsx",

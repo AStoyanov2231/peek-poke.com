@@ -39,6 +39,7 @@ import {
   createChatMessageAttemptCoordinator,
   createChatMessageUiLifecycle,
   createDmMessageMutationCoordinator,
+  appendEditableChatSuggestion,
   EDIT_WINDOW_MINUTES,
   isPremium,
   mergeNewestFirstMessagePages,
@@ -47,6 +48,7 @@ import {
   type DMMessage,
   type DmMessageMutationAttempt,
   venueSuggestionsResponseSchema,
+  type ChatSuggestionsResponse,
   type VenueCard,
   type VenueSuggestionsResponse,
 } from "@peekpoke/shared";
@@ -65,6 +67,8 @@ import { ChatMeetupAcknowledgement } from "@/components/chat-meetup-acknowledgem
 import { useReadReceipt } from "@/hooks/use-read-receipt";
 import { ReadReceiptRecovery } from "@/components/read-receipt-recovery";
 import { PlanComposer } from "@/components/plan-composer";
+import { ChatMomentumActions } from "@/components/chat-momentum-actions";
+import { fetchChatSuggestions } from "@/data/chat-suggestions";
 import { apiFetch } from "@/lib/api";
 
 const EMPTY_MESSAGES: DMMessage[] = [];
@@ -171,6 +175,12 @@ export default function ChatScreen() {
     return thread.participant_1_id === profile.id ? thread.participant_2 : thread.participant_1;
   }, [profile, thread]);
   const isReadOnly = other?.account_deleted === true;
+  const suggestionsQuery = useQuery<ChatSuggestionsResponse>({
+    queryKey: nativeQueryKeys.chat.suggestions(threadId),
+    queryFn: ({ signal }) => fetchChatSuggestions(threadId, signal),
+    enabled: Boolean(threadId && other && !isReadOnly),
+    staleTime: 30_000,
+  });
   const venuesQuery = useQuery<VenueSuggestionsResponse>({ queryKey: ["chat", threadId, "venues"], enabled: Boolean(threadId && other && !isReadOnly), queryFn: () => apiFetch<VenueSuggestionsResponse>(`/api/dm/${threadId}/venues`, { responseSchema: venueSuggestionsResponseSchema }), staleTime: 60_000 });
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, profile?.id);
   const isOtherOnline = other?.is_online === true && !isReadOnly;
@@ -628,7 +638,17 @@ export default function ChatScreen() {
           </View>
         ) : (
           <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
-            {venuesQuery.data?.venues.length ? <View style={styles.venueCards}>{venuesQuery.data.venues.map((venue: VenueCard) => <View key={venue.id} style={styles.venueCard}><Text style={styles.venueName}>{venue.name}</Text>{venue.address ? <Caption>{venue.address}</Caption> : null}<View style={styles.venueActions}><Pressable accessibilityRole="button" onPress={() => setDraft(threadId, `How about ${venue.name}?`)}><Text style={styles.venueAction}>Suggest place</Text></Pressable><Pressable accessibilityRole="button" onPress={() => { setPlanPlacePrefill(venue.name); setPlanComposerOpen(true); }}><Text style={styles.venueAction}>Meet here</Text></Pressable></View></View>)}</View> : venuesQuery.data?.source === "unavailable" ? <Caption>Venue suggestions are unavailable right now.</Caption> : null}
+            <ChatMomentumActions
+              hasMessages={storedMessages.length > 0}
+              isError={suggestionsQuery.isError}
+              isLoading={suggestionsQuery.isPending}
+              onChooseReply={(reply) =>
+                setDraft(threadId, appendEditableChatSuggestion(draft, reply))
+              }
+              onMakePlan={() => setPlanComposerOpen(true)}
+              suggestions={suggestionsQuery.data?.suggestions}
+            />
+            {venuesQuery.data?.venues.length ? <View style={styles.venueCards}>{venuesQuery.data.venues.map((venue: VenueCard) => <View key={venue.id} style={styles.venueCard}><Text style={styles.venueName}>{venue.name}</Text>{venue.address ? <Caption>{venue.address}</Caption> : null}<View style={styles.venueActions}><Pressable accessibilityRole="button" onPress={() => setDraft(threadId, appendEditableChatSuggestion(draft, `How about ${venue.name}?`))}><Text style={styles.venueAction}>Suggest place</Text></Pressable><Pressable accessibilityRole="button" onPress={() => { setPlanPlacePrefill(venue.name); setPlanComposerOpen(true); }}><Text style={styles.venueAction}>Meet here</Text></Pressable></View></View>)}</View> : venuesQuery.data?.source === "unavailable" ? <Caption>Venue suggestions are unavailable right now.</Caption> : null}
             {replyingTo ? (
               <ComposerNotice
                 icon={<CornerUpLeft color={colors.accent[500]} size={14} />}

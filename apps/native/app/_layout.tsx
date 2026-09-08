@@ -576,7 +576,8 @@ function RootLayoutContent() {
       <StatusBar animated style="dark" />
       <AgeAdmissionProvider value={{ admission: ageAdmission, refreshAdmission }}>
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(auth)/login" />
+          <Stack.Screen name="(auth)/welcome" />
           <Stack.Screen name="auth/callback" />
           <Stack.Screen name="auth/reset-password" />
           <Stack.Protected guard={canMountAgeAdmission}>

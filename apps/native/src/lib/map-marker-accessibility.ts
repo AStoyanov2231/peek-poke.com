@@ -31,17 +31,3 @@ export function userMarkerAccessibility(
     state: { busy, selected },
   };
 }
-
-export function coinMarkerAccessibility(collectable: boolean): MapMarkerAccessibility {
-  return collectable
-    ? {
-        label: "Collect coin",
-        hint: "Collect this nearby coin",
-        state: { disabled: false },
-      }
-    : {
-        label: "Coin, get closer",
-        hint: "Move closer before collecting this coin",
-        state: { disabled: true },
-      };
-}

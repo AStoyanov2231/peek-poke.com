@@ -378,6 +378,17 @@ createServer(async (req, res) => {
     });
   }
   if (url.pathname === `/api/dm/${threadId}/read`) return json(res, { success: true, last_read_sequence: 0 });
+  if (url.pathname === `/api/dm/${threadId}/typing` && method === "POST")
+    return json(res, { success: true });
+  if (url.pathname === `/api/dm/${threadId}/suggestions` && method === "GET")
+    return json(res, {
+      source: "deterministic",
+      suggestions: [
+        { id: "time", text: "Would 20 minutes work?" },
+        { id: "place", text: "Want to choose a public place?" },
+        { id: "plan", text: "Turn this into a plan" },
+      ],
+    });
   if (url.pathname === `/api/dm/${threadId}/venues`)
     return json(res, { source: "unavailable", venues: [] });
   if (url.pathname === `/api/dm/${threadId}`) {
