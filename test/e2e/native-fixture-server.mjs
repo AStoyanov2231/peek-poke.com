@@ -15,6 +15,7 @@ const page = { version: "v1", next_cursor: null, has_more: false, limit: 100 };
 let onboarding = true;
 let availability = null;
 let createdPlan = null;
+let planJoinRequests = 0;
 let incomingPokeAccepted = false;
 let planMeetupViewerConfirmed = false;
 let chatMeetupViewerConfirmed = false;
@@ -191,6 +192,23 @@ createServer(async (req, res) => {
     return json(res, { error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
   }
   const method = req.method;
+
+  if (method === "POST" && /^\/api\/plans\/[^/]+\/join$/u.test(url.pathname)) planJoinRequests += 1;
+  if (url.pathname === "/__test/plan-share-state" && method === "GET")
+    return json(res, { join_requests: planJoinRequests });
+  if (url.pathname === `/api/plans/share/${"a".repeat(43)}` && method === "GET")
+    return json(res, {
+      plan: {
+        id: planId,
+        activity: "Coffee & a walk",
+        title: "Coffee by the park",
+        starts_at: later(60 * 60_000),
+        place_text: "The café by the park",
+        participant_limit: 4,
+        member_count: 2,
+      },
+      can_join: true,
+    });
 
   if (url.pathname === "/__test/onboarding" && method === "POST") {
     onboarding = body.completed === true;

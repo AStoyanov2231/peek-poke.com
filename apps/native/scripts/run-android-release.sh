@@ -37,12 +37,7 @@ fi
 # Native config changes require one explicit production-profile prebuild before
 # Release validation. Do not prebuild on every invocation: Expo may regenerate
 # the Android directory and discard useful app-local incremental outputs.
-if [[ ! -f "$SOURCE_MANIFEST" ]] ||
-   grep -Fq 'android:scheme="exp+peek-poke"' "$SOURCE_MANIFEST" ||
-   ! grep -Fq 'android:allowBackup="false"' "$SOURCE_MANIFEST" ||
-   ! grep -Fq 'android.permission.SYSTEM_ALERT_WINDOW" tools:node="remove"' "$SOURCE_MANIFEST" ||
-   ! grep -Fq 'android.permission.USE_BIOMETRIC" tools:node="remove"' "$SOURCE_MANIFEST" ||
-   ! grep -Fq 'android.permission.USE_FINGERPRINT" tools:node="remove"' "$SOURCE_MANIFEST"; then
+if ! node "$APP_DIR/scripts/verify-android-release-manifest.js" "$SOURCE_MANIFEST" "$APP_DIR/app.json"; then
   echo "Android production metadata is missing or stale." >&2
   echo "After a native config change run:" >&2
   echo "  EAS_BUILD_PROFILE=production NODE_ENV=production npm run prebuild -- --platform android --no-install" >&2

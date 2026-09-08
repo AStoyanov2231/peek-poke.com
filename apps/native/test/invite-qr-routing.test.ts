@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginRouteForPendingIntent, routeAfterBootstrap } from "@/lib/auth-return-navigation";
+import { isPublicPlanPreviewPath, loginRouteForPendingIntent, routeAfterBootstrap } from "@/lib/auth-return-navigation";
 import { inviteTokenForReturn, inviteTokenFromQrContent } from "@/lib/invite-qr-link";
 
 const INVITER_ID = "22222222-2222-4222-8222-222222222222";
@@ -41,5 +41,14 @@ describe("native invitation QR routing", () => {
 
   it("does not treat a raw inviter UUID as a signed invitation return token", () => {
     expect(inviteTokenForReturn(INVITER_ID)).toBeUndefined();
+  });
+});
+
+describe("public Plan bootstrap exemption", () => {
+  it("preserves only the complete public preview route during session hydration", () => {
+    expect(isPublicPlanPreviewPath(`/plan/${"a".repeat(43)}`)).toBe(true);
+    for (const route of ["/now", "/plans/anything", "/chat/anything", "/plan/short", `/plan/${"a".repeat(43)}/join`, "/login?plan_token=" + "a".repeat(43)]) {
+      expect(isPublicPlanPreviewPath(route)).toBe(false);
+    }
   });
 });

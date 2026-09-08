@@ -24,3 +24,25 @@ Do not treat a custom-scheme Simulator launch or static manifest test as proof o
 
 `test/public-app-links.test.ts` keeps the iOS response and native Android manifest aligned and narrowly scoped to the intended public link families.
 The browser Plan-preview journey separately proves that authentication preserves the invitation and joining remains explicit.
+
+## Local Android release preflight
+
+`apps/native/scripts/run-android-release.sh` now parses the generated source manifest before invoking Gradle or installing an APK.
+The manifest must contain exactly the public link records configured in app.json, with verified VIEW filters and BROWSABLE/DEFAULT categories.
+Missing Plan paths, broader unintended paths, development-client schemes, enabled backups, or missing blocked-permission removals stop the command.
+After a native configuration change, regenerate through Expo with the intended build profile before running the release command.
+The preflight checks generated metadata; it does not verify the distributed signing certificate or OS domain association.
+The command-level regression suite uses temporary project directories and stubbed build/install executables, separately from actual packaged-app verification.
+
+## Packaged Android routing evidence
+
+The September 9 local release-mode APK check used embedded JavaScript, development signing, and synthetic loopback API/Auth services with Metro stopped.
+Cold launches reproduced a public Plan preview being discarded while session hydration temporarily excluded its route.
+The public route now remains registered, and bootstrap preserves only the exact valid preview path.
+The rebuilt APK showed the same preview in signed-in and signed-out cold launches.
+Anonymous Join opened sign-in, successful sign-in returned to the preview, and the fixture recorded zero join requests throughout the tested flow.
+These checks used an explicit package-targeted Android VIEW intent, so they verify manifest resolution and application routing without claiming OS website association.
+To repeat against the local native fixtures, stop `com.peekpoke.app`, launch `https://www.peek-poke.com/plan/` followed by 43 `a` characters with a VIEW intent targeting that package, and inspect the preview before interacting.
+Read `/__test/plan-share-state` on the native fixture API to verify the join counter independently.
+Repeat signed out, choose Join, sign in with the fixture account, and verify the preview is retained without automatic membership.
+Distributed-certificate and physical-device checks above remain required.

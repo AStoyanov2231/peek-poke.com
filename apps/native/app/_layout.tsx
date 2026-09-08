@@ -52,7 +52,7 @@ import {
 } from "@/lib/auth-bootstrap";
 import { loadBootstrapForCurrentSession } from "@/lib/profile-bootstrap";
 import { inviteTokenForReturn } from "@/lib/invite-qr-link";
-import { loginRouteForPendingIntent, routeAfterBootstrap } from "@/lib/auth-return-navigation";
+import { isPublicPlanPreviewPath, loginRouteForPendingIntent, routeAfterBootstrap } from "@/lib/auth-return-navigation";
 import { AgeAdmissionProvider } from "@/components/age-admission-context";
 import {
   ageAdmissionReturnIntent,
@@ -108,6 +108,10 @@ export default function RootLayout() {
 // react-doctor-disable-next-line no-giant-component
 function RootLayoutContent() {
   const pathname = usePathname();
+  const currentPathnameRef = useRef(pathname);
+  useEffect(() => {
+    currentPathnameRef.current = pathname;
+  }, [pathname]);
   const routeParams = useGlobalSearchParams<{ inviterId?: string | string[]; invite?: string | string[]; plan_token?: string | string[]; token?: string | string[] }>();
   const routeInviter = Array.isArray(routeParams.inviterId) ? routeParams.inviterId[0] : routeParams.inviterId;
   const queryInviter = Array.isArray(routeParams.invite) ? routeParams.invite[0] : routeParams.invite;
@@ -235,7 +239,9 @@ function RootLayoutContent() {
 
           nativeQueryClient.setQueryData(nativeQueryKeys.bootstrap, result.data);
           updateAgeAdmission(result.data.age_admission);
-          router.replace(routeAfterBootstrap(result.data, pendingInviteRef.current, pendingPlanTokenRef.current) as never);
+          if (!isPublicPlanPreviewPath(currentPathnameRef.current)) {
+            router.replace(routeAfterBootstrap(result.data, pendingInviteRef.current, pendingPlanTokenRef.current) as never);
+          }
           if (result.data.age_admission.status !== "adult") return;
           await syncNativeRealtimeAuthSession(session);
           if (!canStartAgeRestrictedServices({
@@ -294,7 +300,7 @@ function RootLayoutContent() {
   }, [bootstrapCoordinator, bootstrapSignedInUser]);
 
   useEffect(() => {
-    if (!ready || !requiresAgeAdmissionRoute(pathname, ageAdmission, Boolean(pendingPlanToken))) return;
+    if (!ready || !requiresAgeAdmissionRoute(pathname, ageAdmission, isPublicPlanPreviewPath(pathname))) return;
     router.replace({
       pathname: "/age-admission",
       params: ageAdmissionReturnIntent(pendingInviteRef.current, pendingPlanTokenRef.current),
@@ -323,7 +329,9 @@ function RootLayoutContent() {
         setSessionUserId(null);
         setSessionResolved(true);
         const invite = pendingInviteRef.current;
-        router.replace(loginRouteForPendingIntent(invite, pendingPlanTokenRef.current));
+        if (!isPublicPlanPreviewPath(currentPathnameRef.current)) {
+          router.replace(loginRouteForPendingIntent(invite, pendingPlanTokenRef.current));
+        }
       }
     } catch (error) {
       if (
@@ -365,7 +373,9 @@ function RootLayoutContent() {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
         const invite = pendingInviteRef.current;
-        router.replace(loginRouteForPendingIntent(invite, pendingPlanTokenRef.current));
+        if (!isPublicPlanPreviewPath(currentPathnameRef.current)) {
+          router.replace(loginRouteForPendingIntent(invite, pendingPlanTokenRef.current));
+        }
       }
     } catch (error) {
       if (
@@ -537,7 +547,6 @@ function RootLayoutContent() {
 
   const showBootstrap = !ready || !fontsLoaded || Boolean(bootstrapError);
   const canMountAuthenticatedRoutes = ageAdmission?.status === "adult";
-  const canMountPublicPlan = sessionResolved;
   const canMountAgeAdmission = sessionResolved && Boolean(sessionUserId) && !canMountAuthenticatedRoutes;
 
   return (
@@ -561,9 +570,9 @@ function RootLayoutContent() {
             <Stack.Screen name="invite/[inviterId]" />
             <Stack.Screen name="plans/[planId]" />
           </Stack.Protected>
-          <Stack.Protected guard={canMountPublicPlan}>
-            <Stack.Screen name="plan/[token]" />
-          </Stack.Protected>
+          {/* Public previews must survive cold-start session hydration. Joining
+              still performs its own session and age-admission checks. */}
+          <Stack.Screen name="plan/[token]" />
         </Stack>
         <CallProvider />
       </AgeAdmissionProvider>
