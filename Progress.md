@@ -6,6 +6,18 @@ Updated: 2026-09-08.
 
 ## Current continuation
 
+The discovery and signed-invitation batch merged through [PR #12](https://github.com/AStoyanov2231/peek-poke.com/pull/12) as `b2668558a134deeac13582e7f2a10b847852da1a` after all eight checks passed on the final source.
+The production deployment is Ready in Dublin and serves the canonical domains.
+The scoped deployed social API suite passed in 19.05 seconds, including v1 shape compatibility, v2 context, authenticated direct-RPC denial, prior accepted-Poke context, stale-location and block exclusion, transactional Plan/Poke behavior, and synthetic cleanup.
+Public homepage, terms, privacy, and iOS association checks returned 200.
+Final CI passes 1,368 web tests with ten intentional integration skips, 516 native Vitest tests, 98 platform renderer tests, SQL fixtures, the production build, and all eleven browser journeys.
+Desktop and mobile screenshots were inspected directly after correcting the capture target for the app's nested scroll container.
+Visual review removed contradictory "new face" copy for a previous connection and verified context wrapping and Poke-action spacing.
+The fixture regression was an invalid non-bucketed distance, reproduced in CI and repaired at the shared-contract boundary without weakening privacy validation.
+The verified screenshots are saved locally in `test-results/release-pr12/`; private deployment and database receipts remain outside Git.
+Full launch readiness still requires the external items in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
+The brief's temporary-chat wording remains a pending product choice: current accepted-Poke chats stay open without creating a friendship automatically, and the user has been asked whether to keep that behavior or close them after 24 hours while preserving readable history.
+
 The Settings policy-navigation correction merged through [PR #11](https://github.com/AStoyanov2231/peek-poke.com/pull/11) as `072fc488cc62a6274089e4722abbc076f708887f` with all eight required checks passing and a Ready production deployment.
 The final brief review then identified missing mutual-connection and prior-interaction discovery ranking, plus a native signed-invite token lost during authentication redirects.
 Web and native Now now opt into a versioned discovery response, preserve server ranking, and display at most two compact context labels.
@@ -22,7 +34,7 @@ Local web lint and 1,368 tests pass with ten explicitly configured integration s
 The actual SQL harness passes ranking-before-limit, privacy, service grants, legacy-definition preservation, null-bound rejection, and coarse-distance tie-break regressions.
 The local production build remains blocked by the previously observed Turbopack CSS-worker port-binding restriction, including an escalated attempt.
 The strengthened Now browser journey and scoped hosted v2 API assertions are prepared for CI and post-release validation in [PR #12](https://github.com/AStoyanov2231/peek-poke.com/pull/12).
-The source is published; required CI, merge, and deployed API verification remain pending.
+The source, required CI, merge, visual review, and deployed API verification are complete as recorded above.
 
 The Plan-link, native Plan recovery, and optional suggestion-provider batch merged through [PR #10](https://github.com/AStoyanov2231/peek-poke.com/pull/10) as `3f4be1b074dee0894433e8b5fd18cc6957abdb88`.
 All eight checks passed, the deployment reached Ready, the public iOS association served both invitation and Plan paths, and the scoped deployed social API suite passed.

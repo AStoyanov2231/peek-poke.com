@@ -36,6 +36,7 @@
 - [x] Reproduce and repair hosted age-release regressions, close retired chat RPC access, and seal the eighteen-migration rollback.
 - [x] Verify the native pending birth-date, review-before-submit, and blocked age-admission recovery screens in the Simulator.
 - [ ] Choose and operate a support/privacy contact; the user has not selected an address.
+- [ ] Decide the accepted-Poke chat lifecycle from the brief's temporary-chat requirement; current chats stay open without automatic friendship, and the user has been asked about optional 24-hour closure with readable history preserved.
 - [ ] Rehearse backups/PITR, restore, provider outages, load limits, canary release, and rollback using the existing production-baseline checklist.
 - [ ] Before enabling meetup coin rewards, integrate server-verified device attestations and prove freshness, replay rejection, blocks, exact proximity, concurrent awards, and two-device behavior.
 - [ ] Before accepting new Peek+ payments, implement the advertised optional benefits and confirm storefront eligibility.
