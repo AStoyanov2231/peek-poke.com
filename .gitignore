@@ -3,6 +3,9 @@ node_modules/
 
 # Next.js
 .next/
+.next-e2e/
+.next-hosted-verification/
+.next-ci-verify/
 out/
 
 # Build

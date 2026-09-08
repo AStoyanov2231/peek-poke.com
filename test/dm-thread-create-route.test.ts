@@ -136,7 +136,6 @@ describe("POST /api/dm/threads contract", () => {
     ["SELF_MESSAGE", 400, "SELF_MESSAGE"],
     ["USER_NOT_FOUND", 404, "USER_NOT_FOUND"],
     ["BLOCKED", 404, "USER_NOT_FOUND"],
-    ["INSUFFICIENT_COINS", 403, "INSUFFICIENT_COINS"],
   ])("maps %s without leaking the raw RPC error", async (code, status, publicCode) => {
     database.rpc.mockResolvedValue({
       data: { error: code, message: "private database detail", status },

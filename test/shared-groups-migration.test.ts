@@ -1,37 +1,30 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  requireSupabaseIntegrationTarget,
+  resolveSupabaseIntegrationTarget,
+} from "./support/supabase-integration-target";
 
-const APPROVED_PROJECT_REF = "ttojvnwpnpuhkyjncwxn";
 const url = process.env.SUPABASE_TEST_URL;
 const serviceRoleKey = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY;
 const anonKey = process.env.SUPABASE_TEST_ANON_KEY;
-const isLocalUrl = (() => {
-  if (!url) return false;
-  try {
-    return new Set(["localhost", "127.0.0.1", "::1"]).has(new URL(url).hostname);
-  } catch {
-    return false;
-  }
-})();
-const isApprovedRemoteUrl = (() => {
-  if (!url) return false;
-  try {
-    return new URL(url).origin === `https://${APPROVED_PROJECT_REF}.supabase.co`;
-  } catch {
-    return false;
-  }
-})();
-const remoteTargetOptedIn = process.env.SUPABASE_TEST_TARGET === APPROVED_PROJECT_REF;
-const databaseTargetAllowed = isLocalUrl || (isApprovedRemoteUrl && remoteTargetOptedIn);
-const databaseTestRequested = Boolean(process.env.SUPABASE_TEST_TARGET || url || serviceRoleKey || anonKey);
-if (databaseTestRequested && (!url || !serviceRoleKey || !anonKey || !databaseTargetAllowed)) {
-  throw new Error(`Shared-group migration tests require the approved target ${APPROVED_PROJECT_REF} with complete credentials and SUPABASE_TEST_TARGET opt-in.`);
-}
+const target = resolveSupabaseIntegrationTarget(process.env, { requireLocalAppUrl: false });
+const databaseTestConfigured = Boolean(target.configured && url && serviceRoleKey && anonKey);
+if (target.requested && !databaseTestConfigured)
+  requireSupabaseIntegrationTarget(
+    target,
+    process.env,
+    ["SUPABASE_TEST_URL", "SUPABASE_TEST_SERVICE_ROLE_KEY", "SUPABASE_TEST_ANON_KEY"],
+    "Shared-group migration tests",
+  );
 function requireDatabaseTestConfig() {
-  if (!url || !serviceRoleKey || !anonKey || !databaseTargetAllowed) {
-    throw new Error(`Shared-group migration tests require SUPABASE_TEST_URL, SUPABASE_TEST_SERVICE_ROLE_KEY, SUPABASE_TEST_ANON_KEY, and approved target ${APPROVED_PROJECT_REF}.`);
-  }
+  requireSupabaseIntegrationTarget(
+    target,
+    process.env,
+    ["SUPABASE_TEST_URL", "SUPABASE_TEST_SERVICE_ROLE_KEY", "SUPABASE_TEST_ANON_KEY"],
+    "Shared-group migration tests",
+  );
 }
 
 let supabase: SupabaseClient;
@@ -60,7 +53,7 @@ async function createTestUser() {
   if (error) throw error;
 }
 
-describe("shared QR group migration semantics", () => {
+describe.skipIf(!databaseTestConfigured)("shared QR group migration semantics", { timeout: 30_000, hookTimeout: 30_000 }, () => {
   beforeAll(async () => {
     requireDatabaseTestConfig();
     supabase = createClient(url!, serviceRoleKey!);

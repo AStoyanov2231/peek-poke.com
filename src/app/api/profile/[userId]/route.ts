@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hasSubscriberRole, isBlocked, withAuth } from "@/lib/auth";
+import { isBlocked, withAuth } from "@/lib/auth";
 import { isValidUUID } from "@/lib/validation";
 import { apiError } from "@/lib/api-error";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -69,7 +69,10 @@ export const GET = withNoStore(withAuth<{ userId: string }>(async (request, { us
     id: string;
     created_at: string;
   }>;
-  const canViewPrivate = user.id === userId || await hasSubscriberRole(supabase, user.id);
+  // Private photos are a visibility choice, not a billing feature. Only their
+  // owner can receive signed media URLs; every other viewer gets a safe locked
+  // placeholder regardless of subscription status.
+  const canViewPrivate = user.id === userId;
   // Legacy approved objects live in the now-private mixed bucket until their
   // durable promotion completes, so public-intent rows also need signing.
   const viewablePhotos = await signPrivateProfilePhotos(serviceClient, photoRows ?? []);

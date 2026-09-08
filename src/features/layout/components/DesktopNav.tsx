@@ -1,149 +1,109 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MapPin, Mail, Coins, Shield } from "lucide-react";
-import { useProfile, useCoins, useFriendRequestCount, useTotalUnread, useHasRole } from "@/stores/selectors";
-import { useTransitionRouter } from "@/hooks/useTransitionRouter";
+import {
+  Compass,
+  MapPin,
+  Mail,
+  Users,
+  Shield,
+  ArrowUpRight,
+} from "lucide-react";
+import {
+  useProfile,
+  useFriendRequestCount,
+  useTotalUnread,
+  useHasRole,
+} from "@/stores/selectors";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { BrandMark } from "@/components/ui/BrandMark";
 import { cn } from "@/lib/utils";
-
-const MAX_COINS = 5;
-
-interface DesktopNavItem {
-  href: string;
-  label: string;
-  Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
-  badge?: boolean;
-}
-
-const desktopNavItems: DesktopNavItem[] = [
-  { href: "/",         label: "Map",      Icon: MapPin },
-  { href: "/inbox",    label: "Inbox",    Icon: Mail, badge: true },
-];
+import { usePokeInbox } from "@/features/inbox/usePokeInbox";
 
 export function DesktopNav() {
   const pathname = usePathname();
-  if (pathname.startsWith("/chat") || pathname.startsWith("/group") || pathname === "/onboarding") return null;
-  return <DesktopNavInner />;
-}
-
-function DesktopNavInner() {
-  const pathname = usePathname();
-  const router = useTransitionRouter();
   const profile = useProfile();
-  const coins = useCoins();
-  const unreadCount = useTotalUnread();
-  const friendRequestCount = useFriendRequestCount();
+  const { pendingReceivedCount } = usePokeInbox();
+  const unread =
+    useTotalUnread() + useFriendRequestCount() + pendingReceivedCount;
   const isAdmin = useHasRole("admin");
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
-
-  useEffect(() => {
-    const resetTimer = window.setTimeout(() => setPendingHref(null), 0);
-    return () => window.clearTimeout(resetTimer);
-  }, [pathname]);
-
-  const activeHref = pendingHref ?? pathname;
-  const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;
-
-  const navItems: DesktopNavItem[] = [
-    ...desktopNavItems,
+  if (
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/group") ||
+    pathname === "/onboarding"
+  )
+    return null;
+  const items = [
+    { href: "/now", label: "Now", Icon: Compass },
+    { href: "/map", label: "Map", Icon: MapPin },
+    { href: "/inbox", label: "Inbox", Icon: Mail },
+    { href: "/friends", label: "Your people", Icon: Users },
     ...(isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] : []),
   ];
-
-  const displayName = profile?.display_name ?? profile?.username ?? "You";
-  const handle = profile?.username ? `@${profile.username}` : "";
-
+  const name = profile?.display_name ?? profile?.username ?? "Your profile";
   return (
-    <aside
-      aria-label="Main navigation"
-      className="hidden md:flex flex-col flex-shrink-0 border-r border-hairline bg-surface"
-      style={{ width: 240, minHeight: 0 }}
-    >
-      <div className="flex flex-col h-full py-5 px-3.5">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 px-2.5 pb-4">
-          <div
-            className="flex items-center justify-center rounded-[10px] text-white font-bold text-sm"
-            style={{ width: 32, height: 32, background: "var(--ink-9)", letterSpacing: "-0.02em" }}
+    <aside className="hidden w-[240px] shrink-0 flex-col border-r border-hairline bg-surface md:flex">
+      <Link
+        href="/now"
+        aria-label="Peek and Poke home"
+        className="flex items-center gap-2 px-6 py-8"
+      >
+        <BrandMark />
+        <span className="text-lg font-bold tracking-[-.06em]">
+          peek & poke<span className="text-primary">.</span>
+        </span>
+      </Link>
+      <nav aria-label="Main navigation" className="grid gap-2 px-4">
+        {items.map(({ href, label, Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            aria-current={pathname.startsWith(href) ? "page" : undefined}
+            className={cn(
+              "flex min-h-12 items-center gap-3 rounded-2xl px-4 text-[15px] font-semibold transition-colors",
+              pathname.startsWith(href)
+                ? "bg-primary-50 text-primary"
+                : "text-ink-6 hover:bg-ink-1",
+            )}
           >
-            P
-          </div>
-          <span className="t-title-3 text-ink-9">Peek &amp; Poke</span>
-        </div>
-
-        {/* Nav items */}
-        <nav className="flex flex-col gap-0.5">
-          {navItems.map(({ href, label, Icon, badge }) => {
-            const isActive = href === "/" ? activeHref === "/" : activeHref.startsWith(href.split("?")[0]);
-            const badgeCount = badge ? rawBadgeCount : 0;
-
-            return (
-              <button type="button"
-                key={href}
-                aria-label={label}
-                aria-current={isActive ? "page" : undefined}
-                onClick={() => {
-                  setPendingHref(href);
-                  router.push(href);
-                }}
-                className={cn(
-                  "flex items-center gap-3 h-10 px-3 rounded-[10px] text-sm font-medium border-0 cursor-pointer transition-colors text-left",
-                  isActive
-                    ? "bg-ink-1 text-ink-9 font-semibold"
-                    : "bg-transparent text-ink-6 hover:bg-ink-1 hover:text-ink-8"
-                )}
-                style={isActive ? { boxShadow: "inset 3px 0 0 var(--primary-500)" } : undefined}
-              >
-                <Icon size={18} strokeWidth={isActive ? 2.25 : 1.75} />
-                <span className="flex-1">{label}</span>
-                {badgeCount > 0 && (
-                  <span className="badge" style={{ background: "var(--primary-500)", fontSize: 12, minWidth: 16, height: 16 }}>
-                    {badgeCount > 9 ? "9+" : badgeCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="flex-1" />
-
-        {/* Coin widget */}
-        <div
-          className="rounded-xl border border-hairline p-3 mb-3.5"
-          style={{ background: "var(--ink-1)" }}
+            <Icon size={21} strokeWidth={1.8} />
+            <span className="flex-1">{label}</span>
+            {href === "/inbox" && unread > 0 && (
+              <span className="badge">{unread > 99 ? "99+" : unread}</span>
+            )}
+          </Link>
+        ))}
+      </nav>
+      <div className="flex-1" />
+      <div className="mx-6 mb-7 border-t border-hairline pt-5">
+        <p className="text-[20px] font-semibold leading-tight tracking-tight">
+          A little poke.
+          <br />
+          <span className="text-ink-5">A good afternoon.</span>
+        </p>
+        <Link
+          href="/safety"
+          className="mt-4 flex min-h-11 items-center gap-2 text-xs font-medium text-ink-6"
         >
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Coins size={14} strokeWidth={2} style={{ color: "oklch(0.65 0.15 85)" }} />
-            <span style={{ fontSize: 12, fontWeight: 600 }}>{coins} / {MAX_COINS} coins</span>
-          </div>
-          <div className="h-1 rounded-pill overflow-hidden" style={{ background: "var(--ink-3)" }}>
-            <div
-              className="h-full rounded-pill"
-              style={{ width: `${(coins / MAX_COINS) * 100}%`, background: "var(--primary-500)" }}
-            />
-          </div>
-          <div style={{ fontSize: 12, color: "var(--ink-5)", marginTop: 6 }}>
-            Meet a friend nearby to earn more
-          </div>
-        </div>
-
-        {/* User card */}
-        <button type="button"
-          aria-label="Go to profile"
-          onClick={() => router.push("/profile")}
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl border border-hairline cursor-pointer text-left transition-colors bg-[var(--surface)] hover:bg-ink-1 w-full"
-        >
-          <Avatar className="w-8 h-8 flex-shrink-0">
-            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={displayName} />}
-            <AvatarFallback name={displayName} />
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-semibold text-ink-9 truncate">{displayName}</div>
-            {handle && <div className="text-xs text-ink-5 truncate">{handle}</div>}
-          </div>
-        </button>
+          Meet with confidence <ArrowUpRight size={14} />
+        </Link>
       </div>
+      <Link
+        href="/profile"
+        aria-current={pathname === "/profile" ? "page" : undefined}
+        className="mx-4 mb-6 flex min-w-0 items-center gap-3 rounded-2xl bg-ink-1 p-3"
+      >
+        <Avatar className="h-10 w-10">
+          {profile?.avatar_url && (
+            <AvatarImage src={profile.avatar_url} alt={name} />
+          )}
+          <AvatarFallback name={name} />
+        </Avatar>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{name}</p>
+          <p className="text-xs text-ink-6">Me & my settings</p>
+        </div>
+      </Link>
     </aside>
   );
 }

@@ -37,7 +37,7 @@ describe("complete onboarding route contract", () => {
       }),
     }));
     database.interestSelect.mockReturnValue({
-      eq: async () => ({ count: 5, error: null }),
+      eq: async () => ({ count: 3, error: null }),
     });
     database.updateSelect.mockReturnValue({
       single: async () => ({
@@ -72,5 +72,12 @@ describe("complete onboarding route contract", () => {
     });
     expect(database.interestSelect).toHaveBeenCalledWith("id", { count: "exact", head: true });
     expect(database.updateSelect).toHaveBeenCalledWith("id, username, onboarding_completed");
+  });
+
+  it("requires three interests before marking the introduction complete", async () => {
+    database.interestSelect.mockReturnValue({ eq: async () => ({ count: 2, error: null }) });
+    const response = await POST(new Request("https://example.test/api/profile/complete-onboarding", { method: "POST" }), {} as never);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "INTERESTS_REQUIRED" });
   });
 });

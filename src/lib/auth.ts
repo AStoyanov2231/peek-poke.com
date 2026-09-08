@@ -14,7 +14,7 @@ export function withAuth<P = Record<string, never>>(
   handler: (
     request: NextRequest,
     ctx: AuthContext<P>
-  ) => Promise<NextResponse>
+  ) => Promise<Response>
 ) {
   return withRequestContext(async (
     request: NextRequest,

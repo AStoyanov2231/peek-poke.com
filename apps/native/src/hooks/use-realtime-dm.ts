@@ -7,6 +7,7 @@ import {
   messageHintSchema,
   PROFILE_REFERENCE_RECOVERY_INTERVAL_MS,
   profileUpdatedHintSchema,
+  socialChangedHintSchema,
   type RealtimeSubscriptionStatus,
   type SharedGroupMessagesResponse,
 } from "@peekpoke/shared";
@@ -29,6 +30,8 @@ const FRIENDS_REFRESH_DEBOUNCE_MS = 1_500;
 const COINS_REFRESH_DEBOUNCE_MS = 1_500;
 const PROFILE_REFRESH_DEBOUNCE_MS = 500;
 const FRIENDSHIP_HINT_KEY = "friendships";
+const POKES_HINT_KEY = "pokes";
+const ACCEPTED_POKE_THREAD_PREFIX = "poke-thread:";
 const PROFILE_CURRENT_QUERY_KEY = nativeQueryKeys.profile.current;
 
 function parseMessageHint(payload: unknown) {
@@ -44,6 +47,14 @@ function parseProfileHint(payload: unknown) {
     ? (payload as { payload?: unknown }).payload
     : null;
   const parsed = profileUpdatedHintSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function parseSocialHint(payload: unknown) {
+  const value = payload && typeof payload === "object"
+    ? (payload as { payload?: unknown }).payload
+    : null;
+  const parsed = socialChangedHintSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
 
@@ -242,6 +253,38 @@ export function useRealtimeUserSync(userId: string | undefined) {
       },
     });
 
+    const pokeConvergence = createRealtimeConvergenceBatcher({
+      delayMs: FRIENDS_REFRESH_DEBOUNCE_MS,
+      onError: (error) => console.warn("Poke realtime recovery failed", error),
+      onFlush: async ({ threadIds }, signal) => {
+        const acceptedThreadIds = threadIds
+          .filter((hint) => hint.startsWith(ACCEPTED_POKE_THREAD_PREFIX))
+          .map((hint) => hint.slice(ACCEPTED_POKE_THREAD_PREFIX.length));
+        const keys = [
+          nativeQueryKeys.pokes,
+          ...(acceptedThreadIds.length > 0 ? [nativeQueryKeys.inbox.threads] : []),
+        ];
+        await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({
+          queryKey,
+          exact: true,
+          refetchType: "none",
+        })));
+        if (signal.aborted) return;
+        await Promise.all([
+          ...keys.map((queryKey) => queryClient.refetchQueries({
+            queryKey,
+            exact: true,
+            type: "active",
+          })),
+          ...acceptedThreadIds.map((threadId) => queryClient.invalidateQueries({
+            queryKey: nativeQueryKeys.chat.messages(threadId),
+            exact: true,
+            refetchType: "active",
+          })),
+        ]);
+      },
+    });
+
     const profileConvergence = createRealtimeConvergenceBatcher({
       delayMs: PROFILE_REFRESH_DEBOUNCE_MS,
       onError: (error) => console.warn("Profile realtime recovery failed", error),
@@ -289,6 +332,13 @@ export function useRealtimeUserSync(userId: string | undefined) {
         }
       },
       onFriendshipsChanged: () => friendshipConvergence.hint(FRIENDSHIP_HINT_KEY),
+      onSocialChanged: (payload) => {
+        const hint = parseSocialHint(payload);
+        if (!hint) return;
+        pokeConvergence.hint(hint.action === "accepted"
+          ? `${ACCEPTED_POKE_THREAD_PREFIX}${hint.thread_id}`
+          : POKES_HINT_KEY);
+      },
       onCoinsChanged: () => coinConvergence.hint("coins"),
       onProfileChanged: (payload) => {
         const hint = parseProfileHint(payload);
@@ -300,6 +350,7 @@ export function useRealtimeUserSync(userId: string | undefined) {
         convergence.subscriptionStatus(status as RealtimeSubscriptionStatus);
         friendshipConvergence.subscriptionStatus(status as RealtimeSubscriptionStatus);
         coinConvergence.subscriptionStatus(status as RealtimeSubscriptionStatus);
+        pokeConvergence.subscriptionStatus(status as RealtimeSubscriptionStatus);
         profileConvergence.subscriptionStatus(status as RealtimeSubscriptionStatus);
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           console.warn("User realtime subscription failed", error);
@@ -315,6 +366,7 @@ export function useRealtimeUserSync(userId: string | undefined) {
       convergence.recover();
       friendshipConvergence.recover();
       coinConvergence.recover();
+      pokeConvergence.recover();
       profileConvergence.recover();
     });
 
@@ -322,6 +374,7 @@ export function useRealtimeUserSync(userId: string | undefined) {
       convergence.dispose();
       friendshipConvergence.dispose();
       coinConvergence.dispose();
+      pokeConvergence.dispose();
       profileConvergence.dispose();
       profileRecoveryScheduler.dispose();
       stopProfileCacheObservation();
@@ -333,6 +386,7 @@ export function useRealtimeUserSync(userId: string | undefined) {
       void queryClient.cancelQueries({ queryKey: nativeQueryKeys.social.friends, exact: true });
       void queryClient.cancelQueries({ queryKey: nativeQueryKeys.social.requests, exact: true });
       void queryClient.cancelQueries({ queryKey: nativeQueryKeys.coins, exact: true });
+      void queryClient.cancelQueries({ queryKey: nativeQueryKeys.pokes, exact: true });
       void queryClient.cancelQueries({ queryKey: PROFILE_CURRENT_QUERY_KEY, exact: true });
       void queryClient.cancelQueries({ predicate: isNativeProfileRecoveryQuery });
       void subscription.unsubscribe();

@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronRight, ChevronLeft, CircleHelp, FileText, Trash2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DiscoveryVisibilitySettings } from "./DiscoveryVisibilitySettings";
+import { fetchDiscoveryPreference, saveDiscoveryPreference } from "@/data/discovery-preferences";
+import { ChevronRight, ChevronLeft, CircleHelp, FileText, Trash2 } from "lucide-react";
 import { signOut } from "@/features/auth/actions";
 import { Card } from "@/components/ui/card";
 import { useCallStore } from "@/stores/callStore";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
-type View = "main" | "help" | "terms" | "delete";
+type View = "main" | "discovery" | "help" | "terms" | "delete";
 
 interface SettingsSheetProps {
   open: boolean;
@@ -36,6 +40,8 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
       });
       if (!response.ok) throw new Error("We couldn't delete your account. Please try again.");
       useCallStore.getState().observeAccount(null);
+      // Account deletion must discard the authenticated document and in-memory caches.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign("/login");
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : "We couldn't delete your account. Please try again.");
@@ -43,13 +49,10 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
     }
   };
 
-  if (!open) return null;
-
   return (
-    <>
-      <button type="button" className="fixed inset-0 z-50 bg-black/40" aria-label="Close settings" onClick={handleClose} />
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-[20px] max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
-        <div className="flex justify-center pt-3 pb-2">
+    <Dialog open={open} onOpenChange={(next) => { if (!next) handleClose(); }}>
+      <DialogContent aria-describedby={undefined} className="fixed inset-x-0 bottom-0 top-auto z-50 max-h-[85vh] w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-t-[20px] bg-background p-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[calc(100vh-3rem)] sm:w-[calc(100%-3rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[20px] sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95">
+        <div className="flex justify-center pt-3 pb-2 sm:hidden">
           <div className="w-9 h-1 rounded-full bg-border" />
         </div>
         <div className="flex items-center justify-between px-6 pb-4">
@@ -61,19 +64,12 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
             >
               <ChevronLeft className="h-4 w-4 text-muted-foreground" />
             </button>
-          ) : (
-            <h2 className="font-display text-[22px] font-bold text-foreground">Settings</h2>
-          )}
-          <button type="button"
-            onClick={handleClose}
-            aria-label="Close settings"
-            className="w-8 h-8 rounded-full bg-background shadow-e-1 flex items-center justify-center"
-          >
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
+          ) : null}
+          <DialogTitle className={view === "main" ? "font-display text-[22px] font-bold text-foreground" : "sr-only"}>Settings</DialogTitle>
         </div>
 
         {view === "main" && <MainView onNavigate={setView} />}
+        {view === "discovery" && <DiscoverySettings />}
         {view === "help" && <HelpView />}
         {view === "terms" && <TermsView />}
         {view === "delete" && (
@@ -84,8 +80,8 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
             onDelete={handleDeleteAccount}
           />
         )}
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -93,6 +89,8 @@ function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
   return (
     <div className="px-6 pb-8 flex flex-col gap-4">
       <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Privacy</span>
+        <button type="button" onClick={() => onNavigate("discovery")} className="flex items-center gap-3 h-[52px] px-4 bg-background shadow-e-2 rounded-sm"><span className="flex-1 text-left text-[15px] font-medium text-foreground">Discovery visibility</span><ChevronRight className="h-4 w-4 text-muted-foreground" /></button>
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Support</span>
         <div className="flex flex-col gap-1.5">
           <button type="button"
@@ -140,18 +138,32 @@ function MainView({ onNavigate }: { onNavigate: (v: View) => void }) {
   );
 }
 
+function DiscoverySettings() {
+  const client = useQueryClient();
+  const preference = useQuery({
+    queryKey: ["web", "discovery-preferences"],
+    queryFn: fetchDiscoveryPreference,
+    // Privacy controls must revalidate when this view is opened, even if the
+    // cached preference is still fresh from an earlier Settings session.
+    refetchOnMount: "always",
+  });
+  if (preference.isLoading) return <p className="px-6 pb-8 text-sm text-muted-foreground">Loading visibility…</p>;
+  if (preference.isError || !preference.data) return <div className="px-6 pb-8"><p role="alert">Couldn’t load visibility.</p><button className="btn btn-secondary btn-sm mt-3" onClick={() => void preference.refetch()}>Try again</button></div>;
+  return <div className="px-6 pb-8"><DiscoveryVisibilitySettings audience={preference.data.audience} onSave={async (audience) => { await saveDiscoveryPreference({ audience }); await Promise.all([client.invalidateQueries({ queryKey: ["web", "availability"] }), client.invalidateQueries({ queryKey: ["web", "nearby"] }), client.invalidateQueries({ queryKey: ["web", "discovery-preferences"] })]); }} /></div>;
+}
+
 const FAQS = [
     {
       q: "How do I find people nearby?",
-      a: "Open the map on the home screen. Pins show users who are currently sharing their location near you.",
+      a: "Open Now to see people who are up for something, or choose Map for an approximate view of your area. Enable location when you are ready.",
     },
     {
-      q: "How do I send a friend request?",
-      a: "Tap on a pin or visit a user's profile, then tap Add Friend. They'll receive a request in their inbox.",
+      q: "How do I make the first move?",
+      a: "Send a Poke with an activity in mind. They can accept, say later, or pass. An accepted Poke opens a free chat where you can make a Plan. You can also add friends from their profiles.",
     },
     {
-      q: "What is Premium?",
-      a: "Premium unlocks private photo access and other exclusive features. Upgrade from your profile page.",
+      q: "What is Peek+?",
+      a: "Peek+ is planned for optional extras. Pokes, messages, plans, and basic profiles remain free. New subscriptions are not available yet.",
     },
     {
       q: "How do I change my avatar?",

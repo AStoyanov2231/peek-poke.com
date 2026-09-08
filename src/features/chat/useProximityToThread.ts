@@ -9,7 +9,9 @@ import {
   useUserLocation,
 } from "@/stores/selectors";
 import { useAuth } from "@/features/auth/useAuth";
-import { meetingProximityEligible } from "@peekpoke/shared";
+import { meetingEligiblePeerIds, meetingProximityEligible } from "@peekpoke/shared";
+import { plansQueryOptions, pokesQueryOptions } from "@/data/web-query";
+import { useQuery } from "@tanstack/react-query";
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -21,10 +23,11 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function useProximityToThread(threadId: string | null): {
+export function useProximityToThread(threadId: string | null, openedPeerId?: string): {
   distanceMeters: number | null;
   isNearby: boolean;
   meetingEligible: boolean;
+  sociallyEligible: boolean;
 } {
   const { user } = useAuth();
   const threads = useThreads();
@@ -32,28 +35,46 @@ export function useProximityToThread(threadId: string | null): {
   const nearbyUsers = useNearbyUsers();
   const userLocation = useUserLocation();
   const locationFresh = useLocationFreshness(user?.id);
+  const pokesQuery = useQuery(pokesQueryOptions);
+  const plansQuery = useQuery(plansQueryOptions);
 
   return useMemo(() => {
-    if (!threadId || !user || !locationFresh || !userLocation) {
-      return { distanceMeters: null, isNearby: false, meetingEligible: false };
+    if (!threadId || !user) {
+      return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible: false };
     }
 
     const thread = threads.find((t) => t.id === threadId);
-    if (!thread) return { distanceMeters: null, isNearby: false, meetingEligible: false };
+    // The opened conversation is authoritative even while the paginated Inbox
+    // is stale after Poke acceptance or does not include this older thread.
+    const otherUserId = openedPeerId ?? (thread
+      ? thread.participant_1_id === user.id ? thread.participant_2_id : thread.participant_1_id
+      : null);
+    if (!otherUserId) return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible: false };
+    const eligiblePeerIds = meetingEligiblePeerIds(
+      user.id,
+      friends.map((friend) => friend.id),
+      [...(pokesQuery.data?.received ?? []), ...(pokesQuery.data?.sent ?? [])],
+    );
+    const hasCurrentPlanForThread = plansQuery.data?.plans.some((plan) =>
+      plan.source_thread_id === threadId
+      && plan.status === "active"
+    ) ?? false;
+    const sociallyEligible = eligiblePeerIds.has(otherUserId) || hasCurrentPlanForThread;
 
-    const otherUserId =
-      thread.participant_1_id === user.id ? thread.participant_2_id : thread.participant_1_id;
-    const acceptedFriend = friends.some((friend) => friend.id === otherUserId);
+    if (!locationFresh || !userLocation) {
+      return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible };
+    }
 
     const nearbyUser = nearbyUsers.find((u) => u.userId === otherUserId);
-    if (!nearbyUser) return { distanceMeters: null, isNearby: false, meetingEligible: false };
+    if (!nearbyUser) return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible };
 
     const d = haversineMeters(userLocation.lat, userLocation.lng, nearbyUser.lat, nearbyUser.lng);
     const distanceMeters = Math.round(d);
     return {
       distanceMeters,
       isNearby: d < 500,
-      meetingEligible: acceptedFriend && meetingProximityEligible(distanceMeters),
+      meetingEligible: sociallyEligible && meetingProximityEligible(distanceMeters),
+      sociallyEligible,
     };
-  }, [threadId, user, threads, friends, nearbyUsers, userLocation, locationFresh]);
+  }, [threadId, openedPeerId, user, threads, friends, nearbyUsers, userLocation, locationFresh, pokesQuery.data, plansQuery.data]);
 }

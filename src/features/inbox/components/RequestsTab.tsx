@@ -6,12 +6,10 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PremiumBadge } from "@/components/ui/premium-badge";
-import { UpgradeDialog } from "@/components/ui/UpgradeDialog";
 import { isPremium } from "@/types/database";
 import { useFriendRequests } from "@/stores/selectors";
 import { webQueryKeys } from "@/data/web-query";
 import { respondToFriendRequest } from "@/data/friend-mutations";
-import { ApiTransportError } from "@peekpoke/shared";
 
 export function RequestsTab() {
   const queryClient = useQueryClient();
@@ -20,8 +18,6 @@ export function RequestsTab() {
 
   const [, startTransition] = useTransition();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState("");
 
   const [optimisticRequests, updateOptimisticRequests] = useOptimistic(
     storeRequests,
@@ -43,11 +39,6 @@ export function RequestsTab() {
           void queryClient.invalidateQueries({ queryKey: webQueryKeys.friends });
         });
       } catch (error) {
-        if (error instanceof ApiTransportError &&
-          (error.code === "FRIEND_LIMIT_REACHED" || error.code === "REQUESTER_LIMIT_REACHED")) {
-          setUpgradeMessage(error.message);
-          setShowUpgradeDialog(true);
-        }
         console.error("Failed to handle friend request:", error);
       } finally {
         setProcessingIds((prev) => {
@@ -118,8 +109,6 @@ export function RequestsTab() {
               );
         })}
       </div>
-
-      <UpgradeDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} message={upgradeMessage} />
     </>
   );
 }

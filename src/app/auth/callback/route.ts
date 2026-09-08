@@ -1,3 +1,4 @@
+import { onboardingRedirect } from "@/lib/onboarding-redirect";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { isSafeInternalRedirect } from "@/lib/internal-redirect";
@@ -53,11 +54,7 @@ export async function GET(request: Request) {
     }
 
     if (!profile.profile.onboarding_completed) {
-      const inviteMatch = next.match(/^\/invite\/([a-zA-Z0-9-]+)$/);
-      const onboardingUrl = inviteMatch
-        ? `${origin}/onboarding?invite=${inviteMatch[1]}`
-        : `${origin}/onboarding`;
-      return NextResponse.redirect(onboardingUrl);
+      return NextResponse.redirect(new URL(onboardingRedirect(next), origin));
     }
   }
 

@@ -7,11 +7,13 @@ import { useAppStore } from "@/stores/appStore";
 
 export function PersistentMapHost() {
   const pathname = usePathname();
-  const isMap = pathname === "/";
+  const isMap = pathname === "/map";
   const [activated, setActivated] = useState(false);
 
   useEffect(() => {
-    if (isMap) setActivated(true);
+    if (!isMap) return;
+    const frame = requestAnimationFrame(() => setActivated(true));
+    return () => cancelAnimationFrame(frame);
   }, [isMap]);
 
   useEffect(() => {

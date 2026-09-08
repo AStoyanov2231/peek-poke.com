@@ -15,6 +15,7 @@ import {
 
 const TERMINAL_FENCE_STORAGE_PREFIX = "peekpoke-call-terminal-fences-";
 let callClock = createRollbackSafeCallClock();
+let terminalFencePersistenceEpoch = 0;
 const terminalFencePersistenceQueues = new Map<string, Promise<void>>();
 let acceptCallInFlight: { key: string; promise: Promise<boolean> } | null = null;
 
@@ -39,6 +40,7 @@ function enqueueTerminalFencePersistence(
 }
 
 function persistTerminalCallFences(accountId: string, fences: Map<string, number>) {
+  const persistenceEpoch = terminalFencePersistenceEpoch;
   const elapsedNowMs = callTerminalFenceElapsedNowMs();
   const serialized = serializeCallTerminalFences(
     fences,
@@ -47,6 +49,8 @@ function persistTerminalCallFences(accountId: string, fences: Map<string, number
     rollbackSafeCallWallNowMs(callClock, Date.now(), elapsedNowMs),
   );
   void enqueueTerminalFencePersistence(accountId, async () => {
+    // A queued write from an old account/session must not recreate fences after cleanup.
+    if (persistenceEpoch !== terminalFencePersistenceEpoch) return;
     const { secureStorage } = await import("@/lib/secure-storage");
     if (serialized) await secureStorage.setItem(terminalFenceStorageKey(accountId), serialized);
     else await secureStorage.removeItem(terminalFenceStorageKey(accountId));
@@ -134,6 +138,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   observeAccount: (accountId) => {
     const previousAccountId = get().accountId;
     if (previousAccountId === accountId) return;
+    terminalFencePersistenceEpoch += 1;
     if (previousAccountId) {
       void removePersistedTerminalCallFences(previousAccountId).catch(() => undefined);
     }
@@ -387,6 +392,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
   reset: () => {
     const accountId = get().accountId;
+    terminalFencePersistenceEpoch += 1;
     if (accountId) void removePersistedTerminalCallFences(accountId).catch(() => undefined);
     callClock = createRollbackSafeCallClock();
     set((state) => ({

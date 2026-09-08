@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useRef, useLayoutEffect, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { X, Loader2, Pencil, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InterestPicker } from "@/features/profile/components/InterestPicker";
@@ -76,19 +76,19 @@ export const ProfileInterests = forwardRef<ProfileInterestsRef, ProfileInterests
   const scrollFrameRef = useRef<number | null>(null);
   const [showScrollHint, setShowScrollHint] = useState(false);
 
-  const updatePickerScrollHint = () => {
+  const updatePickerScrollHint = useCallback(() => {
     const el = pickerScrollRef.current;
     if (!el) return;
     setShowScrollHint(el.scrollHeight > el.clientHeight + 8 && el.scrollTop + el.clientHeight < el.scrollHeight - 8);
-  };
+  }, []);
 
-  const checkPickerScroll = () => {
+  const checkPickerScroll = useCallback(() => {
     if (scrollFrameRef.current !== null) return;
     scrollFrameRef.current = requestAnimationFrame(() => {
       scrollFrameRef.current = null;
       updatePickerScrollHint();
     });
-  };
+  }, [updatePickerScrollHint]);
 
   useEffect(() => {
     if (isExpanded) {
@@ -100,7 +100,7 @@ export const ProfileInterests = forwardRef<ProfileInterestsRef, ProfileInterests
     } else {
       setShowScrollHint(false);
     }
-  }, [isExpanded]);
+  }, [isExpanded, checkPickerScroll]);
 
   // FLIP all tags that moved; scale-in the newly entered tag
   useLayoutEffect(() => {
@@ -131,7 +131,7 @@ export const ProfileInterests = forwardRef<ProfileInterestsRef, ProfileInterests
           el.style.opacity = "0";
           el.getBoundingClientRect();
           requestAnimationFrame(() => {
-            el.style.transition = "transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 250ms ease";
+            el.style.transition = "transform 350ms cubic-bezier(0.16, 1, 0.3, 1), opacity 250ms ease";
             el.style.transform = "";
             el.style.opacity = "";
           });

@@ -1,4 +1,4 @@
-import { MEETING_CANDIDATE_RADIUS_KM, type NearbyUser } from "@peekpoke/shared";
+import { canAttemptMeetingReward, MEETING_CANDIDATE_RADIUS_KM, type NearbyUser } from "@peekpoke/shared";
 import { haversineKm } from "@/lib/format";
 import type { Coordinates } from "./api";
 
@@ -17,20 +17,21 @@ export function shouldDetectMeetings({
   friendCount: number;
   nearbyCount: number;
 }) {
-  return active && hasFreshLocation && hasProfile && friendCount > 0 && nearbyCount > 0;
+  return canAttemptMeetingReward()
+    && active && hasFreshLocation && hasProfile && friendCount > 0 && nearbyCount > 0;
 }
 
 export function meetingCandidateIds(
   location: Coordinates,
   nearbyUsers: NearbyUser[],
-  friendIds: ReadonlySet<string>,
-  metFriendIds: ReadonlySet<string>,
-  attemptedFriendIds: ReadonlySet<string>,
+  eligiblePeerIds: ReadonlySet<string>,
+  completedPeerIds: ReadonlySet<string>,
+  attemptedPeerIds: ReadonlySet<string>,
 ) {
   return nearbyUsers.flatMap((nearby) => {
-      if (!friendIds.has(nearby.userId)) return [];
-      if (metFriendIds.has(nearby.userId)) return [];
-      if (attemptedFriendIds.has(nearby.userId)) return [];
+      if (!eligiblePeerIds.has(nearby.userId)) return [];
+      if (completedPeerIds.has(nearby.userId)) return [];
+      if (attemptedPeerIds.has(nearby.userId)) return [];
       return haversineKm(location.lat, location.lng, nearby.lat, nearby.lng) <= MEETING_RADIUS_KM
         ? [nearby.userId]
         : [];

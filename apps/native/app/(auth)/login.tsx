@@ -34,7 +34,7 @@ const AUTH_BUTTON_TAP_SCALE = AUTH_TAP_SCALE * 0.98;
 // This route coordinates authentication state and navigation for the screen.
 // react-doctor-disable-next-line no-giant-component
 export default function LoginScreen() {
-  const { invite } = useLocalSearchParams<{ invite?: string }>();
+  const { invite, plan_token: planToken } = useLocalSearchParams<{ invite?: string; plan_token?: string }>();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -180,7 +180,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const confirmationRedirect = Linking.createURL("auth/callback", {
-        queryParams: invite ? { invite } : undefined,
+        queryParams: invite || planToken ? { ...(invite ? { invite } : {}), ...(planToken ? { plan_token: planToken } : {}) } : undefined,
       });
       const result =
         mode === "signin"
@@ -219,7 +219,7 @@ export default function LoginScreen() {
     clearError();
     setOauthLoading(provider);
     const redirectTo = Linking.createURL("auth/callback", {
-      queryParams: invite ? { invite } : undefined,
+      queryParams: invite || planToken ? { ...(invite ? { invite } : {}), ...(planToken ? { plan_token: planToken } : {}) } : undefined,
     });
 
     try {

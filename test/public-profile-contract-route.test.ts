@@ -193,7 +193,7 @@ describe("public profile route contract", () => {
     expect(database.is).toHaveBeenCalledWith("moderation_action", null);
   });
 
-  it("returns only a time-limited signed URL for entitled private media", async () => {
+  it("keeps private media locked for an entitled non-owner", async () => {
     state.subscriber = true;
 
     const response = await requestProfile();
@@ -201,8 +201,9 @@ describe("public profile route contract", () => {
 
     expect(response.status).toBe(200);
     expect(body.photos.find((item) => item.id === PRIVATE_PHOTO_ID)).toMatchObject({
-      access: "viewable",
-      url: privateSignedUrl,
+      access: "locked",
+      url: null,
+      thumbnail_url: null,
     });
     expect(storage.sign).toHaveBeenCalledOnce();
   });

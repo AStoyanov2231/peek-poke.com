@@ -23,19 +23,17 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { InterestTag, PublicProfilePhoto } from "@peekpoke/shared";
-import { ApiTransportError, isPremium } from "@peekpoke/shared";
+import type { InterestTag, PublicProfilePhoto, ProfileSocialContextResponse } from "@peekpoke/shared";
+import { ApiTransportError, isAvailabilityCurrent, profileSocialContextResponseSchema } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import { Avatar, PremiumBadge } from "@/components/ui";
-import { NoCoinsDialog, UpgradeDialog } from "@/components/friend-action-dialogs";
 import {
   fetchCurrentProfile,
   type PublicProfileData,
 } from "@/data/profile/api";
 import { publicProfileQueryOptions } from "@/data/discovery/queries";
-import { fetchCoins } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
-import { apiFetch, isFriendLimitError, jsonBody } from "@/lib/api";
+import { apiFetch, jsonBody } from "@/lib/api";
 import {
   blockUser,
   createOrFindThread,
@@ -44,6 +42,7 @@ import {
   sendFriendRequest,
 } from "@/data/social/api";
 import { commitBlockedUser, commitFriendshipBalance } from "@/data/social/cache";
+import { PokeComposer } from "@/components/poke-composer";
 
 const interestColors = [
   { bg: "#EDE9FF", text: "#6C63FF" },
@@ -65,18 +64,12 @@ export default function PublicProfileScreen() {
     queryKey: nativeQueryKeys.profile.current,
     queryFn: fetchCurrentProfile,
   });
-  const coinsQuery = useQuery({
-    queryKey: nativeQueryKeys.coins,
-    queryFn: fetchCoins,
-  });
   const viewer = viewerQuery.data ?? null;
-  const coins = coinsQuery.data?.balance ?? 0;
   const [actionLoading, setActionLoading] = useState(false);
-  const [noCoinsOpen, setNoCoinsOpen] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [safetyLoading, setSafetyLoading] = useState(false);
   const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
+  const [pokeOpen, setPokeOpen] = useState(false);
   const blockTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -97,14 +90,36 @@ export default function PublicProfileScreen() {
   });
 
   const data = query.data;
+  const socialContextQuery = useQuery<ProfileSocialContextResponse>({
+    queryKey: nativeQueryKeys.profile.socialContext(userId ?? ""),
+    queryFn: () => apiFetch<ProfileSocialContextResponse>(`/api/profile/${encodeURIComponent(userId ?? "")}/social-context`, { responseSchema: profileSocialContextResponseSchema }),
+    enabled: Boolean(userId && data?.profile),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    retry: false,
+  });
   const profile = data?.profile ?? null;
   const friendship = data?.friendship ?? null;
   const name = profile?.display_name || profile?.username || "User";
   const targetIsPremium = profile?.is_premium ?? false;
-  const viewerIsPremium = isPremium(viewer);
   const isFriend = friendship?.status === "accepted";
   const isPending = friendship?.status === "pending";
   const hasPendingBlockRecovery = Boolean(userId && pendingBlockUser(userId));
+  const rawAvailability = socialContextQuery.data?.availability ?? null;
+  const [availabilityNowMs, setAvailabilityNowMs] = useState(() => Date.now());
+  const availability = isAvailabilityCurrent(rawAvailability, availabilityNowMs) ? rawAvailability : null;
+  const refetchSocialContext = socialContextQuery.refetch;
+
+  useEffect(() => {
+    if (!rawAvailability) return;
+    const delay = Math.max(0, Date.parse(rawAvailability.expiresAt) - Date.now()) + 50;
+    const timer = setTimeout(() => {
+      setAvailabilityNowMs(Date.now());
+      void refetchSocialContext().catch(() => undefined);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [rawAvailability, refetchSocialContext]);
 
   const approvedPhotos = useMemo(() => data?.photos ?? [], [data?.photos]);
   const visiblePhotos = useMemo(
@@ -119,15 +134,9 @@ export default function PublicProfileScreen() {
 
   async function addFriend() {
     if (!userId || isPending || isFriend || actionLoading) return;
-    if (coins < 1) {
-      setNoCoinsOpen(true);
-      return;
-    }
-
     setActionLoading(true);
     try {
       await sendFriendRequest(userId, (response) => {
-        commitFriendshipBalance(queryClient, response.balance);
         const { requester: _requester, addressee: _addressee, ...nextFriendship } = response.friendship;
         queryClient.setQueryData<PublicProfileData>(
           nativeQueryKeys.profile.public(userId),
@@ -135,8 +144,6 @@ export default function PublicProfileScreen() {
         );
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.social.requests });
       });
-    } catch (error) {
-      if (isFriendLimitError(error)) setUpgradeMessage(error.message);
     } finally {
       setActionLoading(false);
     }
@@ -269,7 +276,7 @@ export default function PublicProfileScreen() {
     ]);
   }
 
-  if (viewerQuery.isPending || coinsQuery.isPending || query.isLoading) {
+  if (viewerQuery.isPending || query.isLoading) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator color={colors.primary[500]} size="large" />
@@ -277,7 +284,7 @@ export default function PublicProfileScreen() {
     );
   }
 
-  if (viewerQuery.isError || coinsQuery.isError || query.isError || !data || !profile) {
+  if (viewerQuery.isError || query.isError || !data || !profile) {
     return (
       <View style={styles.loadingScreen}>
         <Text style={styles.notFoundTitle}>Profile unavailable</Text>
@@ -285,7 +292,6 @@ export default function PublicProfileScreen() {
           accessibilityRole="button"
           onPress={() => {
             void viewerQuery.refetch();
-            void coinsQuery.refetch();
             void query.refetch();
           }}
           style={styles.darkPill}
@@ -341,6 +347,14 @@ export default function PublicProfileScreen() {
         {profile.bio ? <Text style={styles.headerBio}>{profile.bio}</Text> : null}
 
         <View style={styles.actionRow}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={actionLoading}
+            onPress={() => setPokeOpen(true)}
+            style={({ pressed }) => [styles.addFriendAction, pressed && styles.pressed]}
+          >
+            <Text style={styles.addFriendText}>Poke</Text>
+          </Pressable>
           {isFriend ? (
             <Pressable
               accessibilityRole="button"
@@ -361,14 +375,14 @@ export default function PublicProfileScreen() {
               accessibilityRole="button"
               disabled={actionLoading}
               onPress={addFriend}
-              style={({ pressed }) => [styles.addFriendAction, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.surfaceAction, pressed && styles.pressed]}
             >
               {actionLoading ? (
-                <ActivityIndicator color={colors.surface} size={16} />
+                <ActivityIndicator color={colors.primary[500]} size={16} />
               ) : (
-                <UserPlus accessible={false} color={colors.surface} size={16} strokeWidth={2} />
+                <UserPlus accessible={false} color={colors.primary[500]} size={16} strokeWidth={2} />
               )}
-              <Text style={styles.addFriendText}>Add Friend</Text>
+              <Text style={styles.sayHiText}>Add Friend</Text>
             </Pressable>
           )}
         </View>
@@ -394,6 +408,9 @@ export default function PublicProfileScreen() {
         ) : header}
 
         <View style={styles.sections}>
+          {socialContextQuery.isPending ? <Text style={styles.contextLoading}>Loading shared context…</Text> : null}
+          {socialContextQuery.isError ? <View style={styles.card}><Text style={styles.cardBody}>Shared context is unavailable.</Text><Pressable accessibilityRole="button" onPress={() => void socialContextQuery.refetch()} style={styles.contextRetry}><Text style={styles.contextRetryText}>Try again</Text></Pressable></View> : null}
+          {socialContextQuery.data ? <ProfileSocialContextPanel context={{ ...socialContextQuery.data, availability }} onOpenPlan={(planId) => router.push(`/plans/${planId}` as never)} /> : null}
           {profile.bio ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>About</Text>
@@ -426,7 +443,7 @@ export default function PublicProfileScreen() {
             <View style={styles.card}>
               <View style={styles.photoHeader}>
                 <Text style={styles.photoTitle}>PHOTOS ({approvedPhotos.length})</Text>
-                {!viewerIsPremium && privatePhotoCount > 0 ? (
+                {privatePhotoCount > 0 ? (
                   <View style={styles.privateCount}>
                     <Lock accessible={false} color={colors.ink[5]} size={12} strokeWidth={2} />
                     <Text style={styles.privateCountText}>{privatePhotoCount} private</Text>
@@ -510,14 +527,9 @@ export default function PublicProfileScreen() {
           </View>
         </View>
       </ScrollView>
+      {pokeOpen ? <PokeComposer recipientId={profile.id} name={name} defaultActivity={availability?.activity ?? "anything"} defaultCustomLabel={availability?.customLabel ?? null} onClose={() => setPokeOpen(false)} /> : null}
 
       <PhotoViewer photos={visiblePhotos} index={viewerIndex} onIndexChange={setViewerIndex} />
-      <NoCoinsDialog open={noCoinsOpen} onClose={() => setNoCoinsOpen(false)} />
-      <UpgradeDialog
-        message={upgradeMessage}
-        onClose={() => setUpgradeMessage(null)}
-        onUpgrade={() => router.navigate("/(app)/premium" as never)}
-      />
     </View>
   );
 }
@@ -555,6 +567,17 @@ function PhotoViewer({
   );
 }
 
+function ProfileSocialContextPanel({ context, onOpenPlan }: { context: ProfileSocialContextResponse; onOpenPlan: (planId: string) => void }) {
+  const availabilityLabel = context.availability
+    ? context.availability.activity === "custom" ? context.availability.customLabel ?? "Something" : context.availability.activity
+    : null;
+  return <>
+    {context.availability ? <View style={[styles.card, styles.availabilityCard]}><View style={styles.availabilityRow}><View style={styles.nowBadge}><Text style={styles.nowBadgeText}>Now</Text></View><View style={styles.contextCopy}><Text style={styles.availabilityTitle}>Up for {availabilityLabel}</Text><Text style={styles.cardBody}>Ends {new Date(context.availability.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</Text></View></View></View> : null}
+    {(context.sharedCircles.length > 0 || context.mutualMeetups > 0) ? <View style={styles.card}><Text style={styles.cardTitle}>Your context</Text>{context.sharedCircles.length > 0 ? <Text style={styles.sharedCircles}>{context.sharedCircles.length} shared circle{context.sharedCircles.length === 1 ? "" : "s"}</Text> : null}{context.mutualMeetups > 0 ? <Text style={styles.mutualMeetups}>You both marked {context.mutualMeetups} meetup{context.mutualMeetups === 1 ? "" : "s"}.</Text> : null}</View> : null}
+    {context.upcomingPlans.length > 0 ? <View style={styles.card}><Text style={styles.cardTitle}>Upcoming plans</Text>{context.upcomingPlans.map((plan) => <Pressable key={plan.id} accessibilityRole="button" onPress={() => onOpenPlan(plan.id)} style={({ pressed }) => [styles.contextPlan, pressed && styles.pressed]}><View style={styles.contextCopy}><Text numberOfLines={1} style={styles.contextPlanTitle}>{plan.title ?? plan.activity}</Text><Text numberOfLines={1} style={styles.contextPlanMeta}>{plan.place_text} · {new Date(plan.starts_at).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</Text></View><ChevronRight accessible={false} color={colors.ink[5]} size={18} strokeWidth={2} /></Pressable>)}</View> : null}
+  </>;
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -575,6 +598,23 @@ const styles = StyleSheet.create({
     ...typography.title2,
     color: colors.ink[9],
   },
+  contextLoading: { ...typography.body, color: colors.ink[6] },
+  contextRetry: { alignSelf: "flex-start", marginTop: spacing[3], minHeight: 36, justifyContent: "center", paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: colors.ink[2] },
+  contextRetryText: { ...typography.bodyBold, color: colors.ink[8] },
+  availabilityCard: { backgroundColor: "#F0EDFF", borderColor: "#D8D1FF", borderWidth: 1 },
+  availabilityRow: { flexDirection: "row", gap: spacing[3], alignItems: "center" },
+  nowBadge: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radii.pill, backgroundColor: colors.primary[500] },
+  nowBadgeText: { fontFamily: fontFamilies.bold, color: colors.surface, fontSize: 11 },
+  contextCopy: { flex: 1, minWidth: 0 },
+  availabilityTitle: { ...typography.bodyBold, color: colors.ink[9], textTransform: "capitalize" },
+  circleWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2], marginTop: spacing[3] },
+  circleChip: { paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: radii.pill, backgroundColor: colors.ink[2] },
+  circleChipText: { ...typography.caption, color: colors.ink[7], fontFamily: fontFamilies.medium },
+  sharedCircles: { ...typography.body, marginTop: spacing[3], color: colors.ink[6] },
+  mutualMeetups: { ...typography.body, marginTop: spacing[3], color: colors.ink[6], lineHeight: 20 },
+  contextPlan: { flexDirection: "row", alignItems: "center", gap: spacing[3], marginTop: spacing[3], padding: spacing[3], borderRadius: radii.md, borderWidth: 1, borderColor: colors.ink[3] },
+  contextPlanTitle: { ...typography.bodyBold, color: colors.ink[9] },
+  contextPlanMeta: { ...typography.caption, marginTop: 2, color: colors.ink[6] },
   darkPill: {
     height: 40,
     borderRadius: radii.pill,

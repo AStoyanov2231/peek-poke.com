@@ -21,7 +21,7 @@ const nearby: NearbyUser[] = [
     avatar_url: null,
     is_online: false,
     last_seen_at: null,
-    lat: 42.7,
+    lat: 42.72,
     lng: 23.3219,
   },
 ];
@@ -31,6 +31,16 @@ describe("meeting candidates", () => {
     expect(shouldDetectMeetings({
       active: true,
       hasFreshLocation: false,
+      hasProfile: true,
+      friendCount: 1,
+      nearbyCount: 1,
+    })).toBe(false);
+  });
+
+  it("does not send a reward claim from otherwise eligible coarse proximity", () => {
+    expect(shouldDetectMeetings({
+      active: true,
+      hasFreshLocation: true,
       hasProfile: true,
       friendCount: 1,
       nearbyCount: 1,

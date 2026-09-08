@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { DisableZoom } from "@/features/layout/components/DisableZoom";
+
 
 const geist = Geist({
   subsets: ["latin"],
@@ -18,21 +18,21 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
   title: "Peek & Poke",
-  description: "Connect with friends nearby",
+  description: "Find out who is free. Poke them. Go do something. Turn nearby people into real-world plans with Peek & Poke.",
+  metadataBase: new URL("https://www.peek-poke.com"),
+  openGraph: { title: "Peek & Poke - Good plans start here", description: "See who is up for something nearby. A little poke can turn into a great afternoon.", type: "website" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body className="h-full overflow-hidden">
-        <DisableZoom />
+        <a className="skip-link" href="#main-content">Skip to content</a>
         {children}
       </body>
     </html>

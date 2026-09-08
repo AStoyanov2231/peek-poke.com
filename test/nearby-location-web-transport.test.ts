@@ -17,8 +17,8 @@ const user = {
   avatar_url: null,
   is_online: true,
   last_seen_at: "2026-08-07T12:00:00.000Z",
-  lat: 42.698,
-  lng: 23.322,
+  lat: 42.7,
+  lng: 23.32,
 };
 
 describe("web nearby and location transports", () => {
@@ -34,7 +34,7 @@ describe("web nearby and location transports", () => {
     ["missing", { users: [{ ...user, is_online: undefined }] }],
     ["duplicate", { users: [user, user] }],
     ["self", { users: [{ ...user, userId: VIEWER_ID }] }],
-    ["unquantized", { users: [{ ...user, lat: 42.69771 }] }],
+    ["unquantized", { users: [{ ...user, lat: 42.697 }] }],
     ["foreign avatar", { users: [{
       ...user,
       avatar_url: `https://project.supabase.co/storage/v1/object/public/profile-photos/${VIEWER_ID}/avatar.jpg`,

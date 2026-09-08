@@ -12,8 +12,7 @@ export const MAX_DM_MEDIA_OBJECTS = 500;
 
 // Business limits
 export const MAX_PHOTOS = 12; // Note: project_overview.md incorrectly listed this as 6
-const FREE_USER_FRIEND_LIMIT = 3;
-export const MIN_INTERESTS_REQUIRED = 5;
+export { MIN_INTERESTS_REQUIRED } from "@peekpoke/shared";
 
 // Interest category emojis (moved from ProfileInterests component)
 export const CATEGORY_EMOJI: Record<string, string> = {
@@ -74,4 +73,12 @@ export const RATE_LIMITS = {
   nearby:        { limit: 12, window: 60 },
   inviteAccept:  { limit: 20, window: 86_400 },
   search:        { limit: 60, window: 60 },
+  availabilityMutation: { limit: 20, window: 60 },
+  pokeCreate: { limit: 10, window: 60 },
+  pokeResponse: { limit: 30, window: 60 },
+  meetupAcknowledgement: { limit: 10, window: 60 },
+  chatVenues: { limit: 10, window: 60 },
+  chatSuggestions: { limit: 20, window: 60 },
+  discoveryPreferences: { limit: 20, window: 60 },
+  profileSocialContext: { limit: 60, window: 60 },
 } as const;

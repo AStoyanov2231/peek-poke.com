@@ -4,7 +4,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { router } from "expo-router";
 import { apiFetch, jsonBody } from "./api";
-import { resolveNotificationRoute } from "./navigation-policy";
+import { resolvePushNotificationRoute } from "./navigation-policy";
 import {
   createAuthScopedPushRegistrationCoordinator,
   registerPushForCurrentAuth,
@@ -107,7 +107,7 @@ export function unregisterForPushNotifications(auth: CapturedPushAuth | null) {
 
 export function attachPushNavigation() {
   const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    const route = resolveNotificationRoute(response.notification.request.content.data?.route);
+    const route = resolvePushNotificationRoute(response.notification.request.content.data);
     if (route) {
       router.push(route as never);
     }

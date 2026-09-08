@@ -87,7 +87,7 @@ describe("web authenticated profile flow", () => {
     await signup(signupForm());
 
     expect(state.ensureAuthProfile).toHaveBeenCalledWith(user);
-    expect(state.redirect).toHaveBeenCalledWith("/onboarding");
+    expect(state.redirect).toHaveBeenCalledWith("/onboarding?redirectTo=%2Fnow");
   });
 
   it("fails a malformed successful login closed instead of entering without a profile", async () => {
@@ -112,7 +112,7 @@ describe("web authenticated profile flow", () => {
     expect(state.exchangeCodeForSession).toHaveBeenCalledWith("oauth-code");
     expect(state.ensureAuthProfile).toHaveBeenCalledWith(user);
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://example.test/onboarding?invite=abc-123");
+    expect(response.headers.get("location")).toBe("https://example.test/onboarding?redirectTo=%2Finvite%2Fabc-123&invite=abc-123");
   });
 
   it("lets an existing completed profile continue to the safe intended route", async () => {

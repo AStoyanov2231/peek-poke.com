@@ -566,7 +566,7 @@ export function useWebRTCCall(call: ActiveCall) {
   }, []);
 
   const endCall = useCallback(() => {
-    void requestTermination().catch(() => {
+    return requestTermination().catch(() => {
       // The queue reports and surfaces terminal recovery failures.
     });
   }, [requestTermination]);

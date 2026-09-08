@@ -1,24 +1,27 @@
 import type { NextConfig } from "next";
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://api.mapbox.com",
+  `script-src 'self' 'unsafe-inline' ${isDevelopment ? "'unsafe-eval' " : ""}https://js.stripe.com https://api.mapbox.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.mapbox.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://api.stripe.com",
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://api.stripe.com${isDevelopment ? " http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*" : ""}`,
   "frame-src https://js.stripe.com https://hooks.stripe.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  "upgrade-insecure-requests",
+  ...(!isDevelopment ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   poweredByHeader: false,
   compiler: {
     define: {
@@ -27,7 +30,7 @@ const nextConfig: NextConfig = {
       "process.env.REACT_APP_MAPBOX_ACCESS_TOKEN": "undefined",
     },
   },
-  allowedDevOrigins: ["192.168.100.2"],
+  allowedDevOrigins: ["192.168.100.2", "127.0.0.1", "localhost"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },

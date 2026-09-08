@@ -269,6 +269,75 @@ async function handleCoinMeetingAwarded(event: OutboxEvent) {
   }
 }
 
+async function handlePokeEvent(
+  supabase: SupabaseClient,
+  event: OutboxEvent,
+) {
+  const pokeId = uuidField(event.payload, "poke_id");
+  const senderId = uuidField(event.payload, "sender_id");
+  const recipientId = uuidField(event.payload, "recipient_id");
+  const action = stringField(event.payload, "action");
+  if (event.aggregate_id !== pokeId || (action !== "received" && action !== "accepted")) {
+    throw new Error("Poke delivery event is invalid");
+  }
+  const threadId = action === "accepted" ? uuidField(event.payload, "thread_id") : null;
+  if (action === "received" && "thread_id" in event.payload) {
+    throw new Error("Received Poke delivery must not include a thread");
+  }
+
+  // This service-only check runs immediately before external fanout. It avoids
+  // notifying either side if a Poke expired, either account was deleted, a
+  // block was created, or the accepted DM membership no longer exists.
+  const { data: authorization, error } = await supabase.rpc(
+    "authorize_poke_delivery",
+    {
+      p_poke_id: pokeId,
+      p_action: action,
+      p_sender_id: senderId,
+      p_recipient_id: recipientId,
+      p_thread_id: threadId,
+    },
+  );
+  if (error) throw error;
+  if (!authorization || typeof authorization !== "object" || Array.isArray(authorization)) {
+    throw new Error("Poke delivery authorization returned an invalid result");
+  }
+  if (authorization.deliver !== true && authorization.deliver !== false) {
+    throw new Error("Poke delivery authorization returned an invalid decision");
+  }
+  if (!authorization.deliver) return;
+
+  const destinationId = action === "received" ? recipientId : senderId;
+  const realtimePayload = {
+    changed: true,
+    resource: "pokes",
+    action,
+    poke_id: pokeId,
+    ...(threadId ? { thread_id: threadId } : {}),
+  };
+  const delivered = await broadcastPrivateRealtimeEvent(
+    `sync:user:${destinationId}`,
+    "social-changed",
+    realtimePayload,
+  );
+  if (!delivered) throw new Error("Realtime Poke delivery failed");
+
+  await sendPushToUser(destinationId, action === "received"
+    ? {
+      title: "New Poke",
+      body: "You have a new invitation",
+      route: "/inbox",
+      data: { kind: "poke", pokeId, action: "received" },
+    }
+    : {
+      title: "Poke accepted",
+      body: "Your invitation was accepted",
+      route: `/chat/${threadId}`,
+      threadId: threadId ?? undefined,
+      data: { kind: "poke", pokeId, action: "accepted", threadId },
+    });
+}
+
 async function handleProfileUpdated(
   supabase: SupabaseClient,
   event: OutboxEvent,
@@ -540,6 +609,10 @@ async function dispatchOutboxEvent(
   }
   if (event.event_type === "coin.meeting_awarded") {
     await handleCoinMeetingAwarded(event);
+    return;
+  }
+  if (event.event_type === "poke.created" || event.event_type === "poke.accepted") {
+    await handlePokeEvent(supabase, event);
     return;
   }
   if (

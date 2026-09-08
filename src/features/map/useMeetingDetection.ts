@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MEETING_CANDIDATE_RADIUS_KM,
+  canAttemptMeetingReward,
+  meetingEligiblePeerIds,
   meetingResponseCompletesPair,
 } from "@peekpoke/shared";
 import { haversineKm } from "@/lib/geo";
@@ -15,6 +17,7 @@ import {
 } from "@/stores/selectors";
 import {
   meetingPairCompleted,
+  pokesQueryOptions,
   recordMeeting,
   unsubscribeMeetingAttempt,
   webQueryKeys,
@@ -33,13 +36,15 @@ export function shouldDetectWebMeetings({
   friendCount: number;
   nearbyCount: number;
 }) {
-  return hasFreshLocation && hasUser && hasLocation && friendCount > 0 && nearbyCount > 0;
+  return canAttemptMeetingReward()
+    && hasFreshLocation && hasUser && hasLocation && friendCount > 0 && nearbyCount > 0;
 }
 
 export function useMeetingDetection(userId: string | undefined) {
   const queryClient = useQueryClient();
   const nearbyUsers = useNearbyUsers();
   const friends = useFriends();
+  const pokesQuery = useQuery(pokesQueryOptions);
   const userLocation = useUserLocation();
   const locationFresh = useLocationFreshness(userId);
   const metFriendIds = useRef<Set<string>>(new Set());
@@ -61,10 +66,14 @@ export function useMeetingDetection(userId: string | undefined) {
       hasFreshLocation: locationFresh,
       hasUser: Boolean(userId),
       hasLocation: Boolean(userLocation),
-      friendCount: friends.length,
+      friendCount: friends.length + (pokesQuery.data?.received.length ?? 0) + (pokesQuery.data?.sent.length ?? 0),
       nearbyCount: nearbyUsers.length,
     }) || !userId || !userLocation) return;
-    const friendIds = new Set(friends.map((friend) => friend.id));
+    const eligiblePeerIds = meetingEligiblePeerIds(
+      userId,
+      friends.map((friend) => friend.id),
+      [...(pokesQuery.data?.received ?? []), ...(pokesQuery.data?.sent ?? [])],
+    );
     const inFlight = new Set<string>();
     const called = calledRef.current;
     const met = metFriendIds.current;
@@ -72,8 +81,7 @@ export function useMeetingDetection(userId: string | undefined) {
     let current = true;
 
     for (const nearby of nearbyUsers) {
-        // Must be an accepted friend
-        if (!friendIds.has(nearby.userId)) continue;
+        if (!eligiblePeerIds.has(nearby.userId)) continue;
         // Already met (from DB)
         if (met.has(nearby.userId) || meetingPairCompleted(userId, nearby.userId)) {
           met.add(nearby.userId);
@@ -131,6 +139,7 @@ export function useMeetingDetection(userId: string | undefined) {
     locationFresh,
     nearbyUsers,
     queryClient,
+    pokesQuery.data,
     userId,
     userLocation,
   ]);

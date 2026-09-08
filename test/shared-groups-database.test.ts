@@ -1,49 +1,31 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  requireSupabaseIntegrationTarget,
+  resolveSupabaseIntegrationTarget,
+} from "./support/supabase-integration-target";
 
-const APPROVED_PROJECT_REF = "ttojvnwpnpuhkyjncwxn";
 const url = process.env.SUPABASE_TEST_URL;
-const appUrl = process.env.SUPABASE_TEST_APP_URL?.replace(/\/+$/, "");
-const isLocalAppUrl = (() => {
-  if (!appUrl) return false;
-  try {
-    const parsed = new URL(appUrl);
-    return parsed.origin === appUrl && new Set(["localhost", "127.0.0.1", "::1"]).has(parsed.hostname);
-  } catch {
-    return false;
-  }
-})();
-const isApprovedRemoteAppUrl = appUrl === "https://www.peek-poke.com";
 const serviceRoleKey = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY;
 const anonKey = process.env.SUPABASE_TEST_ANON_KEY;
-const isLocalUrl = (() => {
-  if (!url) return false;
-  try {
-    return new Set(["localhost", "127.0.0.1", "::1"]).has(new URL(url).hostname);
-  } catch {
-    return false;
-  }
-})();
-const isApprovedRemoteUrl = (() => {
-  if (!url) return false;
-  try {
-    return new URL(url).origin === `https://${APPROVED_PROJECT_REF}.supabase.co`;
-  } catch {
-    return false;
-  }
-})();
-const remoteTargetOptedIn = process.env.SUPABASE_TEST_TARGET === APPROVED_PROJECT_REF;
-const appTargetAllowed = isLocalAppUrl || (isApprovedRemoteUrl && isApprovedRemoteAppUrl && remoteTargetOptedIn);
-const databaseTargetAllowed = (isLocalUrl && isLocalAppUrl) || (isApprovedRemoteUrl && appTargetAllowed && remoteTargetOptedIn);
-const databaseTestRequested = Boolean(process.env.SUPABASE_TEST_TARGET || url || appUrl || serviceRoleKey || anonKey);
-if (databaseTestRequested && (!url || !serviceRoleKey || !anonKey || !appUrl || !databaseTargetAllowed)) {
-  throw new Error(`Shared-group database tests require approved database target ${APPROVED_PROJECT_REF}, local or verified application target, complete credentials, and SUPABASE_TEST_TARGET opt-in.`);
-}
+const target = resolveSupabaseIntegrationTarget(process.env, { requireLocalAppUrl: true });
+const databaseTestConfigured = Boolean(target.configured && url && serviceRoleKey && anonKey);
+if (target.requested && !databaseTestConfigured)
+  requireSupabaseIntegrationTarget(
+    target,
+    process.env,
+    ["SUPABASE_TEST_URL", "SUPABASE_TEST_APP_URL", "SUPABASE_TEST_SERVICE_ROLE_KEY", "SUPABASE_TEST_ANON_KEY"],
+    "Shared-group database tests",
+  );
+const appUrl = target.configured ? target.appUrl : null;
 function requireDatabaseTestConfig() {
-  if (!url || !serviceRoleKey || !anonKey || !appUrl || !databaseTargetAllowed) {
-    throw new Error(`Shared-group database tests require approved database target ${APPROVED_PROJECT_REF}, local or verified SUPABASE_TEST_APP_URL, complete credentials, and SUPABASE_TEST_TARGET opt-in.`);
-  }
+  requireSupabaseIntegrationTarget(
+    target,
+    process.env,
+    ["SUPABASE_TEST_URL", "SUPABASE_TEST_APP_URL", "SUPABASE_TEST_SERVICE_ROLE_KEY", "SUPABASE_TEST_ANON_KEY"],
+    "Shared-group database tests",
+  );
 }
 
 let supabase: SupabaseClient;
@@ -70,6 +52,7 @@ async function createTestUser(suffix: string) {
   });
   if (result.error || !result.data.user) throw result.error ?? new Error("Test user creation failed");
   const userId = result.data.user.id;
+  userIds.push(userId);
   const { error } = await supabase.from("profiles").insert({
     id: userId,
     auth_user_id: userId,
@@ -79,14 +62,13 @@ async function createTestUser(suffix: string) {
   return { email, password, userId };
 }
 
-describe("shared group database boundary", () => {
+describe.skipIf(!databaseTestConfigured)("shared group database boundary", { timeout: 60_000, hookTimeout: 30_000 }, () => {
   beforeAll(async () => {
     requireDatabaseTestConfig();
     supabase = createClient(url!, serviceRoleKey!);
     const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
     for (const role of ["a", "b", "c", "d"]) {
       const user = await createTestUser(`${suffix}_${role}`);
-      userIds.push(user.userId);
       credentials.push({ email: user.email, password: user.password });
     }
     qrContent = `database-boundary-${suffix}`;

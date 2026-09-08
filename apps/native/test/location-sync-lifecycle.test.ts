@@ -233,7 +233,7 @@ describe("location sync lifecycle", () => {
       hasProfile: true,
       friendCount: 1,
       nearbyCount: 1,
-    })).toBe(true);
+    })).toBe(false);
   });
 
   it("does not treat another or superseded account's acknowledged coordinates as fresh", async () => {

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 import {
+  meetingEligiblePeerIds,
   meetingResponseCompletesPair,
   type NearbyUser,
 } from "@peekpoke/shared";
@@ -18,14 +19,15 @@ import {
 } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { socialQuery } from "@/data/social/queries";
+import { fetchPokes } from "@/data/pokes";
 import { useDeviceLocation } from "@/lib/location";
 
 const EMPTY_NEARBY_USERS: NearbyUser[] = [];
 
 /**
- * Mirrors the web meeting detector. The API independently verifies accepted
- * friendship, fresh server-side locations, and the 50 m radius before it can
- * record a meeting or award a coin.
+ * Retains candidate selection for a future attested reward flow.
+ * The capability gate prevents claims from coarse discovery positions until the
+ * server supports a verified device-location attestation.
  */
 export function useMeetingDetection() {
   const queryClient = useQueryClient();
@@ -34,6 +36,11 @@ export function useMeetingDetection() {
     queryFn: fetchCurrentProfile,
   });
   const socialDataQuery = useQuery(socialQuery());
+  const pokesQuery = useQuery({
+    queryKey: nativeQueryKeys.pokes,
+    queryFn: ({ signal }) => fetchPokes(signal),
+    enabled: Boolean(profileQuery.data?.id),
+  });
   useQuery({
     queryKey: nativeQueryKeys.coins,
     queryFn: fetchCoins,
@@ -77,7 +84,7 @@ export function useMeetingDetection() {
       active,
       hasFreshLocation: locationFresh,
       hasProfile: Boolean(profileId),
-      friendCount: friends.length,
+      friendCount: friends.length + (pokesQuery.data?.received.length ?? 0) + (pokesQuery.data?.sent.length ?? 0),
       nearbyCount: nearbyUsers.length,
     }) || !profileId || !location) {
       for (const friendId of requests) {
@@ -93,14 +100,19 @@ export function useMeetingDetection() {
       const peerId = friend.requester_id === profileId ? friend.addressee_id : friend.requester_id;
       return peerId ? [peerId] : [];
     }));
+    const eligiblePeerIds = meetingEligiblePeerIds(
+      profileId,
+      friendIds,
+      [...(pokesQuery.data?.received ?? []), ...(pokesQuery.data?.sent ?? [])],
+    );
     const completedFriendIds = new Set(metFriendIdsRef.current);
-    for (const friendId of friendIds) {
+    for (const friendId of eligiblePeerIds) {
       if (meetingPairCompleted(profileId, friendId)) completedFriendIds.add(friendId);
     }
     const candidateIds = meetingCandidateIds(
       location,
       nearbyUsers,
-      friendIds,
+      eligiblePeerIds,
       completedFriendIds,
       attempted,
     );
@@ -133,5 +145,5 @@ export function useMeetingDetection() {
       }
       requests.clear();
     };
-  }, [active, friends, location, locationFresh, nearbyUsers, profileId, queryClient]);
+  }, [active, friends, location, locationFresh, nearbyUsers, pokesQuery.data, profileId, queryClient]);
 }

@@ -16,6 +16,8 @@ function onboardingUrlFor(request: NextRequest) {
   const url = new URL("/onboarding", request.url);
   const inviteMatch = request.nextUrl.pathname.match(/^\/invite\/([a-zA-Z0-9-]+)$/);
   if (inviteMatch) url.searchParams.set("invite", inviteMatch[1]);
+  const intended = request.nextUrl.searchParams.get("redirectTo") ?? request.nextUrl.pathname + request.nextUrl.search;
+  if (isValidInternalPath(intended) && intended !== "/onboarding") url.searchParams.set("redirectTo", intended);
   return url;
 }
 
@@ -85,11 +87,14 @@ export async function proxy(request: NextRequest) {
   const isOnboardingPage = request.nextUrl.pathname === "/onboarding";
   const isPasswordRecoveryPage = request.nextUrl.pathname === "/reset-password";
 
-  // Unauthenticated users must go to auth pages
-  if (!user && !isAuthPage) {
+  const isPublicPage = pathname === "/" || /^\/(icon|apple-icon|opengraph-image|robots\.txt|sitemap\.xml)$/.test(pathname) || pathname === "/privacy" || pathname === "/terms" || pathname === "/safety" || /^\/plan\/[a-zA-Z0-9_-]+$/.test(pathname);
+  if (isPublicPage && pathname !== "/") return response;
+
+  // Public discovery and shared Plan previews are available before sign-in.
+  if (!user && !isAuthPage && !isPublicPage) {
     const redirectUrl = new URL("/login", request.url);
     // Preserve the original path so user can be redirected after auth
-    const originalPath = request.nextUrl.pathname;
+    const originalPath = request.nextUrl.pathname + request.nextUrl.search;
     if (isValidInternalPath(originalPath)) {
       redirectUrl.searchParams.set("redirectTo", originalPath);
     }
@@ -138,9 +143,10 @@ export async function proxy(request: NextRequest) {
     // Redirect auth pages to home (or onboarding if incomplete)
     if (isAuthPage) {
       if (!onboardingComplete) {
-        return NextResponse.redirect(new URL("/onboarding", request.url));
+        return NextResponse.redirect(onboardingUrlFor(request));
       }
-      return NextResponse.redirect(new URL("/", request.url));
+      const intended = request.nextUrl.searchParams.get("redirectTo");
+      return NextResponse.redirect(new URL(intended && isValidInternalPath(intended) && !intended.startsWith("/login") && !intended.startsWith("/onboarding") ? intended : "/now", request.url));
     }
 
     // "/" with incomplete onboarding → redirect to onboarding
@@ -155,7 +161,8 @@ export async function proxy(request: NextRequest) {
 
     // Redirect away from onboarding if already complete
     if (isOnboardingPage && onboardingComplete) {
-      return NextResponse.redirect(new URL("/", request.url));
+      const intended = request.nextUrl.searchParams.get("redirectTo");
+      return NextResponse.redirect(new URL(intended && isValidInternalPath(intended) && !intended.startsWith("/login") && !intended.startsWith("/onboarding") ? intended : "/now", request.url));
     }
   }
 
@@ -163,5 +170,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|auth/callback|\.well-known/|models/|images/).*)"],
+  matcher: ["/((?!_next/|favicon.ico|auth/callback|\.well-known/|models/|images/).*)"],
 };

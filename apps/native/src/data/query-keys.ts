@@ -3,6 +3,7 @@ export const nativeQueryKeys = {
   profile: {
     current: ["profile", "current"] as const,
     public: (userId: string) => ["profile", "public", userId] as const,
+    socialContext: (userId: string) => ["profile", "public", userId, "social-context"] as const,
     photos: ["profile", "photos"] as const,
     interests: ["profile", "interests"] as const,
   },
@@ -32,6 +33,18 @@ export const nativeQueryKeys = {
   coins: ["coins"] as const,
   entitlements: ["billing", "entitlements"] as const,
   presence: ["realtime", "presence"] as const,
+  availability: ["availability"] as const,
+  meetups: {
+    all: ["meetups"] as const,
+    peer: (peerId: string) => ["meetups", peerId] as const,
+  },
+  pokes: ["pokes"] as const,
+  plans: {
+    all: ["plans"] as const,
+    detail: (planId: string) => ["plans", planId] as const,
+    meetups: (planId: string, accountId: string) =>
+      ["plans", planId, "meetups", accountId] as const,
+  },
   admin: {
     photos: (status: string, cursor: string | null) => ["admin", "photos", status, cursor] as const,
     reports: (status: string, cursor: string | null) => ["admin", "reports", status, cursor] as const,

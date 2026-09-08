@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { colors, spacing, typography } from "@peekpoke/design";
 import { Button } from "@/components/ui";
 import { acceptInvite } from "@/data/social/api";
@@ -10,7 +9,6 @@ import { invalidateSocialQueries } from "@/data/social/queries";
 export default function InviteScreen() {
   const { inviterId } = useLocalSearchParams<{ inviterId: string }>();
   const queryClient = useQueryClient();
-  const startedFor = useRef<string | null>(null);
   const inviteMutation = useMutation({
     mutationFn: acceptInvite,
     onSuccess: async (response) => {
@@ -18,14 +16,6 @@ export default function InviteScreen() {
       router.replace(`/(app)/profile/${response.profile_id}` as never);
     },
   });
-  const acceptInvitation = inviteMutation.mutate;
-
-  useEffect(() => {
-    if (!inviterId || startedFor.current === inviterId) return;
-    startedFor.current = inviterId;
-    acceptInvitation(inviterId);
-  }, [acceptInvitation, inviterId]);
-
   function retry() {
     if (!inviterId) return;
     inviteMutation.mutate(inviterId);
@@ -41,8 +31,10 @@ export default function InviteScreen() {
         </>
       ) : (
         <>
-          <ActivityIndicator color={colors.primary[500]} size="large" />
-          <Text style={styles.body}>Opening invitation…</Text>
+          <Text style={styles.title}>Connect with this person?</Text>
+          <Text style={styles.body}>Review the invitation, then choose whether to connect.</Text>
+          <Button onPress={retry} disabled={!inviterId || inviteMutation.isPending} size="md">{inviteMutation.isPending ? "Connecting…" : "Connect"}</Button>
+          <Button onPress={() => router.replace("/(app)/now" as never)} size="md" variant="secondary">Not now</Button>
         </>
       )}
     </View>

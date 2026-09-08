@@ -9,12 +9,10 @@ import { Card } from "@/components/ui/card";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { OtherUserGallery } from "@/features/profile/components/OtherUserGallery";
 import { ProfileInterests } from "@/features/profile/components/ProfileInterests";
-import { useIsPremium } from "@/stores/selectors";
 import { useAuth } from "@/features/auth/useAuth";
-import { InsufficientCoinsDialog } from "@/features/coins/components/InsufficientCoinsDialog";
 import {
-  coinsQueryOptions,
   publicProfileQueryOptions,
+  profileSocialContextQueryOptions,
   webQueryKeys,
 } from "@/data/web-query";
 import {
@@ -26,6 +24,9 @@ import {
 import { createOrFindThread } from "@/data/thread-mutations";
 import { commitBlockedUserCache } from "@/data/block-cache";
 import { ApiTransportError } from "@peekpoke/shared";
+import { PokeDialog } from "@/features/social/components/PokeDialog";
+import { ProfileSocialContext } from "@/features/profile/components/ProfileSocialContext";
+import { useExpiringAvailability } from "@/features/profile/useExpiringAvailability";
 
 // This page coordinates public-profile queries, actions, and presentation.
 // react-doctor-disable-next-line no-giant-component
@@ -33,7 +34,6 @@ export default function PublicProfilePage() {
   const queryClient = useQueryClient();
   const params = useParams();
   const router = useRouter();
-  const viewerIsPremium = useIsPremium();
   const { user } = useAuth();
   const userId = params.userId as string;
 
@@ -42,16 +42,15 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (user?.id && user.id === userId) window.location.replace("/profile");
   }, [user?.id, userId]);
-  const coins = useQuery(coinsQueryOptions).data?.balance ?? 0;
-
-  const [showNoCoins, setShowNoCoins] = useState(false);
   const [reportCategory, setReportCategory] = useState("other");
   const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
   const [safetyLoading, setSafetyLoading] = useState(false);
+  const [pokeOpen, setPokeOpen] = useState(false);
   const blockTargetRef = useRef<string | null>(null);
   const [, startTransition] = useTransition();
   const publicProfile = useQuery(publicProfileQueryOptions(userId));
   const data = publicProfile.data;
+  const socialContext = useQuery({ ...profileSocialContextQueryOptions(userId), enabled: Boolean(data?.profile) });
   const loading = publicProfile.isPending;
 
   const profile = data?.profile;
@@ -65,6 +64,8 @@ export default function PublicProfilePage() {
   const isPending = friendship?.status === "pending";
   const targetIsPremium = profile?.is_premium ?? false;
   const hasPendingBlockRecovery = pendingBlockUser(userId) !== null;
+  const availability = useExpiringAvailability(socialContext.data?.availability ?? null, socialContext.refetch);
+  const visibleSocialContext = socialContext.data ? { ...socialContext.data, availability } : null;
 
   useEffect(() => {
     blockTargetRef.current = userId;
@@ -90,14 +91,9 @@ export default function PublicProfilePage() {
 
   const handleAddFriend = () => {
     if (isPending || isFriend) return;
-    if (coins < 1) {
-      setShowNoCoins(true);
-      return;
-    }
     startTransition(async () => {
       try {
         await sendFriendRequest(userId, (response) => {
-          queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
           queryClient.setQueryData(
             webQueryKeys.publicProfile(userId),
             data ? { ...data, friendship: response.friendship } : data,
@@ -105,9 +101,6 @@ export default function PublicProfilePage() {
           void queryClient.invalidateQueries({ queryKey: webQueryKeys.friends });
         });
       } catch (err) {
-        if (err instanceof ApiTransportError && err.code === "INSUFFICIENT_COINS") {
-          setShowNoCoins(true);
-        }
         console.error("Failed to send friend request:", err);
       }
     });
@@ -226,10 +219,10 @@ export default function PublicProfilePage() {
             {!loading && data && (
               <div className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-background shadow-e-1 rounded-full px-3 py-1 text-xs whitespace-nowrap z-10">
                 <span className="font-semibold text-primary">{data.stats.friends_count}</span>
-                <span className="text-muted-foreground">Friends</span>
+                <span className="text-muted-foreground">{data.stats.friends_count === 1 ? "Friend" : "Friends"}</span>
                 <span className="text-muted-foreground/40">·</span>
                 <span className="font-semibold text-primary">{data.stats.photos_count}</span>
-                <span className="text-muted-foreground">Photos</span>
+                <span className="text-muted-foreground">{data.stats.photos_count === 1 ? "Photo" : "Photos"}</span>
                 {profile?.location_text && (
                   <>
                     <span className="text-muted-foreground/40">·</span>
@@ -249,16 +242,10 @@ export default function PublicProfilePage() {
           </div>
           {handle && <p className="text-sm text-muted-foreground">{handle}</p>}
 
-          {/* Bio */}
-          {profile?.bio && (
-            <p className="text-sm text-muted-foreground text-center max-w-xs leading-relaxed">
-              {profile.bio}
-            </p>
-          )}
-
           {/* Action buttons */}
           {!loading && data && (
             <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setPokeOpen(true)} className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-ink-9 text-white shadow-e-1"><span className="text-sm font-medium">Poke</span></button>
               {isFriend ? (
                 <button type="button"
                   onClick={handleSendMessage}
@@ -275,10 +262,10 @@ export default function PublicProfilePage() {
               ) : (
                 <button type="button"
                   onClick={handleAddFriend}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-ink-9 text-white shadow-e-1"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-background shadow-e-1"
                 >
                   <UserPlus className="h-4 w-4" />
-                  <span className="text-sm font-medium">Add Friend</span>
+                  <span className="text-sm font-medium text-primary">Add Friend</span>
                 </button>
               )}
             </div>
@@ -289,6 +276,9 @@ export default function PublicProfilePage() {
       {/* Body */}
       {!loading && data && (
         <div className="flex flex-col gap-6 p-6">
+          {socialContext.isPending ? <p className="text-sm text-muted-foreground" role="status">Loading shared context…</p> : null}
+          {socialContext.isError ? <Card className="flex items-center justify-between gap-3 rounded-md p-4"><p className="text-sm text-muted-foreground">Shared context is unavailable.</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => void socialContext.refetch()}>Try again</button></Card> : null}
+          {visibleSocialContext ? <ProfileSocialContext context={visibleSocialContext} onOpenPlan={(planId) => router.push(`/plans/${planId}`)} /> : null}
           {/* About card */}
           {profile?.bio && (
             <Card className="rounded-md p-4">
@@ -312,7 +302,6 @@ export default function PublicProfilePage() {
             <Card className="rounded-md p-4">
               <OtherUserGallery
                 photos={data.photos}
-                viewerIsPremium={viewerIsPremium}
                 className="!p-0"
               />
             </Card>
@@ -378,7 +367,7 @@ export default function PublicProfilePage() {
           </Card>
         </div>
       )}
-      <InsufficientCoinsDialog open={showNoCoins} onOpenChange={setShowNoCoins} />
+      {profile && pokeOpen ? <PokeDialog recipient={profile} defaultActivity={availability?.activity ?? "anything"} defaultCustomLabel={availability?.customLabel ?? null} onClose={() => setPokeOpen(false)} onSent={() => { setPokeOpen(false); void queryClient.invalidateQueries({ queryKey: webQueryKeys.pokes }); }} /> : null}
     </div>
   );
 }

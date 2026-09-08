@@ -2,9 +2,11 @@
 
 - Pull the complete 134-migration schema-only baseline into an isolated project, reconcile the hosted/local migration-history name drift, apply `20260729235452_durable_workflows.sql` followed by the cursor indexes, and pass migration/RLS/rollback checks. The current checkout cannot recreate the hosted schema from its two additive migrations alone.
 - Configure separate development, preview/staging, and production Supabase/Vercel/EAS variables and project references. Do not reuse production values in preview.
+- Configure a restricted server-only `GOOGLE_PLACES_API_KEY` in each environment, enable Nearby Search (New), and verify API and billing restrictions. The venue endpoint intentionally returns no cards until this key is present.
 - Configure a per-environment `CRON_SECRET` for authorized outbox invocations, promote the migration first, then deploy the `dub1` Vercel region. Verify the function region from `x-vercel-id`, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency.
 - Enable Supabase leaked-password protection and rerun security advisors. Record the previous setting and rollback action before changing it.
 - Promote the committed server-only `public.user_locations` RLS policy after isolated verification; the live advisor currently reports RLS enabled with no policy.
+- Apply `20260908060000_privacy_location_retention.sql` and deploy `/api/internal/privacy-cleanup`, then configure an authorized scheduler to invoke it at most once per minute with `CRON_SECRET`. Alert on missed runs and purge failures. Until that scheduler is active, exact locations are only excluded from discovery after ten minutes and are not physically deleted.
 - Configure Vercel WAF/rate-limit rules for authentication-related traffic. Supabase Auth is a direct client integration and needs provider/edge coverage.
 - Enable/verify Supabase backups and PITR; rehearse restore into an isolated non-production project and record RTO/RPO, gaps, and rollback steps.
 - Create Vercel dashboard views/alerts from the structured log fields and generate real preview samples. Query-level DB/RPC, Realtime, cache, and queue metrics remain unavailable until those systems expose telemetry.

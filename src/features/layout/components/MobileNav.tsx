@@ -1,10 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { MapPin, Mail, User, Shield } from "lucide-react";
+import { MapPin, Mail, User, Compass } from "lucide-react";
 import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
-import { useFriendRequestCount, useTotalUnread, useHasRole } from "@/stores/selectors";
+import { useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
+import { usePokeInbox } from "@/features/inbox/usePokeInbox";
 
 interface MobileTab {
   href: string;
@@ -14,7 +15,8 @@ interface MobileTab {
 }
 
 const baseTabs: MobileTab[] = [
-  { href: "/",         label: "Map",      Icon: MapPin },
+  { href: "/now", label: "Now", Icon: Compass },
+  { href: "/map", label: "Map", Icon: MapPin },
   { href: "/inbox",    label: "Inbox",    Icon: Mail,  badge: true },
   { href: "/profile",  label: "Me",       Icon: User },
 ];
@@ -38,7 +40,7 @@ function MobileNavInner() {
   const router = useTransitionRouter();
   const unreadCount = useTotalUnread();
   const friendRequestCount = useFriendRequestCount();
-  const isAdmin = useHasRole("admin");
+  const { pendingReceivedCount } = usePokeInbox();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,11 +49,8 @@ function MobileNavInner() {
   }, [pathname]);
 
   const activeHref = pendingHref ?? pathname;
-  const rawBadgeCount = friendRequestCount > 0 ? friendRequestCount : unreadCount;
-  const tabs: MobileTab[] = [
-    ...baseTabs,
-    ...(isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] : []),
-  ];
+  const rawBadgeCount = friendRequestCount + unreadCount + pendingReceivedCount;
+  const tabs = baseTabs;
 
   return (
     <nav
@@ -73,7 +72,7 @@ function MobileNavInner() {
               router.push(href);
             }}
             className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full border-0 bg-transparent cursor-pointer transition-colors"
-            style={{ color: isActive ? "var(--primary-500)" : "var(--ink-5)" }}
+            style={{ color: isActive ? "var(--primary-500)" : "var(--ink-6)" }}
           >
             {isActive && (
               <span

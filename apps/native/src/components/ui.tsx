@@ -87,6 +87,7 @@ export type IconName =
   | "map"
   | "message"
   | "premium"
+  | "now"
   | "profile"
   | "qr"
   | "recenter"
@@ -120,6 +121,7 @@ const iconGlyphs: Record<IconName, LucideIcon> = {
   map: MapPin,
   message: MessageCircle,
   premium: Sparkles,
+  now: Sparkles,
   profile: User,
   qr: ScanQrCode,
   recenter: Navigation2,

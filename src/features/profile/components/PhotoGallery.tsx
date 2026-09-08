@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ImageIcon, Loader2, ChevronDown } from "lucide-react";
 import { Camera } from "@phosphor-icons/react";
 import { PhotoViewerDialog } from "@/components/ui/PhotoViewerDialog";
@@ -45,19 +45,19 @@ export function PhotoGallery({
   const scrollFrameRef = useRef<number | null>(null);
   const [showScrollHint, setShowScrollHint] = useState(false);
 
-  const updateScrollHint = () => {
+  const updateScrollHint = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     setShowScrollHint(el.scrollHeight > el.clientHeight + 8 && el.scrollTop + el.clientHeight < el.scrollHeight - 8);
-  };
+  }, []);
 
-  const checkScroll = () => {
+  const checkScroll = useCallback(() => {
     if (scrollFrameRef.current !== null) return;
     scrollFrameRef.current = requestAnimationFrame(() => {
       scrollFrameRef.current = null;
       updateScrollHint();
     });
-  };
+  }, [updateScrollHint]);
 
   useEffect(() => {
     const t = setTimeout(checkScroll, 50);
@@ -65,7 +65,7 @@ export function PhotoGallery({
       clearTimeout(t);
       if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
     };
-  }, [photos.length]);
+  }, [photos.length, checkScroll]);
 
   const canUpload = photos.length < maxPhotos;
   const viewerPhotos = photos.flatMap((photo) => photo.url ? [{ ...photo, url: photo.url }] : []);

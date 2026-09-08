@@ -1155,6 +1155,23 @@ export const profileUpdatedHintSchema = z.strictObject({
   profile_id: z.uuid(),
 });
 
+/** A private invalidation hint. Poke details are always re-read from the API. */
+export const socialChangedHintSchema = z.discriminatedUnion("action", [
+  z.strictObject({
+    changed: z.literal(true),
+    resource: z.literal("pokes"),
+    action: z.literal("received"),
+    poke_id: z.uuid(),
+  }),
+  z.strictObject({
+    changed: z.literal(true),
+    resource: z.literal("pokes"),
+    action: z.literal("accepted"),
+    poke_id: z.uuid(),
+    thread_id: z.uuid(),
+  }),
+]);
+
 export function messageHintNeedsBackfill(
   lastSequence: number | undefined,
   hintedSequence: number | undefined,
@@ -1174,12 +1191,12 @@ export function messageHintHasGap(
 }
 
 const nearbyLatitudeSchema = z.number().min(-90).max(90).refine(
-  (value) => Number(value.toFixed(3)) === value,
-  "Nearby latitude must be quantized to 3 decimal places",
+  (value) => Number(value.toFixed(2)) === value,
+  "Nearby latitude must be quantized to 2 decimal places",
 );
 const nearbyLongitudeSchema = z.number().min(-180).max(180).refine(
-  (value) => Number(value.toFixed(3)) === value,
-  "Nearby longitude must be quantized to 3 decimal places",
+  (value) => Number(value.toFixed(2)) === value,
+  "Nearby longitude must be quantized to 2 decimal places",
 );
 
 export const nearbyUserSchema = z.strictObject({
@@ -1247,6 +1264,59 @@ export function nearbyResponseSchemaForViewer(
 export const locationUpdateResponseSchema = z.strictObject({
   ok: z.literal(true),
 });
+
+export const discoveryAudienceSchema = z.enum([
+  "hidden",
+  "friends",
+  "friends_of_friends",
+  "circles",
+  "everyone",
+]);
+
+export const discoveryPreferenceSchema = z.strictObject({
+  audience: discoveryAudienceSchema,
+});
+
+
+export const meetupAcknowledgementRequestSchema = z.strictObject({
+  peerId: z.uuid(),
+});
+
+export const meetupAcknowledgementSchema = z.strictObject({
+  id: z.uuid(),
+  peerId: z.uuid(),
+  status: z.enum(["waiting", "confirmed"]),
+  viewerConfirmed: z.boolean(),
+  expiresAt: utcTimestampSchema,
+  confirmedAt: utcTimestampSchema.nullable(),
+});
+
+export const meetupAcknowledgementResponseSchema = z.strictObject({
+  meetup: meetupAcknowledgementSchema,
+  replayed: z.boolean(),
+});
+
+export const meetupAcknowledgementReadResponseSchema = z.strictObject({
+  meetup: meetupAcknowledgementSchema.nullable(),
+});
+
+/**
+ * Durable notification payloads intentionally contain identifiers only.
+ * User-authored activity and note text must never be delivered to a lock screen.
+ */
+export const pokePushPayloadSchema = z.discriminatedUnion("action", [
+  z.strictObject({
+    kind: z.literal("poke"),
+    action: z.literal("received"),
+    pokeId: z.uuid(),
+  }),
+  z.strictObject({
+    kind: z.literal("poke"),
+    action: z.literal("accepted"),
+    pokeId: z.uuid(),
+    threadId: z.uuid(),
+  }),
+]);
 
 export const moderationReportStatusSchema = z.enum([
   "pending",
@@ -1790,6 +1860,14 @@ export type Message = z.infer<typeof messageSchema>;
 export type NearbyUserDto = z.infer<typeof nearbyUserSchema>;
 export type NearbyResponseDto = z.infer<typeof nearbyResponseSchema>;
 export type LocationUpdateResponse = z.infer<typeof locationUpdateResponseSchema>;
+export type DiscoveryAudience = z.infer<typeof discoveryAudienceSchema>;
+export type DiscoveryPreference = z.infer<typeof discoveryPreferenceSchema>;
+export type MeetupAcknowledgementRequest = z.infer<typeof meetupAcknowledgementRequestSchema>;
+export type MeetupAcknowledgement = z.infer<typeof meetupAcknowledgementSchema>;
+export type MeetupAcknowledgementResponse = z.infer<typeof meetupAcknowledgementResponseSchema>;
+export type MeetupAcknowledgementReadResponse = z.infer<typeof meetupAcknowledgementReadResponseSchema>;
+export type PokePushPayload = z.infer<typeof pokePushPayloadSchema>;
+export type SocialChangedHint = z.infer<typeof socialChangedHintSchema>;
 export type SearchUserDto = SearchUserResult;
 export type ModerationReportStatus = z.infer<typeof moderationReportStatusSchema>;
 export type ModerationReportAction = z.infer<typeof moderationReportActionSchema>;

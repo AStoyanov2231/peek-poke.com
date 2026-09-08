@@ -1,61 +1,16 @@
 "use client";
-
-import { Loader2, MapPinOff } from "lucide-react";
+import Link from "next/link";
+import { Loader2, MapPin, ArrowLeft } from "lucide-react";
 import { useLocationStatus, useUserLocation } from "@/stores/selectors";
-
-/**
- * Covers the map area until the first location fix.
- */
-export function LocationGate({
-  pending,
-  onRetry,
-}: {
-  pending: boolean;
-  onRetry: () => void;
-}) {
-  const userLocation = useUserLocation();
-  const status = useLocationStatus();
-
+export function LocationGate({ pending, onRetry, requested = true }: { pending: boolean; onRetry: () => void; requested?: boolean }) {
+  const userLocation = useUserLocation(); const status = useLocationStatus();
   if (userLocation) return null;
-
-  return (
-    <div
-      // Fixed so it also covers the browser chrome strip above the page container.
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 px-8 text-center pointer-events-auto"
-      style={{ background: "var(--bg)" }}
-    >
-      {status === "denied" ? (
-        <>
-          <MapPinOff className="h-10 w-10 text-muted-foreground" />
-          <p className="t-title-3 text-ink-9">Location is off</p>
-          <p className="text-sm text-muted-foreground">
-            Peek &amp; Poke needs your location to show people nearby.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Allow location access for this site in your browser settings, then reload.
-          </p>
-        </>
-      ) : status === "error" ? (
-        <>
-          <MapPinOff className="h-10 w-10 text-muted-foreground" />
-          <p className="t-title-3 text-ink-9">Could not load your location</p>
-          <p className="text-sm text-muted-foreground">Nearby and meeting features remain paused.</p>
-          <button
-            type="button"
-            aria-busy={pending}
-            className="min-h-11 min-w-11 rounded-md bg-ink-9 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            disabled={pending}
-            onClick={onRetry}
-          >
-            {pending ? "Retrying…" : "Try again"}
-          </button>
-        </>
-      ) : (
-        <>
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Finding you…</p>
-        </>
-      )}
-    </div>
-  );
+  const locating = requested && status !== "denied" && status !== "error";
+  return <section className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 overflow-y-auto bg-background px-7 py-10 text-center pointer-events-auto md:left-[240px]" aria-label="Location for nearby discovery">
+    <span className="empty-ripple">{locating ? <Loader2 size={27} className="animate-spin"/> : <MapPin size={27}/>}</span>
+    <h1 className="text-3xl font-semibold tracking-[-.05em]">{status === "denied" ? "Location is off. You’re still welcome." : status === "error" ? "Let’s find your area." : locating ? "Finding your little corner." : "Good company could be around the corner."}</h1>
+    <p className="max-w-sm text-sm leading-relaxed text-ink-6">{status === "denied" ? "To use the map, allow location for this site in your browser settings. Your Inbox and Plans are still here." : "Location helps you find people nearby. Your precise position isn’t shown to other people."}</p>
+    {(!locating || !requested) && <button type="button" className="btn btn-accent btn-lg mt-2" aria-busy={pending} disabled={pending} onClick={onRetry}>{pending ? "Trying again…" : requested ? "Try again" : "Enable location"}</button>}
+    <Link href="/now" className="text-link"><ArrowLeft size={16}/> Back to Now</Link><Link href="/inbox" className="text-sm text-ink-6 underline underline-offset-4">Go to your Inbox</Link>
+  </section>;
 }

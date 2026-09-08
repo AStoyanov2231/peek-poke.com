@@ -4,10 +4,12 @@ import {
   canonicalizeDisplayName,
   displayNameSchema,
   MAX_DISPLAY_NAME_LENGTH,
+  isTemporaryUsername,
 } from "@peekpoke/shared";
 import { createServiceClient } from "@/lib/supabase/server";
 
-const TEMPORARY_USERNAME_PATTERN = /^user_(?:[a-f0-9]{8}|[a-f0-9]{15})$/i;
+export { isTemporaryUsername } from "@peekpoke/shared";
+
 const MAX_USERNAME_ATTEMPTS = 4;
 const ATOMIC_RESULT_KEYS = [
   "auth_user_id",
@@ -49,9 +51,6 @@ export type EnsureAuthProfileResult =
   | { status: "disabled" }
   | { status: "failed"; cause: unknown };
 
-export function isTemporaryUsername(username: string) {
-  return TEMPORARY_USERNAME_PATTERN.test(username);
-}
 
 export function initialUsernameFor(user: User) {
   // Fifteen UUID hex characters keep the temporary username within the

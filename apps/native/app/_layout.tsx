@@ -50,21 +50,32 @@ import {
   type AuthBootstrapKey,
 } from "@/lib/auth-bootstrap";
 import { loadBootstrapForCurrentSession } from "@/lib/profile-bootstrap";
+import { nativeAuthenticatedHomeRoute } from "@/lib/navigation-policy";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} />;
 }
 
-function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, pendingInvite?: string) {
+function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, pendingInvite?: string, pendingPlanToken?: string) {
   if (!data.onboarding_completed) {
-    router.replace({ pathname: "/onboarding", params: pendingInvite ? { invite: pendingInvite } : {} });
+    router.replace({
+      pathname: "/onboarding",
+      params: {
+        ...(pendingInvite ? { invite: pendingInvite } : {}),
+        ...(pendingPlanToken ? { plan_token: pendingPlanToken } : {}),
+      },
+    });
     return;
   }
   if (pendingInvite) {
     router.replace(`/invite/${pendingInvite}` as never);
     return;
   }
-  router.replace("/(app)/map");
+  if (pendingPlanToken) {
+    router.replace(`/plan/${pendingPlanToken}` as never);
+    return;
+  }
+  router.replace(nativeAuthenticatedHomeRoute);
 }
 
 function authBootstrapKey(session: Session): AuthBootstrapKey {
@@ -110,16 +121,24 @@ export default function RootLayout() {
 // react-doctor-disable-next-line no-giant-component
 function RootLayoutContent() {
   const pathname = usePathname();
-  const routeParams = useGlobalSearchParams<{ inviterId?: string | string[]; invite?: string | string[] }>();
+  const routeParams = useGlobalSearchParams<{ inviterId?: string | string[]; invite?: string | string[]; plan_token?: string | string[]; token?: string | string[] }>();
   const routeInviter = Array.isArray(routeParams.inviterId) ? routeParams.inviterId[0] : routeParams.inviterId;
   const queryInviter = Array.isArray(routeParams.invite) ? routeParams.invite[0] : routeParams.invite;
+  const queryPlanToken = Array.isArray(routeParams.plan_token) ? routeParams.plan_token[0] : routeParams.plan_token;
+  const routePlanToken = Array.isArray(routeParams.token) ? routeParams.token[0] : routeParams.token;
   const pendingInvite = pathname.startsWith("/invite/") ? routeInviter : queryInviter;
+  const rawPlanToken = pathname.startsWith("/plan/") ? routePlanToken : queryPlanToken;
+  const pendingPlanToken = typeof rawPlanToken === "string" && /^[A-Za-z0-9_-]{43}$/.test(rawPlanToken) ? rawPlanToken : undefined;
   const pendingInviteRef = useRef(pendingInvite);
+  const pendingPlanTokenRef = useRef(pendingPlanToken);
   const isAuthCallback = pathname === "/auth/callback";
   const isPasswordRecovery = pathname === "/auth/reset-password";
   useEffect(() => {
     pendingInviteRef.current = pendingInvite;
   }, [pendingInvite]);
+  useEffect(() => {
+    pendingPlanTokenRef.current = pendingPlanToken;
+  }, [pendingPlanToken]);
   const [fontsLoaded, fontError] = useFonts({
     "Geist-Regular": require("../assets/fonts/Geist-Regular.ttf"),
     "Geist-Medium": require("../assets/fonts/Geist-Medium.ttf"),
@@ -212,7 +231,7 @@ function RootLayoutContent() {
             resetFriendMutationAttempts();
             clearNativeServerState();
             reset();
-            await clearNativeRealtimeAuthSession();
+            await recoverUnauthorizedSession();
             return;
           }
           if (result.status === "unauthorized") {
@@ -221,7 +240,7 @@ function RootLayoutContent() {
           }
 
           nativeQueryClient.setQueryData(nativeQueryKeys.bootstrap, result.data);
-          routeAfterBootstrap(result.data, pendingInviteRef.current);
+          routeAfterBootstrap(result.data, pendingInviteRef.current, pendingPlanTokenRef.current);
           setAuthenticatedUserId(key.userId);
           void nativePushRegistration.start({
             key,
@@ -268,7 +287,7 @@ function RootLayoutContent() {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
         const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: invite ? { invite } : {} });
+        router.replace({ pathname: "/(auth)/login", params: { ...(invite ? { invite } : {}), ...(pendingPlanTokenRef.current ? { plan_token: pendingPlanTokenRef.current } : {}) } });
       }
     } catch (error) {
       if (
@@ -312,7 +331,7 @@ function RootLayoutContent() {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
         const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: invite ? { invite } : {} });
+        router.replace({ pathname: "/(auth)/login", params: { ...(invite ? { invite } : {}), ...(pendingPlanTokenRef.current ? { plan_token: pendingPlanTokenRef.current } : {}) } });
       }
     } catch (error) {
       if (

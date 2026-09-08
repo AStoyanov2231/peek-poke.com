@@ -26,7 +26,6 @@ const threadCreateRpcErrorSchema = z.strictObject({
     "USER_NOT_FOUND",
     "BLOCKED",
     "ACCOUNT_DELETED",
-    "INSUFFICIENT_COINS",
   ]),
   message: z.string(),
   status: z.number().int(),
@@ -113,7 +112,6 @@ const threadCreateErrors = {
   USER_NOT_FOUND: { rpcStatuses: [404], status: 404, message: "User not found", code: "USER_NOT_FOUND" },
   BLOCKED: { rpcStatuses: [404], status: 404, message: "User not found", code: "USER_NOT_FOUND" },
   ACCOUNT_DELETED: { rpcStatuses: [404, 410], status: 404, message: "User not found", code: "USER_NOT_FOUND" },
-  INSUFFICIENT_COINS: { rpcStatuses: [403], status: 403, message: "Insufficient coins", code: "INSUFFICIENT_COINS" },
 } as const;
 
 function threadCreateFailure() {

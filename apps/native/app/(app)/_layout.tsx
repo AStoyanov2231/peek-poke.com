@@ -9,14 +9,18 @@ import { useMeetingDetection } from "@/hooks/use-meeting-detection";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useLocationFreshnessLifecycle } from "@/hooks/use-location-freshness-lifecycle";
 import { fetchCurrentProfile, fetchFriends, fetchThreads } from "@/data/api";
+import { fetchPokes } from "@/data/pokes";
+import { usePendingReceivedPokes } from "@/hooks/use-pending-received-pokes";
 import { sharedGroupsQuery } from "@/data/social/queries";
 import { nativeQueryKeys } from "@/data/query-keys";
+import { appTabIsActive, inboxBadgeCount } from "@/navigation/app-tabs";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} />;
 }
 
 const tabs = [
+  { href: "/(app)/now", path: "/now", label: "Now", icon: "now" },
   { href: "/(app)/map", path: "/map", label: "Map", icon: "map" },
   { href: "/(app)/inbox", path: "/inbox", label: "Inbox", icon: "inbox", badge: true },
   { href: "/(app)/profile", path: "/profile", label: "Me", icon: "profile" },
@@ -44,13 +48,23 @@ export default function AppLayout() {
     ...sharedGroupsQuery(),
     enabled: Boolean(profileQuery.data?.id),
   });
+  const pokesQuery = useQuery({
+    queryKey: nativeQueryKeys.pokes,
+    queryFn: ({ signal }) => fetchPokes(signal),
+    enabled: Boolean(profileQuery.data?.id),
+  });
   const profileId = profileQuery.data?.id;
   useLocationFreshnessLifecycle(profileId);
   const roles = profileQuery.data?.roles ?? [];
   const unread = (threadsQuery.data?.total_unread ?? 0) + (groupsQuery.data?.total_unread ?? 0);
   const requests = friendsQuery.data?.requests.length ?? 0;
+  const pendingReceivedPokes = usePendingReceivedPokes(pokesQuery.data?.received ?? []);
   const isAdmin = roles.includes("admin");
-  const badgeCount = requests > 0 ? requests : unread;
+  const badgeCount = inboxBadgeCount({
+    friendRequests: requests,
+    unread,
+    pendingReceivedPokes: pendingReceivedPokes.length,
+  });
   useForegroundRefresh(Boolean(profileId));
   const allTabs: {
     href: string;
@@ -75,7 +89,7 @@ export default function AppLayout() {
       </View>
       <View style={[styles.nav, { bottom: insets.bottom + 22 }]}>
         {allTabs.map(({ href, path, label, icon, badge }) => {
-          const active = path === "/map" ? pathname === path : pathname.startsWith(path);
+          const active = appTabIsActive(path, pathname);
           return (
               <Pressable
                 accessibilityLabel={label}

@@ -19,7 +19,11 @@
     "./fixtures": "./src/fixtures.ts",
     "./transport": "./src/transport.ts",
     "./onboarding": "./src/onboarding.ts",
-    "./call-signaling": "./src/call-signaling.ts"
+    "./call-signaling": "./src/call-signaling.ts",
+    "./social": "./src/social.ts",
+    "./plans": "./src/plans.ts",
+    "./chat-suggestions": "./src/chat-suggestions.ts",
+    "./chat-assistance": "./src/chat-assistance.ts"
   },
   "dependencies": {
     "zod": "^4.3.6"

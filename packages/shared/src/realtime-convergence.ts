@@ -12,6 +12,7 @@ export type RealtimeConvergenceBatch = {
 export const USER_SYNC_BROADCAST_EVENTS = {
   messages: "messages-changed",
   friendships: "friendships-changed",
+  social: "social-changed",
   coins: "coins-changed",
   profile: "profile-changed",
 } as const;
@@ -99,6 +100,7 @@ type CreateUserSyncChannelOptions<TChannel> = {
   ) => void;
   onMessagesChanged: (payload: unknown) => void;
   onFriendshipsChanged: (payload: unknown) => void;
+  onSocialChanged: (payload: unknown) => void;
   onCoinsChanged: (payload: unknown) => void;
   onProfileChanged: (payload: unknown) => void;
 };
@@ -110,6 +112,7 @@ export function createUserSyncChannel<TChannel>({
   onBroadcast,
   onMessagesChanged,
   onFriendshipsChanged,
+  onSocialChanged,
   onCoinsChanged,
   onProfileChanged,
 }: CreateUserSyncChannelOptions<TChannel>) {
@@ -118,6 +121,11 @@ export function createUserSyncChannel<TChannel>({
     channel,
     USER_SYNC_BROADCAST_EVENTS.messages,
     onMessagesChanged,
+  );
+  onBroadcast(
+    channel,
+    USER_SYNC_BROADCAST_EVENTS.social,
+    onSocialChanged,
   );
   onBroadcast(
     channel,

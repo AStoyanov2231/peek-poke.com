@@ -1,126 +1,44 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { MapPin, X } from "lucide-react";
-import { ApiTransportError } from "@peekpoke/shared";
-import {
-  discardMeetingAttempt,
-  recordMeeting,
-  unsubscribeMeetingAttempt,
-  webQueryKeys,
-} from "@/data/web-query";
-import { useAppStore } from "@/stores/appStore";
+import { CalendarPlus, MapPin, X } from "lucide-react";
+import { useState } from "react";
 
 interface ChatProximityBannerProps {
   accountId: string;
   friendId: string;
-  distanceMeters: number;
   meetingEligible: boolean;
   name: string;
   threadId: string;
+  onPlanAnother?: () => void;
 }
 
-type MeetingState = "idle" | "pending" | "success" | "error";
-
+/**
+ * Coarse discovery proximity helps people decide whether to make a plan.
+ * Mutual meetup acknowledgement is available separately in the chat.
+ */
 export function ChatProximityBanner({
-  accountId,
-  friendId,
-  distanceMeters,
   meetingEligible,
   name,
-  threadId,
+  onPlanAnother,
 }: ChatProximityBannerProps) {
-  const queryClient = useQueryClient();
   const [dismissed, setDismissed] = useState(false);
-  const [meetingState, setMeetingState] = useState<MeetingState>("idle");
-  const [message, setMessage] = useState<string | null>(null);
-  const ownerIdentity = `${accountId}:${threadId}:${friendId}`;
-  const consumerId = `web-chat-meeting:${ownerIdentity}`;
-  const ownerRef = useRef(ownerIdentity);
-
-  useEffect(() => {
-    ownerRef.current = ownerIdentity;
-    return () => {
-      ownerRef.current = "";
-      unsubscribeMeetingAttempt(accountId, friendId, consumerId);
-    };
-  }, [accountId, consumerId, friendId, ownerIdentity]);
-
   if (dismissed) return null;
-
-  const record = () => {
-    if (!meetingEligible || meetingState === "pending") return;
-    const submissionOwner = ownerIdentity;
-    setMeetingState("pending");
-    setMessage(null);
-    void recordMeeting(accountId, friendId, undefined, (result) => {
-      if (ownerRef.current !== submissionOwner || result.already_met) return;
-      queryClient.setQueryData(webQueryKeys.coins, { balance: result.balance });
-    }, consumerId).then((result) => {
-      if (ownerRef.current !== submissionOwner) return;
-      setMeetingState("success");
-      setMessage(result.already_met
-        ? "Meeting already recorded"
-        : result.awarded ? "Coin earned" : "Meeting recorded");
-    }).catch((error: unknown) => {
-      if (ownerRef.current !== submissionOwner) return;
-      if (error instanceof Error && error.name === "AbortError") {
-        setMeetingState("idle");
-        setMessage(null);
-        return;
-      }
-      if (error instanceof ApiTransportError && error.code === "LOCATION_STALE") {
-        useAppStore.getState().markLocationStale();
-        setMeetingState("idle");
-        setMessage(null);
-        return;
-      }
-      setMeetingState("error");
-      setMessage(error instanceof Error ? error.message : "Could not record meeting");
-    });
-  };
 
   return (
     <div
-      className="flex items-center gap-2.5 px-3 py-2.5 mx-4 mt-3 rounded-md border flex-shrink-0"
+      className="mx-4 mt-3 flex flex-shrink-0 items-center gap-2.5 rounded-md border px-3 py-2.5"
       style={{ background: "var(--primary-50)", borderColor: "var(--primary-100)" }}
     >
       <MapPin size={16} style={{ color: "var(--primary-500)", flexShrink: 0 }} />
       <div className="min-w-0 flex-1">
         <p className="t-caption truncate" style={{ color: "var(--primary-600)" }}>
-          You&apos;re {distanceMeters}m from {name}
+          You&apos;re in the same approximate area as {name}
         </p>
-        {message ? (
-          <p className="t-caption" role="status" style={{ color: "var(--primary-600)" }}>
-            {message}
-          </p>
-        ) : null}
+        {meetingEligible ? <p className="t-caption text-ink-6">If you meet, each person can mark it in chat.</p> : null}
       </div>
-      {meetingEligible && meetingState !== "success" ? (
-        <button
-          type="button"
-          className="min-h-11 t-caption font-semibold flex-shrink-0 disabled:opacity-60"
-          style={{ color: "var(--primary-500)" }}
-          disabled={meetingState === "pending"}
-          onClick={record}
-          aria-label={meetingState === "error" ? "Retry Meet and earn" : "Meet and earn"}
-        >
-          {meetingState === "pending" ? "Recording…" : meetingState === "error" ? "Retry" : "Meet & earn"}
-        </button>
-      ) : null}
-      {meetingState === "error" ? (
-        <button
-          type="button"
-          className="min-h-11 t-caption flex-shrink-0"
-          onClick={() => {
-            if (!discardMeetingAttempt(accountId, friendId)) return;
-            setMeetingState("idle");
-            setMessage(null);
-          }}
-          aria-label="Discard meeting retry"
-        >
-          Discard
+      {onPlanAnother ? (
+        <button type="button" className="inline-flex min-h-11 shrink-0 items-center gap-1 t-caption font-semibold text-primary-600" onClick={onPlanAnother}>
+          <CalendarPlus size={14} aria-hidden="true" />Make a plan
         </button>
       ) : null}
       <button

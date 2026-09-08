@@ -1,8 +1,13 @@
+import { pokePushPayloadSchema } from "@peekpoke/shared";
+
 export const coreNativeTabs = [
+  { name: "now", route: "/(app)/now", path: "/now" },
   { name: "map", route: "/(app)/map", path: "/map" },
   { name: "inbox", route: "/(app)/inbox", path: "/inbox" },
   { name: "profile", route: "/(app)/profile", path: "/profile" },
 ] as const;
+
+export const nativeAuthenticatedHomeRoute = "/(app)/now" as const;
 
 export const adminNativeTab = {
   name: "admin",
@@ -24,6 +29,7 @@ export const coreNativeStackRoutes = [
 
 const staticNotificationRoutes = new Set([
   "/",
+  "/now",
   "/map",
   "/inbox",
   "/profile",
@@ -63,4 +69,23 @@ export function resolveNotificationRoute(value: unknown): string | null {
     return null;
   }
   return `/inbox?tab=${tab}`;
+}
+
+/**
+ * Converts typed durable push data into an internal route.
+ * Legacy notifications may use the separately allowlisted `route` field.
+ */
+export function resolvePushNotificationRoute(data: unknown): string | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const payload = data as Record<string, unknown>;
+
+  if ("kind" in payload) {
+    const parsed = pokePushPayloadSchema.safeParse(payload);
+    if (!parsed.success) return null;
+    return parsed.data.action === "received"
+      ? "/inbox"
+      : `/chat/${parsed.data.threadId}`;
+  }
+
+  return resolveNotificationRoute(payload.route);
 }
