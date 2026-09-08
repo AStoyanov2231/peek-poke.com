@@ -6,6 +6,28 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
+The Android packaged-build review found an obsolete generated manifest with invitation links but no Plan links, despite both being present in app.json.
+Expo prebuild regenerated the ignored Android project with both link families.
+A command-level reproduction showed that the existing local release preflight accepted the obsolete manifest and proceeded to the build/install steps.
+The release preflight now parses Android XML with Expo's own manifest utilities and compares the generated public-link records with app.json.
+It also rejects missing auto-verification, broad extra link scope, development-client schemes, enabled backups, and missing blocked-permission removals.
+Seven command-level tests pass using isolated temporary Android directories and stubbed build/install executables, so those tests never build or install an app.
+A separate real arm64 release-mode APK built successfully with embedded JavaScript and synthetic loopback service configuration.
+This local artifact uses development signing and is not a store-distribution candidate.
+The packaged app reproduced a cold Plan link falling through to Now while the same warm link showed its preview.
+The root navigator had initially excluded the public preview during session hydration, and bootstrap could replace it with the authenticated home route.
+Public previews now remain registered during hydration, and only a complete valid public Plan path is exempt from bootstrap redirection.
+Private Plan details and chat remain protected, and joining retains authentication and adult-admission checks.
+The rebuilt APK passes signed-in and signed-out cold launches with Metro stopped.
+An explicit anonymous Join opens sign-in, and successful fixture sign-in returns to the same preview.
+The independent fixture counter remains at zero join requests throughout these checks.
+Inspected captures are saved locally as `test-results/native/android-packaged-plan-cold-signed-in.png` and `test-results/native/android-packaged-plan-cold-signed-out.png`.
+The emulator launch explicitly targets the package and does not prove OS website association or distribution signing.
+Native verification passes 529 logic tests, 108 platform renderer tests, typecheck, and lint.
+React Doctor reports 91/100 with no errors and two existing root-navigator structure warnings; no suppression was added.
+The earlier profile-interest bounce finding is fixed with smooth exponential easing, with no ignore added.
+No production database or provider configuration changed in this batch.
+
 The next recovery review reproduced chat meetup status failing to load while the UI still offered an acknowledgement with no retry.
 The actual browser regression failed before the fix, then passed through load failure, explicit retry, peer acknowledgement, separate consent, and mutual confirmation.
 Web and native chat now show loading and recoverable failure states instead of treating unavailable status as an empty acknowledgement.

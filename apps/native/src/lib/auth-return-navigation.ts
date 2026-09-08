@@ -4,6 +4,10 @@ import { nativeAuthenticatedHomeRoute } from "@/lib/navigation-policy";
 
 type AuthReturnBootstrap = Pick<Bootstrap, "age_admission" | "onboarding_completed">;
 
+export function isPublicPlanPreviewPath(pathname: string) {
+  return /^\/plan\/[A-Za-z0-9_-]{43}$/.test(pathname);
+}
+
 export function loginRouteForPendingIntent(pendingInvite?: string, pendingPlanToken?: string) {
   return {
     pathname: "/(auth)/login",
