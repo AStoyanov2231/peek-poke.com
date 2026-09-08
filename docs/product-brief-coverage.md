@@ -1,6 +1,6 @@
 # Product brief coverage
 
-Reviewed against all 34 top-level sections of [PRODUCT-REDESIG.md](../PRODUCT-REDESIG.md) on 2026-09-08.
+Reviewed against all 34 top-level sections of [PRODUCT-REDESIG.md](../PRODUCT-REDESIG.md) on 2026-09-09.
 Release identifiers and verification status are recorded in [Progress.md](../Progress.md).
 This assessment preserves the brief's intended product scope and distinguishes working features from pending implementation, product decisions, and provider or device evidence.
 Illustrative examples and explicitly long-term ideas are identified as such instead of silently becoming launch requirements.
@@ -12,7 +12,7 @@ Partial means material behavior from the section still needs implementation or a
 | Brief section | Assessment | Evidence and remaining work |
 | --- | --- | --- |
 | 1. Core product concept | Implemented core loop | Now, contextual Pokes, chat, Plans, and mutual meetup acknowledgement work in browser fixtures and the Simulator; deployed social APIs pass. |
-| 2. Replace Add Friend as the primary action | Partial | Poke is primary and acceptance opens free chat atomically; temporary-chat lifetime remains a pending user decision, with current chats remaining open without automatic friendship. |
+| 2. Replace Add Friend as the primary action | Partial | Poke is primary and acceptance opens free chat atomically; a 24-hour window is implemented and verified locally on web/native and PostgreSQL, with history and drafts retained; production activation remains pending in PR #17. |
 | 3. Temporary availability / intent | Implemented | Shared availability contracts, web/native editors, expiry, cancellation, and stale-location filtering are tested; expired availability is hidden even when refresh fails. |
 | 4. Now screen | Implemented | [NowPage](../src/features/now/components/NowPage.tsx) and native Now show intent, ranked people, friends, Plans, and Circles; the versioned discovery route passed deployed verification. |
 | 5. Map | Implemented selected scope | Activity-aware coarse pins, clusters, selected cards, and stable neighborhood context exist; group/Plan pins were illustrative suggestions and are not currently rendered. |
@@ -39,11 +39,11 @@ Partial means material behavior from the section still needs implementation or a
 | 26. Initial market assumptions | Product hypothesis | Low-density behavior is implemented; city/community selection and actual launch density require an operator-led launch, not fabricated users or metrics. |
 | 27. Metrics / analytics | Partial outcome measurement | Private activation, availability, Poke, Plan, and mutual-confirmation aggregates exist; mutual confirmation is a proxy, not verified real-world connections per weekly active user. |
 | 28. Implementation approach | Implemented practice | Shared DTOs, server authorization, additive migrations, legacy preservation, versioned discovery, required CI, and scoped hosted verification protect compatibility. |
-| 29. Coherent vertical slices | Partial scope completion | Discovery, Pokes, Plans, and acknowledgement ship together; temporary-chat policy, trusted reward verification, paid benefits, and provider activation remain unfinished slices. |
+| 29. Coherent vertical slices | Partial scope completion | Discovery, Pokes, Plans, and acknowledgement ship together; temporary-chat release, trusted reward verification, paid benefits, and provider activation remain unfinished slices. |
 | 30. Quality requirements | Verified within stated environments | Loading, empty/error/retry, idempotency, concurrency, privacy, and accessibility have focused evidence; local retention load and direct native privacy now pass, while physical-device and hosted capacity proof remain open. |
 | 31. Responsive behavior | Implemented; device proof pending | Shared concepts adapt to desktop, mobile web, and native navigation; browser and Simulator evidence does not replace physical iOS/Android testing. |
-| 32. Existing features | Preserved and repositioned | Map, Circles, chat, profiles, Scan, calls, and subscription management remain; core paid gates are removed, unavailable rewards are hidden, and temporary connection lifetime awaits a decision. |
-| 33. Decision-making authority | Applied | Routine design and engineering decisions proceed autonomously; unselected support contacts, paid providers, trusted-presence policy, and the explicit temporary-chat question remain visible. |
+| 32. Existing features | Preserved and repositioned | Map, Circles, chat, profiles, Scan, calls, and subscription management remain; core paid gates are removed, unavailable rewards are hidden, and the new temporary-conversation lifecycle awaits production activation. |
+| 33. Decision-making authority | Applied | Routine design and engineering decisions proceed autonomously; unselected support contacts, paid providers, trusted-presence policy, and the documented 24-hour working default remain visible. |
 | 34. Desired result | Core loop works; full goal open | People can express intent, discover context, Poke, chat, arrange a Plan, and mutually acknowledge a meetup; trusted physical recognition, optional paid features, and launch operations still need completion. |
 
 ## Meeting integrity boundary
@@ -62,6 +62,6 @@ The implementation and physical proof remain separate unchecked requirements in 
 [Product verification](product-verification.md) records the test environments and their limits.
 [Progress.md](../Progress.md) records releases and chronological work.
 [SUPABASE_ROLLBACK.md](../SUPABASE_ROLLBACK.md) describes the exact private migration recovery package and distinguishes it from a full hosted restore.
-The pending user decisions are a support/privacy contact, an approved monitoring destination, and the accepted-Poke chat lifetime already asked in the conversation.
+The pending user decisions are a support/privacy contact, an approved monitoring destination, while the accepted-Poke lifetime currently uses the documented 24-hour implementation default.
 Signed-device distribution, isolated service environments, provider setup, and full recovery evidence remain operational prerequisites.
 Unimplemented rewards and paid benefits remain product work, not merely external configuration tasks.

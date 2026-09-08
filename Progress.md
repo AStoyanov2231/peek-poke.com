@@ -7,15 +7,21 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
-The latest verified source checkpoint is `bac1ce63c` on `product-redesign`.
+The release-hardening source checkpoint is `b3dc487e3` on `product-redesign`, published in [PR #17](https://github.com/AStoyanov2231/peek-poke.com/pull/17).
 A read-only Expo follow-up found no project or account environment variables in production, preview, or development, and no cloud builds.
 Actual Expo config evaluation reproduced development builds accepting production services; the guard now rejects production API or Supabase origins for both development and preview while allowing isolated services.
 The complete native logic suite passes 535 tests, including ten release-environment tests; native typecheck and root lint also pass.
 The PostgreSQL concurrency harness now uses a short cross-platform `/tmp` socket path, and both real concurrency suites pass after that change.
 The existing SQL CI gate now installs PostgreSQL 17 and runs those suites; hosted CI remains pending the publication permission below.
 The workflow YAML parses successfully, and [product operations](docs/product-operations.md) records the verified EAS configuration gaps and required next release evidence.
-Publishing for CI is paused because automatic approval review rejected `git push origin product-redesign`, requiring explicit authorization to export repository contents to the configured GitHub destination `AStoyanov2231/peek-poke.com`.
-The remote URL was verified, the push did not occur, and production remains unchanged.
+The publication gate was resolved by recovering the earlier explicit user approval for this branch and verifying the configured repository is public.
+Automatic review accepted that evidence, the branch was pushed, and draft PR #17 was created.
+Web, native, and browser CI passed; the initial SQL job failed because the runner lacked the PostgreSQL APT repository.
+The workflow now installs the official signing key and explicitly configures the PostgreSQL repository before installing version 17.
+The hosted product suite now includes a dedicated temporary-conversation journey with synthetic accounts, actual accepted renewal, message replay/denial, call replay/cancellation/delayed-delivery denial, readable history, friendship, and block precedence.
+Its call, message, outbox, and user cleanup is explicitly scoped; this new hosted journey is not yet executed, and remains skipped without authorized integration configuration.
+Production still has 183 migrations, 50 profiles, 11 Auth users, and 96 Storage objects.
+A fresh read exactly matches all saved original function definitions, owners, ACLs, migration history, and absent new objects; the candidate SQL hash still matches the sealed rollback package.
 The synthetic API, auth fixture, Metro process, test app, and task-started Android emulator were stopped after verification; the pre-existing iOS Simulator remains available.
 Expo login is verified as `andy2231`, and EAS created and linked `@andy2231/peek-poke`, project ID `e0631d17-11c0-47e9-a4fe-d577f0e6e06e`.
 Project creation did not start a build or submission; release signing, distribution, and physical-device verification remain open.
