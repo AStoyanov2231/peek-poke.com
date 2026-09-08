@@ -21,7 +21,8 @@ No production rollback was executed.
 Local web lint and 1,368 tests pass with ten explicitly configured integration skips; native lint, typecheck, 516 Vitest tests, and 98 platform renderer tests pass.
 The actual SQL harness passes ranking-before-limit, privacy, service grants, legacy-definition preservation, null-bound rejection, and coarse-distance tie-break regressions.
 The local production build remains blocked by the previously observed Turbopack CSS-worker port-binding restriction, including an escalated attempt.
-The strengthened Now browser journey and scoped hosted v2 API assertions are prepared for CI and post-release validation; this source batch is not yet published.
+The strengthened Now browser journey and scoped hosted v2 API assertions are prepared for CI and post-release validation in [PR #12](https://github.com/AStoyanov2231/peek-poke.com/pull/12).
+The source is published; required CI, merge, and deployed API verification remain pending.
 
 The Plan-link, native Plan recovery, and optional suggestion-provider batch merged through [PR #10](https://github.com/AStoyanov2231/peek-poke.com/pull/10) as `3f4be1b074dee0894433e8b5fd18cc6957abdb88`.
 All eight checks passed, the deployment reached Ready, the public iOS association served both invitation and Plan paths, and the scoped deployed social API suite passed.
@@ -60,7 +61,7 @@ The native-flow source and browser correction merged through [PR #9](https://git
 That release passed the deployed age-admission and social API suites and public desktop/mobile rendering checks.
 PR #10 subsequently shipped the Plan association and optional provider code with its full CI and scoped live verification described above.
 All 31 authorized queued events completed, and the recurring worker returned HTTP 200 after deployment.
-The saved migration-specific recovery package covers all nineteen changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
+The saved migration-specific recovery package covers all twenty changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
 The current database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 182 migration entries.
 
 The native development build now includes editable chat reply suggestions, Now radius and low-density actions, prioritized Inbox selection, and removal of unavailable map-coin controls.
