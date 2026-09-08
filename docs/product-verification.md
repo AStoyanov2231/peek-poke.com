@@ -38,19 +38,22 @@ Deployed API verification additionally requires `SUPABASE_TEST_ALLOW_DEPLOYED_AP
 Without that additional gate, browser and API integration tests require a loopback application origin.
 The deployed age and product API helpers refuse redirects, preventing credentials from following an unexpected host or login response.
 The existing QR suites support the installed legacy schema; the product suite requires all ordered redesign migrations first.
-The 2026-09-08 inventory found 163 hosted migration records and confirmed that the initial 13 redesign migrations are compatible with the full baseline schema.
+The 2026-09-08 initial inventory found 163 hosted migration records and confirmed that the initial 13 redesign migrations are compatible with the full baseline schema.
 The user subsequently approved production schema deployment and public publication after the initial verification-only authorization.
 The existing QR migration-boundary test passed with real hosted authentication.
 The shared-group lifecycle passed concurrent creation, membership isolation, messaging, and retry checks before reproducing account deletion returning HTTP 500 from a legacy `pg_catalog.coalesce` call.
 The additional `20260908113704_legacy_sql_special_forms.sql` migration corrects only the 13 audited function signatures that contain invalid qualified SQL special forms.
-All eighteen migrations are installed with their actual hosted timestamps recorded in the repository, and the database now has 181 migration-history entries.
+All nineteen migrations are installed with their actual hosted timestamps recorded in the repository, and the database now has 182 migration-history entries.
 The fifteenth corrects hosted Poke outbox uniqueness and service-role access.
 The sixteenth removes product-social records when a profile is tombstoned and serializes concurrent writes with account erasure.
-The final hosted regression run passes all six suites and ten tests, including adult admission, private Storage, private Realtime, product flows, both shared-group suites, scoped account erasure, and late service-RPC write rejection.
 The seventeenth migration adds adult admission with no birth-date storage.
 The eighteenth repairs the reproduced hosted group-reader and blocked-Plan regressions and revokes access to three retired chat RPCs.
+The nineteenth migration, `20260908150805_profile_photo_moderation_buckets`, fixes the old two-bucket profile-photo constraint that raised SQLSTATE `23514` by adding `approved` and `quarantine` buckets.
+The final live age-admission run passed four tests in 33.61 seconds, and the final live social run passed one test in 32.27 seconds, including Redis-backed rate-limit coverage.
 Run `node test/sql/legacy-sql-special-forms.mjs` to reproduce the failure locally and verify the correction, preserved permissions, and safe reapplication.
 The scoped hosted runs removed their synthetic records and restored the observed baseline of 50 profiles, 11 Auth users, and 96 Storage objects.
+The complete nineteen-migration recovery archive verified 153 payloads with SHA-256 `51c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`; it preserves the nested eighteen-migration archive and adds guarded photo and operations reversals.
+Master PR 7 is merged at `b8d33750364d8fa38b18e9daa74b33d1aa50331e`, and Vercel deployment `dpl_87orq3DQNsTpfVMJK5827FMut7y2` is READY in `iad1`.
 
 ## Private Realtime provider proof
 
@@ -157,7 +160,7 @@ The fixture harness must always override real credentials with its loopback fixt
 
 The canonical SQL lives in `supabase/migrations` in timestamp dependency order.
 Review compatibility against the complete preexisting schema before applying it to an approved target.
-The approved eighteen-migration production batch is installed and its follow-up hosted regressions are tracked in `Progress.md`.
+The approved nineteen-migration production batch is installed and its follow-up hosted regressions are tracked in `Progress.md`.
 The matching application release must follow successful hosted verification and the release configuration checks.
 `npm run test:product-db` executes the chain against a compact legacy fixture and checks domain invariants, but it does not simulate separate concurrent backend connections, full RLS roles, Storage, or Realtime infrastructure.
 Before promotion, run simultaneous duplicate Poke responses, last-capacity Plan joins, reciprocal acknowledgements, block changes, and legacy refund attempts using synthetic accounts.

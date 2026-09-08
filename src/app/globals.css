@@ -1148,6 +1148,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 .landing-hero {
   max-width: 1320px;
@@ -1559,6 +1560,9 @@
   }
   .public-header nav {
     gap: 14px;
+  }
+  .public-header nav .public-header-secondary-link {
+    display: none;
   }
   .landing-hero {
     grid-template-columns: minmax(0, 1fr);

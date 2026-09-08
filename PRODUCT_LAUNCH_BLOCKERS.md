@@ -12,10 +12,14 @@
 - [x] Seal the actual 16-migration rollback archive with all saved Storage files and verify the local rollback plus extracted file hashes.
 - [x] Pass the private Storage service lifecycle and authenticated owner/outsider denial checks, with strict generated-object cleanup.
 - [ ] Prove the erasure lock ordering using a deterministic two-session PostgreSQL harness; the hosted late-write rejections pass, but connector timing prevented a live wait assertion.
-- [ ] Deploy the matching web/native contracts after the verified database changes.
-- [ ] Separate preview/production variable scopes and validate production Redis connectivity; the credentials exist but cannot be read through the CLI.
+- [x] Merge PR #7 into master and deploy the matching web contract after the verified database changes.
+- [x] Pass the scoped deployed age-admission and social API suites, including production Redis-backed rate limiting and exact fixture cleanup.
+- [ ] Release and verify the matching native binary on physical devices.
+- [ ] Separate preview/production variable scopes.
 - [x] Configure a generated production-only `CRON_SECRET` and verify its matching Supabase Vault value without exporting either secret.
-- [ ] Authorize processing the 31 existing queued events, then verify and activate outbox scheduling and monitoring.
+- [x] Authorize processing the 31 existing queued events and verify the authenticated Supabase-to-Vercel worker request.
+- [x] Repair the reproduced legacy photo-bucket constraint failure, complete all 31 queued events, and verify the first recurring outbox request with an empty queue.
+- [ ] Configure worker failure, queue-age, and dead-letter alerts.
 - [ ] Configure TURN and universal/app links, and verify APNs delivery on a physical device; APNs variables already exist.
 - [ ] Configure a restricted server-only Google Places API key for each environment, enable Nearby Search (New), apply API and billing restrictions, and verify that venue cards remain unavailable when the key is absent or the provider fails.
 - [x] Schedule the bounded stale-location cleanup directly in Supabase each minute and verify a successful scheduled run.
@@ -35,6 +39,7 @@
 
 The user authorized verification against the existing MyaouDB database on 2026-09-08 instead of creating a paid branch.
 The user subsequently approved production migration deployment and public publication, and all eighteen migrations, including the adult-admission changes and hosted corrections, are installed.
+The later worker activation exposed and repaired a nineteenth constraint migration; all nineteen are installed, and the sealed recovery package now covers the additional constraint and scheduler state.
 Hosted tests exposed the two corrective migration requirements despite the earlier local and read-only compatibility checks.
 Those corrections are installed and the hosted product/shared-group suites now pass.
 Local browser fixtures and embedded PostgreSQL pass the implemented behavior but cannot establish production-provider or physical-device readiness.

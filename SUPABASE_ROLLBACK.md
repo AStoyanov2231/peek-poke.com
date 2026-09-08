@@ -1,47 +1,47 @@
 # Supabase rollback instructions
 
-The saved pre-redesign Supabase state and rollback for all eighteen deployed migrations are in `.supabase-backups/MyaouDB-deployed-18-migration-rollback-20260908/`.
-Open that folder's `README.md` for the complete procedure.
-The package belongs to MyaouDB, project `ttojvnwpnpuhkyjncwxn`, and contains the original application records and all 96 saved Storage files.
-It also preserves the exact database definitions and permissions from before the adult-admission changes.
+The complete saved Supabase application state and recovery instructions for all nineteen deployed migrations are in `.supabase-backups/MyaouDB-deployed-19-migration-rollback-20260908/`.
+Start with that folder's `README.md`.
+The package belongs to MyaouDB, project `ttojvnwpnpuhkyjncwxn`, and includes the original application records, all 96 original Storage files, exact changed database definitions and permissions, the pre-correction photo records, and scheduler reversal instructions.
 
-The portable archive is `.supabase-backups/MyaouDB-deployed-18-migration-rollback-20260908.tar.gz`.
-Keep its `.sha256` sidecar with it and copy both to another secure location you control.
+The portable archive is `.supabase-backups/MyaouDB-deployed-19-migration-rollback-20260908.tar.gz`.
+Keep its `.sha256` sidecar and copy both to another secure location you control.
 The files are private, excluded from Git, and protected by local permissions, but are not encrypted.
 
-From `.supabase-backups/`, verify the archive before extracting it:
+From `.supabase-backups/`, verify before extracting:
 
 ```sh
-shasum -a 256 -c MyaouDB-deployed-18-migration-rollback-20260908.tar.gz.sha256
+shasum -a 256 -c MyaouDB-deployed-19-migration-rollback-20260908.tar.gz.sha256
 ```
 
 After extraction, run `shasum -a 256 -c SHA256SUMS` inside the extracted folder.
-Archive SHA-256: `b75393c4e3bd88717041bc520e463ae083093d0627d5b84b077fa653aa523bfa`.
-All 130 payload hashes passed after a fresh extraction.
+Archive SHA-256: `551c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`.
+All 153 payload hashes passed after a fresh extraction.
 
-Run the database rollback in this exact order, with application writes, workers, and scheduled jobs stopped:
+Stop application writes, workers, and scheduled jobs before restoring data or schema.
+The package's operations scripts validate and remove only newly added jobs 7, 5, and 6, preserving the original weekly cleanup job 2.
+Wait for any in-flight HTTP request to finish before reverting the application or removing the new Vault/Vercel credentials.
+Its operations notes also cover the added `pg_net` extension.
 
-First follow `.supabase-backups/MyaouDB-operations-rollback-20260908/OPERATIONS_ROLLBACK.md` to unschedule the two newly added retention jobs, IDs 5 and 6, after checking their saved names and commands.
-Keep the original weekly job 2 unchanged.
-That companion also identifies the new Vault entry and Vercel production variable for optional removal after all references are disabled.
-These operations leave migration history at 181 entries; they do not change the sealed archive below.
-The separate operations archive is `.supabase-backups/MyaouDB-operations-rollback-20260908.tar.gz`, with its own `.sha256` sidecar.
-Its SHA-256 is `f38ac7e09875a9c36613d21a5e6d34b95db49372424bdc1db8bf5eacc387c02b`, and all eight payload hashes passed a fresh extraction check.
-Its guarded schedule rollback passed a local rehearsal, including drift refusal, preservation of the original job, and a safe repeated run.
+The database rollback order is:
 
-1. `1-runtime-rollback.sql` restores the six runtime-correction functions and permissions, returning history from 181 to 180 entries.
-2. `2-age-rollback.sql` restores 61 functions and their permissions, removes the adult-admission objects and twelve added restrictive policies, and returns history to 179 entries.
-3. `sixteen-migrations/rollback-schema.sql` restores the original redesign-affected behavior and returns history to the original 163 entries.
+1. Restore the separately saved photo data and original Storage objects if you choose to reverse completed moderation, then run `photo-buckets/rollback-profile-photo-buckets.sql` to return from 182 to 181 migration entries.
+2. Run `eighteen-migrations/1-runtime-rollback.sql` to return to 180 entries.
+3. Run `eighteen-migrations/2-age-rollback.sql` to return to 179 entries.
+4. Run `eighteen-migrations/sixteen-migrations/rollback-schema.sql` to return to the original 163 entries.
 
-The package README gives the required confirmation settings for each step and explains the default refusal to discard later records or age decisions.
-Each script is transactional, uses bounded lock and statement timeouts, and refuses unexpected migration history.
-The complete local PostgreSQL rehearsal passed all three steps and restored the captured function definitions, ownership, security settings, and effective privileges.
-No production rollback has been performed.
+The package README gives every required confirmation setting and the exact deployed photo-bucket migration version, `20260908150805`.
+The photo-layer rollback refuses while a photo still uses an approved or quarantine bucket.
+Its saved snapshot contains the eleven affected photos and five profiles; all 22 original source/thumbnail objects were verified present in the original Storage archive.
+No script blindly overwrites current photo records or later profile edits.
 
-The previous sixteen-migration archive and original predeployment archive remain unchanged.
-Use the eighteen-migration package for the currently deployed database, whose latest migration is `20260908135910_adult_social_runtime_corrections`.
+The guarded photo-layer and scheduler rehearsals pass, including drift refusal, preservation of unrelated state, and repeat-run checks where appropriate.
+The unchanged nested eighteen-migration package preserves its complete successful 181-to-163 rehearsal.
+Each schema script is transactional, uses bounded lock and statement timeouts, and refuses unexpected history or data loss.
+No production rollback or full hosted data-restore rehearsal has been performed.
+The earlier sealed archives remain unchanged.
 
-This is a migration-specific recovery package, not a complete Supabase disaster-recovery backup or a rewind of later application activity.
-Auth credentials, Vault secrets, push device tokens, managed runtime records, and provider settings are excluded.
-Saved JSON records support a separately reviewed data restore and are not an automatic full-database restore script.
-Account erasure and retention deletion cannot be reversed by restoring schema alone.
+This is a migration-specific recovery package, not a complete Supabase disaster-recovery backup or a rewind of later activity.
+Auth credentials, Vault secret values, push tokens, managed runtime records, and provider settings are excluded.
+Saved JSON records support a separately reviewed data restore; there is no automatic full-database restore script.
+Delivered notifications, completed moderation decisions, account erasure, and retention deletion are not reversed by restoring schema alone.

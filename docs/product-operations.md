@@ -2,27 +2,31 @@
 
 ## Scope and ownership
 
-This runbook describes the production scheduler configuration and the remaining outbox activation steps.
+This runbook describes the production scheduler configuration and its reversible operating checks.
 Run every SQL command in the Supabase SQL Editor as the project owner and retain the result in the private release record.
 Never copy a Vault value, Vercel secret, authorization header, account identifier, or request body into the release record.
 
-The project has `pg_cron` and Vault installed.
-`pg_net` is not installed and is needed only for the outbox HTTP invocation.
+The project has `pg_cron`, Vault, and `pg_net` installed.
+`pg_net` 0.19.5 is used only for the outbox HTTP invocation.
 Vercel Hobby permits one cron invocation per day with hour-level timing, so it cannot drive the one-minute outbox or location-retention cadence.
 
 ## Production readiness snapshot - 2026-09-08
 
 The private pre-change snapshot is `.supabase-backups/deployment-20260908/ops-prechange-snapshot.json`.
-The original snapshot records `pg_cron` 1.6.4, no `pg_net`, one active weekly soft-deleted-message cleanup job, and no Vault entries.
+The original snapshot remains a valid chronological record of the pre-change state: `pg_cron` 1.6.4, no `pg_net`, one active weekly soft-deleted-message cleanup job, and no Vault entries.
+Master PR 7 is merged at `b8d33750364d8fa38b18e9daa74b33d1aa50331e`; Vercel deployment `dpl_87orq3DQNsTpfVMJK5827FMut7y2` is READY.
+Its current Function region is `iad1`.
+The single-region Hobby `dub1` configuration is a separate next change and is not part of this deployment.
 Production now has a generated production-only Vercel `CRON_SECRET` and the matching Vault entry `peek_poke_outbox_cron_secret`; a SHA-256 equality check verified the match without exporting either value.
 Retention job 5 purges stale locations each minute, and job 6 purges old product metrics daily at 03:17 UTC.
-Both cleanup functions completed their manual preflight with no expired records present, and job 5 completed its first scheduled run at 14:33 UTC on 2026-09-08.
+Both cleanup functions completed their manual preflight with no expired records present, and job 5 completed a scheduled successful run at 14:33 UTC on 2026-09-08.
 Job 6 has not yet reached its first scheduled time.
-The original weekly job 2 remains unchanged, `pg_net` remains absent, and no outbox job has been created.
-The queue contains 31 pending pre-existing events: two direct-message changes, eighteen shared-group message changes, and eleven profile-media moderation events.
-Do not invoke the worker or activate its schedule until processing that existing queue is authorized; a manual worker request can deliver real notifications.
+The original weekly job 2 remains unchanged.
+After explicit operator authorization, the 31 pre-existing events completed: seven profile-photo approvals and four quarantines were processed, and the queue now has zero pending, processing, or dead events.
+Outbox cron job 7 is active each minute; its first scheduled run completed at 15:13 UTC with HTTP 200 and an empty queue response with all counters zero.
 The exact created-job metadata and reversal instructions are saved privately in `.supabase-backups/deployment-20260908/ops-created-retention-jobs.json` and `OPERATIONS_ROLLBACK.md`.
-These operations did not add a migration, and the sealed eighteen-migration rollback remains unchanged.
+The complete nineteen-migration recovery archive has SHA-256 `51c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c` and verifies 153 payloads.
+It preserves the nested eighteen-migration recovery archive and includes guarded photo and operations reversals.
 
 ## Required scheduler design
 
@@ -78,16 +82,16 @@ Do not reuse a preview secret, a Supabase key, or a value that previously appear
 
 ## Apply in a controlled window
 
-1. Deploy the application routes before enabling an HTTP scheduler.
-2. Enable `pg_net` in the Supabase Extensions dashboard and confirm it appears in `pg_extension`.
-3. Create or rotate the Vercel production `CRON_SECRET` first.
-4. Create the matching Vault secret with the approved value and descriptive non-sensitive name.
-5. Verify the two existing direct database jobs against the saved IDs and commands; do not duplicate them.
-6. Schedule the outbox HTTP job only after a manual authorized route invocation succeeds.
-7. Keep the saved pre-change snapshot and each returned `jobid` with the release record.
+1. Verify the deployed application routes before changing an HTTP scheduler.
+2. Verify `pg_net` 0.19.5 remains present in `pg_extension`.
+3. Verify the production `CRON_SECRET` and matching Vault entry by a non-exporting equality check.
+4. Verify direct database jobs 5 and 6, outbox job 7, and original weekly job 2 against their saved IDs and commands; do not duplicate them.
+5. Verify an authorized manual route invocation only when its queued work is approved.
+6. Keep the saved pre-change snapshot and each returned `jobid` with the release record.
 
 The operator should use `cron.schedule` with the exact job names in the table above.
-The following templates contain no credential value and must be run only after the snapshot and preflight checks succeed.
+The following templates contain no credential value and are recovery references only.
+Do not run them against the current production configuration because jobs 5, 6, and 7 already exist.
 
 ```sql
 select cron.schedule(
