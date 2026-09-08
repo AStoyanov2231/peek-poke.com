@@ -512,3 +512,6 @@ The queued types are two direct-message changes, eighteen shared-group message c
 The separate operations rollback passed confirmation, drift, atomicity, legacy-job preservation, and repeat-run checks in embedded PostgreSQL.
 Sealed its eight-file archive at `.supabase-backups/MyaouDB-operations-rollback-20260908.tar.gz`, SHA-256 `f38ac7e09875a9c36613d21a5e6d34b95db49372424bdc1db8bf5eacc387c02b`, and verified a fresh extraction.
 A Vercel production environment PING attempt could not retrieve sensitive Redis values, so no Redis request was made and production runtime connectivity still requires deployed-route proof.
+Added a separate exact-origin opt-in for scoped deployed API verification, retaining every existing production-project gate and rejecting mismatched origins, ports, targets, or missing authorization flags.
+The age and product test helpers now refuse HTTP redirects for bearer-authenticated requests.
+The focused target-guard tests and lint pass; the deployed test runner remains private and has not run before the matching application release.

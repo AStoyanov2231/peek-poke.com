@@ -72,14 +72,37 @@ describe("Supabase destructive integration target guard", () => {
     expect(target).toMatchObject({ configured: true, hosted: true, targetRef: PRODUCTION_SUPABASE_PROJECT_REF });
   });
 
-  it("hard-denies the production application URL", () => {
-    const target = resolveSupabaseIntegrationTarget({
+  it("allows the exact deployed app only with every production opt-in", () => {
+    const deployed = {
       ...BASE,
-      SUPABASE_TEST_URL: "http://localhost:54321",
+      SUPABASE_TEST_URL: `https://${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`,
+      SUPABASE_TEST_TARGET: PRODUCTION_SUPABASE_PROJECT_REF,
+      SUPABASE_TEST_ISOLATED: "true",
+      SUPABASE_TEST_ALLOW_PRODUCTION: "1",
+      SUPABASE_TEST_ALLOW_DEPLOYED_APP: "1",
       SUPABASE_TEST_APP_URL: "https://www.peek-poke.com",
-    }, { requireLocalAppUrl: true });
-    expect(target).toMatchObject({ configured: false, requested: true });
-    expect(target.reason).toContain("production app");
+    };
+    expect(resolveSupabaseIntegrationTarget(deployed, { requireLocalAppUrl: true })).toMatchObject({
+      configured: true,
+      hosted: true,
+      appUrl: "https://www.peek-poke.com",
+      targetRef: PRODUCTION_SUPABASE_PROJECT_REF,
+    });
+
+    for (const partial of [
+      { ...deployed, SUPABASE_TEST_APP_URL: "https://peek-poke.com" },
+      { ...deployed, SUPABASE_TEST_APP_URL: "https://www.peek-poke.com:8443" },
+      { ...deployed, SUPABASE_TEST_URL: `https://${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co:8443` },
+      { ...deployed, SUPABASE_TEST_URL: "https://abcdefghijklmnopqrst.supabase.co" },
+      { ...deployed, SUPABASE_TEST_TARGET: "abcdefghijklmnopqrst" },
+      { ...deployed, SUPABASE_TEST_ISOLATED: "false" },
+      { ...deployed, SUPABASE_TEST_ALLOW_PRODUCTION: "0" },
+      { ...deployed, SUPABASE_TEST_ALLOW_DEPLOYED_APP: "0" },
+    ]) {
+      const target = resolveSupabaseIntegrationTarget(partial, { requireLocalAppUrl: true });
+      expect(target).toMatchObject({ configured: false, requested: true });
+      expect(target.reason).toContain("production app");
+    }
   });
 
   it("fails closed for partial requested configuration", () => {

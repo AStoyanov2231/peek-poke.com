@@ -39,7 +39,7 @@ async function api(user: TestUser, path: string, init: RequestInit = {}) {
   if (error || !data.session) throw error ?? new Error("Synthetic user session is unavailable");
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${data.session.access_token}`);
-  return fetch(`${appUrl()}${path}`, { ...init, headers });
+  return fetch(`${appUrl()}${path}`, { ...init, redirect: "manual", headers });
 }
 
 async function createSyntheticUser(label: string): Promise<TestUser> {

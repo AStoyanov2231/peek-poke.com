@@ -1,5 +1,6 @@
 export const PRODUCTION_SUPABASE_PROJECT_REF = "ttojvnwpnpuhkyjncwxn";
 const PRODUCTION_APP_HOSTS = new Set(["peek-poke.com", "www.peek-poke.com"]);
+const PRODUCTION_DEPLOYED_APP_ORIGIN = "https://www.peek-poke.com";
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 type Environment = Record<string, string | undefined>;
@@ -49,6 +50,7 @@ export function resolveSupabaseIntegrationTarget(
   const targetRef = environment.SUPABASE_TEST_TARGET?.toLowerCase() ?? null;
   const isolatedOptIn = environment.SUPABASE_TEST_ISOLATED === "true";
   const productionOptIn = environment.SUPABASE_TEST_ALLOW_PRODUCTION === "1";
+  const deployedAppOptIn = environment.SUPABASE_TEST_ALLOW_DEPLOYED_APP === "1";
   const requested = Boolean(
     rawUrl
       || rawAppUrl
@@ -64,12 +66,20 @@ export function resolveSupabaseIntegrationTarget(
   const appUrl = parseUrl(rawAppUrl);
   if (!supabaseUrl)
     return { requested: true, configured: false, reason: "SUPABASE_TEST_URL must be an absolute origin" };
-  if (appUrl && PRODUCTION_APP_HOSTS.has(appUrl.hostname))
-    return { requested: true, configured: false, reason: "SUPABASE_TEST_APP_URL must never target the production app" };
+  const deployedAppAllowed = Boolean(
+    appUrl?.origin === PRODUCTION_DEPLOYED_APP_ORIGIN
+    && supabaseUrl.origin === `https://${PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`
+    && targetRef === PRODUCTION_SUPABASE_PROJECT_REF
+    && isolatedOptIn
+    && productionOptIn
+    && deployedAppOptIn,
+  );
+  if (appUrl && PRODUCTION_APP_HOSTS.has(appUrl.hostname) && !deployedAppAllowed)
+    return { requested: true, configured: false, reason: "SUPABASE_TEST_APP_URL may target the production app only with every deployed verification opt-in" };
   if (targetRef === PRODUCTION_SUPABASE_PROJECT_REF && !productionOptIn)
     return { requested: true, configured: false, reason: "the production project requires SUPABASE_TEST_ALLOW_PRODUCTION=1" };
 
-  if (options.requireLocalAppUrl && (!appUrl || !isLoopback(appUrl)))
+  if (options.requireLocalAppUrl && (!appUrl || (!isLoopback(appUrl) && !deployedAppAllowed)))
     return { requested: true, configured: false, reason: "browser/API integration requires a loopback SUPABASE_TEST_APP_URL" };
 
   if (isLoopback(supabaseUrl)) {

@@ -34,6 +34,9 @@ Use secure environment loading for real credentials and never print or commit th
 The shared-group suites use explicit 30-second hooks and bounded network-test timeouts; a five-second unit-test default can race teardown against real API requests.
 Hosted mode also requires `SUPABASE_TEST_TARGET` to match the project reference in `SUPABASE_TEST_URL`.
 A production target requires explicit user authorization in addition to the opt-in flags.
+Deployed API verification additionally requires `SUPABASE_TEST_ALLOW_DEPLOYED_APP=1`, the exact `https://www.peek-poke.com` origin, and the approved MyaouDB project with every existing hosted opt-in.
+Without that additional gate, browser and API integration tests require a loopback application origin.
+The deployed age and product API helpers refuse redirects, preventing credentials from following an unexpected host or login response.
 The existing QR suites support the installed legacy schema; the product suite requires all ordered redesign migrations first.
 The 2026-09-08 inventory found 163 hosted migration records and confirmed that the initial 13 redesign migrations are compatible with the full baseline schema.
 The user subsequently approved production schema deployment and public publication after the initial verification-only authorization.
