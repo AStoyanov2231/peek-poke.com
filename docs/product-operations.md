@@ -2,8 +2,7 @@
 
 ## Scope and ownership
 
-This runbook describes an operator-controlled scheduler setup after the approved database release and Vercel application deployment.
-It does not create a migration, configure a provider, retrieve a secret, or make a production change.
+This runbook describes the production scheduler configuration and the remaining outbox activation steps.
 Run every SQL command in the Supabase SQL Editor as the project owner and retain the result in the private release record.
 Never copy a Vault value, Vercel secret, authorization header, account identifier, or request body into the release record.
 
@@ -14,10 +13,16 @@ Vercel Hobby permits one cron invocation per day with hour-level timing, so it c
 ## Production readiness snapshot - 2026-09-08
 
 The private pre-change snapshot is `.supabase-backups/deployment-20260908/ops-prechange-snapshot.json`.
-Production has `pg_cron` 1.6.4, no `pg_net`, one active weekly soft-deleted-message cleanup job, and no Vault secret names.
-The three documented scheduler job names and `peek_poke_outbox_cron_secret` are unused.
-There are zero user locations older than ten minutes.
-Before a change window, recapture this metadata, verify the Vercel production secret separately, enable `pg_net` only for outbox HTTP delivery, and save every created job ID for reversal.
+The original snapshot records `pg_cron` 1.6.4, no `pg_net`, one active weekly soft-deleted-message cleanup job, and no Vault entries.
+Production now has a generated production-only Vercel `CRON_SECRET` and the matching Vault entry `peek_poke_outbox_cron_secret`; a SHA-256 equality check verified the match without exporting either value.
+Retention job 5 purges stale locations each minute, and job 6 purges old product metrics daily at 03:17 UTC.
+Both cleanup functions completed their manual preflight with no expired records present, and job 5 completed its first scheduled run at 14:33 UTC on 2026-09-08.
+Job 6 has not yet reached its first scheduled time.
+The original weekly job 2 remains unchanged, `pg_net` remains absent, and no outbox job has been created.
+The queue contains 31 pending pre-existing events: two direct-message changes, eighteen shared-group message changes, and eleven profile-media moderation events.
+Do not invoke the worker or activate its schedule until processing that existing queue is authorized; a manual worker request can deliver real notifications.
+The exact created-job metadata and reversal instructions are saved privately in `.supabase-backups/deployment-20260908/ops-created-retention-jobs.json` and `OPERATIONS_ROLLBACK.md`.
+These operations did not add a migration, and the sealed eighteen-migration rollback remains unchanged.
 
 ## Required scheduler design
 
@@ -77,7 +82,7 @@ Do not reuse a preview secret, a Supabase key, or a value that previously appear
 2. Enable `pg_net` in the Supabase Extensions dashboard and confirm it appears in `pg_extension`.
 3. Create or rotate the Vercel production `CRON_SECRET` first.
 4. Create the matching Vault secret with the approved value and descriptive non-sensitive name.
-5. Schedule the two direct database jobs.
+5. Verify the two existing direct database jobs against the saved IDs and commands; do not duplicate them.
 6. Schedule the outbox HTTP job only after a manual authorized route invocation succeeds.
 7. Keep the saved pre-change snapshot and each returned `jobid` with the release record.
 
@@ -131,6 +136,9 @@ Confirm the return is an integer between zero and 1,000 for location cleanup and
 Verify that the cron execution role has `EXECUTE` for both cleanup functions before scheduling them.
 
 Validate the outbox route with one manually authorized request after deployment.
+First inspect only counts grouped by event type and status; do not include payloads or account identifiers.
+An empty queue permits a route-wiring check without notification delivery.
+If the queue is nonempty, processing it requires explicit operator authorization before a manual request or schedule activation.
 Expect HTTP 200 and a privacy-safe JSON payload containing `claimed`, `completed`, `retried`, `dead`, `cleaned`, and `queue_age_seconds`.
 Do not create a synthetic outbox event or call any broad cleanup to perform this check.
 

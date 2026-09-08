@@ -492,4 +492,23 @@ It restores six runtime-correction functions, then 61 pre-age functions, then th
 Sealed `.supabase-backups/MyaouDB-deployed-18-migration-rollback-20260908.tar.gz` without changing the previous archives.
 All 130 payload hashes pass after a fresh extraction; archive SHA-256 is `b75393c4e3bd88717041bc520e463ae083093d0627d5b84b077fa653aa523bfa`.
 Updated [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) with the three-step recovery procedure and its data-restore limits.
-The native Device Hub retry still returns `-10005`, and Simulator is not an enabled CUA surface, leaving direct native privacy save/reload and age visual proof open.
+The native Device Hub retry still returns `-10005`, but XcodeBuildMCP recovered a usable iPhone 16 Simulator surface and rendered the discovery-visibility baseline at [native-privacy-visibility-settings.jpg](test-results/native/native-privacy-visibility-settings.jpg).
+The prior local bootstrap failure is captured at [native-bootstrap-recovery-before-fixture-auth.jpg](test-results/native/native-bootstrap-recovery-before-fixture-auth.jpg), and the active proof setup requires only the loopback native API on port 3002, loopback Supabase fixture on port 54321, and Metro on port 8081.
+Direct privacy save/reload remains open because the rendered radio controls expose no actionable XcodeBuildMCP element references.
+The native pending, review, and blocked age-admission visual journey also remains open because the fixture Sign In action produced no visible transition or runtime error after three supported activation attempts.
+
+## Production operations preparation
+
+All four final code CI jobs pass at `51144450b041b29676b4312e424aa18c478f167a` in run `34236217360`.
+Created a generated production-only Vercel `CRON_SECRET` and its matching Supabase Vault entry without putting the value in source, SQL text, or release records.
+The initial dashboard entry mismatch was corrected and a SHA-256 equality check confirms the values match.
+Saved pre-change extension, job, Vault metadata, and Vercel variable-scope snapshots privately before setup.
+The manual bounded cleanup calls found no expired records, and Supabase retention jobs 5 and 6 now enforce the ten-minute exact-location and 31-day activity retention windows.
+The first minute-level location cleanup succeeded at 14:33 UTC; the daily metric job has not yet reached its first scheduled time.
+Saved exact created-job metadata and guarded reversal instructions separately from the unchanged eighteen-migration archive.
+Migration history remains at 181 entries, and the original weekly cleanup job 2 remains unchanged.
+No `pg_net` extension or outbox schedule has been added because the counts-only preflight found 31 pre-existing pending events requiring processing authorization.
+The queued types are two direct-message changes, eighteen shared-group message changes, and eleven profile-media moderation events; no payloads or account identifiers were exported.
+The separate operations rollback passed confirmation, drift, atomicity, legacy-job preservation, and repeat-run checks in embedded PostgreSQL.
+Sealed its eight-file archive at `.supabase-backups/MyaouDB-operations-rollback-20260908.tar.gz`, SHA-256 `f38ac7e09875a9c36613d21a5e6d34b95db49372424bdc1db8bf5eacc387c02b`, and verified a fresh extraction.
+A Vercel production environment PING attempt could not retrieve sensitive Redis values, so no Redis request was made and production runtime connectivity still requires deployed-route proof.

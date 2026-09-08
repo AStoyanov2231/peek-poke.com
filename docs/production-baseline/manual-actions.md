@@ -1,16 +1,17 @@
 # Remaining manual actions
 
-- Rehearse a fresh project from the complete hosted baseline and migration history.
-  The current hosted database has 179 migrations after the approved redesign deployment, while the compact local fixture does not recreate every legacy or provider-managed object.
+- Rehearse a fresh project from the complete hosted baseline and 181-migration history.
+  The current release has 18 migrations installed, while the compact local fixture does not recreate every legacy or provider-managed object.
 - Configure separate development, preview/staging, and production Supabase/Vercel/EAS variables and project references. Do not reuse production values in preview.
 - Configure a restricted server-only `GOOGLE_PLACES_API_KEY` in each environment, enable Nearby Search (New), and verify API and billing restrictions. The venue endpoint intentionally returns no cards until this key is present.
-- Configure production `CRON_SECRET` and the authenticated outbox scheduler before relying on asynchronous delivery.
-  The database migrations are installed.
-  Verify the deployed function region, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency.
+- A generated production `CRON_SECRET` and matching Vault secret now exist.
+  `pg_net` and the outbox cron job are not configured, and the 31 preexisting pending outbox events require explicit operator authorization before scheduler activation.
+  Before activation, verify the deployed function region, worker authorization, queue age, retry/dead-letter alerts, Vercel-to-Supabase latency, and the intended treatment of the queued events.
 - Enable Supabase leaked-password protection and rerun security advisors. Record the previous setting and rollback action before changing it.
-- Activate exact-location retention using the installed `purge_stale_user_locations` function and the reversible scheduler runbook in `../product-operations.md`.
-  Direct database cron avoids the current Vercel Hobby scheduling limit.
-  Alert on missed runs and purge failures; until scheduled, stale coordinates are excluded from discovery but are not physically deleted.
+- Exact-location retention is active through cron job 5 every minute.
+  Its first scheduled run succeeded at 14:33 UTC.
+  The product-activity metrics cron job 6 is active for 03:17 UTC daily; its manual proof passed and its first scheduled run is not yet due.
+  Alert on missed runs and purge failures using the reversible scheduler runbook in `../product-operations.md`.
 - Configure Vercel WAF/rate-limit rules for authentication-related traffic. Supabase Auth is a direct client integration and needs provider/edge coverage.
 - Enable/verify Supabase backups and PITR; rehearse restore into an isolated non-production project and record RTO/RPO, gaps, and rollback steps.
 - Create Vercel dashboard views/alerts from the structured log fields and generate real preview samples. Query-level DB/RPC, Realtime, cache, and queue metrics remain unavailable until those systems expose telemetry.

@@ -40,10 +40,12 @@ The user subsequently approved production schema deployment and public publicati
 The existing QR migration-boundary test passed with real hosted authentication.
 The shared-group lifecycle passed concurrent creation, membership isolation, messaging, and retry checks before reproducing account deletion returning HTTP 500 from a legacy `pg_catalog.coalesce` call.
 The additional `20260908113704_legacy_sql_special_forms.sql` migration corrects only the 13 audited function signatures that contain invalid qualified SQL special forms.
-All 16 migrations are installed with their actual hosted timestamps recorded in the repository.
+All eighteen migrations are installed with their actual hosted timestamps recorded in the repository, and the database now has 181 migration-history entries.
 The fifteenth corrects hosted Poke outbox uniqueness and service-role access.
 The sixteenth removes product-social records when a profile is tombstoned and serializes concurrent writes with account erasure.
-The final hosted regression run passes all three product/shared-group suites, including scoped account erasure and late service-RPC write rejection.
+The final hosted regression run passes all six suites and ten tests, including adult admission, private Storage, private Realtime, product flows, both shared-group suites, scoped account erasure, and late service-RPC write rejection.
+The seventeenth migration adds adult admission with no birth-date storage.
+The eighteenth repairs the reproduced hosted group-reader and blocked-Plan regressions and revokes access to three retired chat RPCs.
 Run `node test/sql/legacy-sql-special-forms.mjs` to reproduce the failure locally and verify the correction, preserved permissions, and safe reapplication.
 The scoped hosted runs removed their synthetic records and restored the observed baseline of 50 profiles, 11 Auth users, and 96 Storage objects.
 
@@ -152,7 +154,7 @@ The fixture harness must always override real credentials with its loopback fixt
 
 The canonical SQL lives in `supabase/migrations` in timestamp dependency order.
 Review compatibility against the complete preexisting schema before applying it to an approved target.
-The approved production migration batch is installed and its follow-up hosted regressions are tracked in `Progress.md`.
+The approved eighteen-migration production batch is installed and its follow-up hosted regressions are tracked in `Progress.md`.
 The matching application release must follow successful hosted verification and the release configuration checks.
 `npm run test:product-db` executes the chain against a compact legacy fixture and checks domain invariants, but it does not simulate separate concurrent backend connections, full RLS roles, Storage, or Realtime infrastructure.
 Before promotion, run simultaneous duplicate Poke responses, last-capacity Plan joins, reciprocal acknowledgements, block changes, and legacy refund attempts using synthetic accounts.
