@@ -2,6 +2,7 @@ import type { AgeAdmission } from "@peekpoke/shared";
 import { createContext, useContext } from "react";
 
 export type AgeAdmissionContextValue = {
+  accountId: string | null;
   admission: AgeAdmission | null;
   refreshAdmission: () => Promise<void>;
 };

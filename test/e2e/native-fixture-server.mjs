@@ -16,6 +16,8 @@ let onboarding = true;
 let availability = null;
 let createdPlan = null;
 let planJoinRequests = 0;
+let inviteAcceptRequests = 0;
+let invitePreviewAvailable = true;
 let incomingPokeAccepted = false;
 let planMeetupViewerConfirmed = false;
 let chatMeetupViewerConfirmed = false;
@@ -194,6 +196,15 @@ createServer(async (req, res) => {
   const method = req.method;
 
   if (method === "POST" && /^\/api\/plans\/[^/]+\/join$/u.test(url.pathname)) planJoinRequests += 1;
+  if (method === "POST" && /^\/api\/invites\/[^/]+$/u.test(url.pathname)) inviteAcceptRequests += 1;
+  if (url.pathname === "/__test/invitation-state" && method === "GET")
+    return json(res, { accept_requests: inviteAcceptRequests });
+  if (url.pathname === "/__test/invitation-state" && method === "POST") {
+    invitePreviewAvailable = body.preview_available !== false;
+    return json(res, { preview_available: invitePreviewAvailable });
+  }
+  if (/^\/api\/invites\/v1\./u.test(url.pathname) && method === "GET")
+    return invitePreviewAvailable ? json(res, { profile: peer }) : json(res, { error: "This invite is temporarily unavailable", code: "INVITE_PREVIEW_UNAVAILABLE" }, 503);
   if (url.pathname === "/__test/plan-share-state" && method === "GET")
     return json(res, { join_requests: planJoinRequests });
   if (url.pathname === `/api/plans/share/${"a".repeat(43)}` && method === "GET")

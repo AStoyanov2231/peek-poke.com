@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { acceptInvite, fetchInviteLink } from "@/data/social/api";
+import { acceptInvite, fetchInviteLink, fetchInvitePreview } from "@/data/social/api";
 
 const INVITER_ID = "22222222-2222-4222-8222-222222222222";
 const TOKEN = `v1.${INVITER_ID}.1999999999.${"a".repeat(43)}`;
@@ -23,6 +23,22 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("native invite transports", () => {
+  const profile = { id: INVITER_ID, username: "mila", display_name: "Mila", avatar_url: null, location_text: null, is_online: false, last_seen_at: null };
+  it("loads an uncached preview without an acceptance request", async () => {
+    const fetchMock = response({ profile });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchInvitePreview(TOKEN)).resolves.toEqual({ profile });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://www.peek-poke.com/api/invites/${TOKEN}`,
+      expect.objectContaining({ cache: "no-store" }),
+    );
+    expect(fetchMock.mock.calls[0][1]?.method).not.toBe("POST");
+  });
+  it("rejects preview identity mismatch before showing the inviter", async () => {
+    vi.stubGlobal("fetch", response({ profile: { ...profile, id: "11111111-1111-4111-8111-111111111111" } }));
+    await expect(fetchInvitePreview(TOKEN)).rejects.toMatchObject({ code: "INVALID_RESPONSE", status: 502 });
+  });
   it("returns only a validated, uncached invite link", async () => {
     const fetchMock = response({ invite_url: URL });
     vi.stubGlobal("fetch", fetchMock);

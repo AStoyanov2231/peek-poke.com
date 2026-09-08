@@ -307,6 +307,11 @@ function RootLayoutContent() {
     });
   }, [ageAdmission, pathname, pendingPlanToken, ready]);
 
+  useEffect(() => {
+    if (!ready || !sessionResolved || sessionUserId || !pendingInvite || !pathname.startsWith("/invite/")) return;
+    router.replace(loginRouteForPendingIntent(pendingInvite));
+  }, [ready, sessionResolved, sessionUserId, pendingInvite, pathname]);
+
   const retryBootstrap = useCallback(async () => {
     setBootstrapError(null);
     setReady(false);
@@ -552,7 +557,7 @@ function RootLayoutContent() {
   return (
     <View style={styles.root}>
       <StatusBar animated style="dark" />
-      <AgeAdmissionProvider value={{ admission: ageAdmission, refreshAdmission }}>
+      <AgeAdmissionProvider value={{ accountId: sessionUserId, admission: ageAdmission, refreshAdmission }}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)/login" />
           <Stack.Screen name="(auth)/welcome" />
@@ -567,12 +572,14 @@ function RootLayoutContent() {
             <Stack.Screen name="(app)" />
             <Stack.Screen name="chat/[threadId]" />
             <Stack.Screen name="group/[groupId]" />
-            <Stack.Screen name="invite/[inviterId]" />
             <Stack.Screen name="plans/[planId]" />
           </Stack.Protected>
           {/* Public previews must survive cold-start session hydration. Joining
               still performs its own session and age-admission checks. */}
           <Stack.Screen name="plan/[token]" />
+          {/* Preserve the invitation token while its screen withholds Connect
+              until adult admission and bootstrap routing are resolved. */}
+          <Stack.Screen name="invite/[inviterId]" />
         </Stack>
         <CallProvider />
       </AgeAdmissionProvider>

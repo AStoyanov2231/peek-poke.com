@@ -46,3 +46,11 @@ To repeat against the local native fixtures, stop `com.peekpoke.app`, launch `ht
 Read `/__test/plan-share-state` on the native fixture API to verify the join counter independently.
 Repeat signed out, choose Join, sign in with the fixture account, and verify the preview is retained without automatic membership.
 Distributed-certificate and physical-device checks above remain required.
+
+Profile invitations were separately reproduced losing their token on cold launch while a warm link reached Connect.
+The invitation entry now remains registered during hydration, but no preview request or Connect control mounts before a resolved adult account.
+Anonymous invitation navigation preserves the token through sign-in.
+The authenticated native screen uses the same verified preview endpoint as web, validates that the profile matches the token, shows the inviter's identity, and offers recoverable preview failure without enabling Connect.
+Its query is account-scoped, and late acceptance completion cannot navigate after the screen loses admission or its account lifetime.
+Packaged Android checks cover signed-in cold launch, anonymous cold and warm links followed by sign-in, preview failure and retry, and blocked admission; all leave the fixture acceptance counter at zero.
+The synthetic native API exposes `/__test/invitation-state` for that counter and supports `POST {"preview_available": false}` on the same endpoint to exercise recovery.

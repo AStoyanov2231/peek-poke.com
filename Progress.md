@@ -6,6 +6,21 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
+The next packaged Android check reproduced profile invitation links losing their token on cold launch while the same warm link reached Connect.
+The invitation entry route now survives session hydration, while a screen-level boundary withholds all preview reads and Connect until an adult account is resolved.
+Signed-out warm invitations explicitly retain their token through sign-in routing.
+Visual inspection also found native asking users to review an invitation without displaying the inviter, despite an existing authenticated preview endpoint already serving web.
+Native now uses that endpoint with a strict profile contract, token/profile identity matching, account-scoped cache keys, explicit loading/retry, and the inviter's name and avatar before Connect.
+The copy explains that acceptance puts each person in the other's Friends list, matching the existing invitation RPC.
+Late acceptance responses cannot navigate after the invitation screen loses its account/admission lifetime.
+The completed APK passes signed-in cold launch, signed-out cold and warm links followed by sign-in, preview-service failure and explicit retry, and blocked admission.
+Every checked flow leaves the independent fixture acceptance counter at zero, with Metro stopped throughout.
+Inspected screenshots are saved locally as `test-results/native/android-invitation-preview.png` and `test-results/native/android-invitation-preview-recovery.png`.
+The final local checks pass 531 native logic tests, 120 platform renderer tests, native typecheck, and lint.
+React Doctor reports 91/100 with no errors and the two previously recorded root-navigator structure warnings; no suppression was added.
+The preview uses the existing deployed endpoint and requires no database migration or provider configuration change.
+The navigation behavior matches [Expo's documented protected-route redirection](https://docs.expo.dev/router/advanced/authentication/); the fix preserves invitation intent without exposing adult-only actions during hydration.
+
 The Android packaged-build review found an obsolete generated manifest with invitation links but no Plan links, despite both being present in app.json.
 Expo prebuild regenerated the ignored Android project with both link families.
 A command-level reproduction showed that the existing local release preflight accepted the obsolete manifest and proceeded to the build/install steps.
@@ -27,6 +42,13 @@ Native verification passes 529 logic tests, 108 platform renderer tests, typeche
 React Doctor reports 91/100 with no errors and two existing root-navigator structure warnings; no suppression was added.
 The earlier profile-interest bounce finding is fixed with smooth exponential easing, with no ignore added.
 No production database or provider configuration changed in this batch.
+[PR #15](https://github.com/AStoyanov2231/peek-poke.com/pull/15) passed all eight required checks, including thirteen browser journeys, and merged into master as `33333333ee683d9dbe3630f80294378443a92b86`.
+The matching production deployment is Ready in Dublin and serves both canonical domains.
+Both homepages, Terms, Privacy, and the iOS association endpoint returned HTTP 200, and the initial deployment-scoped error/fatal query returned no entries.
+This web deployment does not distribute the updated native binary.
+The test emulator and synthetic API/Auth processes were stopped, and only the test port forwards and UI dump were removed.
+The sealed twenty-migration rollback archive still matches its recorded SHA-256.
+The full goal remains open against the feature coverage and launch requirements recorded below.
 
 The next recovery review reproduced chat meetup status failing to load while the UI still offered an acknowledgement with no retry.
 The actual browser regression failed before the fix, then passed through load failure, explicit retry, peer acknowledgement, separate consent, and mutual confirmation.
