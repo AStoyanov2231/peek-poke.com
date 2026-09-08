@@ -302,3 +302,30 @@ The prepared pull-request body is `/tmp/peek-product-redesign-pr.md`.
 Public branch publication and the production database migration deployment are separate pending approvals.
 The production migration blocker has recurred across three consecutive goal turns, and all remaining release actions now require user approval, operator information, or physical-device access.
 The goal is blocked rather than complete; local tests and build evidence do not establish production readiness.
+
+## Supabase rollback package requested before deployment
+
+The user requested preservation of the database state and rollback instructions before migrations or a master release.
+The current database still contains 163 baseline migrations and none of the 14 redesign migrations.
+Created a private, Git-ignored directory at `.supabase-backups/20260908T103717Z-pre-product-redesign` with mode 700 and backup files restricted to mode 600.
+Saved catalog metadata for 91 table definitions, 130 selected non-extension functions, 59 policies, constraints, indexes, privileges, roles without passwords, and other database metadata.
+Saved 764 records across 54 application, Storage-metadata, and migration-history tables in a single SQL statement snapshot at 10:40:36 UTC.
+Downloaded all 96 Storage objects, totaling 14,823,884 bytes, with no failed downloads and per-file SHA-256 hashes.
+The broader credential-bearing export was rejected by automatic approval review, so Auth rows, Vault secrets, push device tokens, and managed runtime records were excluded.
+This is a migration-specific recovery package, not a full Supabase disaster-recovery backup.
+Prepared a guarded schema rollback for the exact full 14-migration batch, preserving original tables/data and the existing pgcrypto extension.
+The guard requires the exact 163 baseline plus 14 redesign history entries and explicit confirmation, and rejects loss of rows in introduced tables by default.
+Local PGlite validation applies all 14 actual migration files to the durable legacy fixture with the 15 captured original function definitions and then successfully executes the rollback.
+All 15 function definitions, owners, security settings, and effective role/PUBLIC grants match their originals after rollback, with 163 baseline migration entries remaining, no introduced tables, and pgcrypto preserved.
+Guard tests reject omitted confirmation, nonempty new tables without the explicit data-loss opt-in, and unrelated migration history.
+This is a migration-mechanics rehearsal against a compact legacy fixture, not a full hosted restoration or unrelated-schema parity test.
+No rollback has run against MyaouDB.
+Prepared the ignored `.env.backup.local` file and connection-panel link for a separate standard database dump; the user has not completed browser authentication or connection setup.
+No migration, public push, master merge, or application deployment occurred during backup preparation.
+The entry-point instructions are `SUPABASE_ROLLBACK.md`, and the complete procedure is stored with the private package in `README.md`.
+Packaged the recovery files as `.supabase-backups/MyaouDB-migration-rollback-20260908T103717Z.tar.gz` with a SHA-256 sidecar.
+The archive is 14,976,798 bytes, contains 109 files, and excludes temporary synthetic validation databases and environment files.
+Verified the archive checksum, extracted it into a private temporary directory, and successfully checked all 108 payload-file hashes against the included checksum manifest.
+Archive SHA-256: `a479d4b68b4d74bb1553d4e89472052289f070169d1482f02d4f3cd2f4e0e627`.
+The private recovery package is complete within its documented migration-specific scope; a full Auth/Vault backup remains excluded.
+Browser authentication is not needed to use this saved package.
