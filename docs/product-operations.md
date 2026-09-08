@@ -25,7 +25,7 @@ The original weekly job 2 remains unchanged.
 After explicit operator authorization, the 31 pre-existing events completed: seven profile-photo approvals and four quarantines were processed, and the queue now has zero pending, processing, or dead events.
 Outbox cron job 7 is active each minute; its first scheduled run completed at 15:13 UTC with HTTP 200 and an empty queue response with all counters zero.
 The exact created-job metadata and reversal instructions are saved privately in `.supabase-backups/deployment-20260908/ops-created-retention-jobs.json` and `OPERATIONS_ROLLBACK.md`.
-The complete nineteen-migration recovery archive has SHA-256 `51c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c` and verifies 153 payloads.
+The complete nineteen-migration recovery archive has SHA-256 `551c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c` and verifies 153 payloads.
 It preserves the nested eighteen-migration recovery archive and includes guarded photo and operations reversals.
 
 ## Required scheduler design

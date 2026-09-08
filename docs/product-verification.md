@@ -52,7 +52,7 @@ The nineteenth migration, `20260908150805_profile_photo_moderation_buckets`, fix
 The final live age-admission run passed four tests in 33.61 seconds, and the final live social run passed one test in 32.27 seconds, including Redis-backed rate-limit coverage.
 Run `node test/sql/legacy-sql-special-forms.mjs` to reproduce the failure locally and verify the correction, preserved permissions, and safe reapplication.
 The scoped hosted runs removed their synthetic records and restored the observed baseline of 50 profiles, 11 Auth users, and 96 Storage objects.
-The complete nineteen-migration recovery archive verified 153 payloads with SHA-256 `51c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`; it preserves the nested eighteen-migration archive and adds guarded photo and operations reversals.
+The complete nineteen-migration recovery archive verified 153 payloads with SHA-256 `551c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`; it preserves the nested eighteen-migration archive and adds guarded photo and operations reversals.
 Master PR 7 is merged at `b8d33750364d8fa38b18e9daa74b33d1aa50331e`, and Vercel deployment `dpl_87orq3DQNsTpfVMJK5827FMut7y2` is READY in `iad1`.
 
 ## Private Realtime provider proof

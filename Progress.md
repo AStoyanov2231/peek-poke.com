@@ -551,3 +551,12 @@ Sealed the complete nineteen-migration recovery package with the unchanged neste
 All 153 payload hashes passed a fresh extraction of `.supabase-backups/MyaouDB-deployed-19-migration-rollback-20260908.tar.gz`, SHA-256 `551c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`.
 The final local root run passes 1,350 tests across 153 files, with ten hosted tests deliberately skipped outside their explicit runner, and root lint is clean.
 The final Supabase security review reports only the thirteen intentional service-owned RLS tables without client policies and the existing disabled leaked-password protection setting.
+
+## Worker and deployment follow-up
+
+[PR #8](https://github.com/AStoyanov2231/peek-poke.com/pull/8) contains the completed worker correction, nineteen-migration recovery references, mobile landing-header fix, and Dublin server-region configuration.
+The release review reproduced a Supabase `PostgrestError` subclass bypassing provider-message redaction and added coverage through the installed SDK error type, including malformed diagnostic fields.
+Recognized provider failures now retain only validated codes and status values, while ordinary application errors keep their bounded diagnostics.
+Corrected two public checksum transcription errors and verified that all four recovery references match the sealed archive's sidecar.
+PR #8 is the current source for the final CI, merge, and deployed visual evidence.
+The remaining operator, provider, physical-device, and full recovery prerequisites remain open in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
