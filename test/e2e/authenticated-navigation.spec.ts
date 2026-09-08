@@ -225,6 +225,7 @@ test.describe("redesigned social journey", () => {
       discoveryCards.nth(0).getByText("You both marked a meetup · Connected before", { exact: true }),
     ).toBeVisible();
     await expect(discoveryCards.nth(0).getByText("Friends in common", { exact: true })).toHaveCount(0);
+    await expect(discoveryCards.nth(0).getByText("A new face. A shared idea.", { exact: true })).toHaveCount(0);
     expect(fixture.apiUrls).toContain(
       "/api/availability?limit=100&radiusKm=25&discovery_context=1",
     );
@@ -232,6 +233,7 @@ test.describe("redesigned social journey", () => {
       path: "test-results/e2e/now-context-desktop.png",
     });
     await page.setViewportSize({ width: 390, height: 844 });
+    await discoveryCards.nth(0).evaluate((element) => element.scrollIntoView({ block: "center" }));
     expect(
       await discoveryCards.nth(0).evaluate((element) =>
         element.scrollWidth <= element.clientWidth,

@@ -588,11 +588,15 @@ function PersonCard({
           </p>
         </div>
       </Link>
-      <p className="person-common">
-        {person.sharedInterestNames.length
-          ? `You both like ${person.sharedInterestNames.slice(0, 3).join(", ")}`
-          : "A new face. A shared idea."}
-      </p>
+      {person.sharedInterestNames.length || !discoveryLabels.length ? (
+        <p className="person-common">
+          {person.sharedInterestNames.length
+            ? `You both like ${person.sharedInterestNames.slice(0, 3).join(", ")}`
+            : person.relationship === "friend"
+              ? "A familiar face. A fresh idea."
+              : "A new face. A shared idea."}
+        </p>
+      ) : null}
       {discoveryLabels.length ? (
         <p className="text-xs font-medium text-ink-6">
           {discoveryLabels.join(" · ")}
