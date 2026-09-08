@@ -1,7 +1,8 @@
 # Production launch requirements
 
 - [ ] Verify direct native privacy save/reload; generated-username onboarding and the core Now, Poke, Chat, Plan, and meetup-confirmation Simulator journeys pass.
-- [ ] Run the new verification workflow on GitHub and configure required checks after publishing the branch.
+- [ ] Approve publication of the committed redesign source, tests, migrations, and documentation to the public GitHub repository; automatic approval review rejected the branch push pending explicit disclosure authorization.
+- [ ] Publish `product-redesign`, open the prepared draft pull request, run the verification workflow on GitHub, and configure required checks.
 - [ ] Approve deployment of the 14 reviewed migrations, including the reproduced legacy account-deletion repair, to MyaouDB; automatic approval review rejected verification authorization as insufficient for schema deployment.
 - [ ] Apply the ordered migrations and pass full RLS, Storage, Realtime, account-deletion, concurrent mutation, and rollback checks with dedicated synthetic accounts.
 - [ ] Deploy the matching web/native contracts after the verified database changes.

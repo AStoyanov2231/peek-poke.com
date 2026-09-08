@@ -34,3 +34,5 @@ The workflow-equivalent production build passed locally on Node 24.10.0 with eve
 The latest root production build reported exit 0 in `/tmp/peek-product-final-web-build.log`.
 The matching root lint log is `/tmp/peek-product-final-web-lint.log`.
 The first GitHub run is still required to verify the fresh Linux install and complete runner environment.
+The implementation is committed locally, but automatic approval review rejected the branch push because the repository is public and disclosure of the new payload requires explicit authorization.
+No workflow run or draft pull request has been created for this branch.
