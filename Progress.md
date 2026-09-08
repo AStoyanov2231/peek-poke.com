@@ -2,7 +2,7 @@
 
 Branch: `product-redesign`.
 Brief: [PRODUCT-REDESIG.md](PRODUCT-REDESIG.md).
-Updated: 2026-09-08.
+Updated: 2026-09-09.
 
 ## Current continuation
 
@@ -18,7 +18,19 @@ The inspected phone screenshot is saved locally as `test-results/e2e/chat-meetup
 React Doctor reports 90/100 for changed files with no errors.
 The preexisting complexity/state warnings were confirmed against committed component snapshots; its additional loading-reset warning is a false positive for an account-lifetime guard inside the existing finally block.
 No diagnostic suppression was added.
-Full browser-suite completion and release CI are still being checked for this recovery batch.
+All thirteen browser journeys passed in 50.7 seconds.
+[PR #14](https://github.com/AStoyanov2231/peek-poke.com/pull/14) passed all eight required checks and merged into master as `a5a1ce724f928cb1637cd97d4b848b9ca6b96ad9`.
+The matching production deployment is Ready in Dublin on both canonical domains.
+Homepage, Terms, Privacy, and the iOS association endpoint returned HTTP 200; the initial deployment-scoped error/fatal log query returned no entries.
+No database or provider settings changed.
+
+The existing `PeekPoke_API_36` Android emulator was booted without wiping its data or saving a new boot snapshot.
+The existing local debug APK was installed with data preservation, and the current native source was loaded through Metro with loopback fixture API/Auth configuration and no external provider credentials.
+Actual Android interaction verified login into Now, pending-Poke priority, Poke acceptance into chat, and cancellation of the explicit meetup-consent dialog.
+Android discovery visibility changed from Everyone to Friends, saved, closed, and reopened with Friends still checked.
+An independent fixture GET returned `audience: friends`.
+The inspected captures are `test-results/native/android-accepted-chat.png` and `test-results/native/android-discovery-visibility-reopen.png`.
+This is direct Android runtime evidence for those flows, not a signed release, app-link, push, camera, call, or physical-device verification.
 
 The current follow-up batch connects the previously unused approximate-area hint to authorized nearby results in web and native direct chats.
 It requires a fresh acknowledged device location and a recent successful nearby response, keeps explicit meetup acknowledgement independent, and preserves dismissal across refreshes.

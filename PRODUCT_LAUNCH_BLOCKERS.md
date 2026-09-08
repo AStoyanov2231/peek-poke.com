@@ -3,6 +3,7 @@
 - [x] Save the pre-migration recovery package and verify its guarded rollback locally; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) describes the private archive and its limits.
 - [x] Verify the native Now radius and low-density empty state, Inbox priority, editable chat suggestions and draft safety, removal of disabled Map coin controls, and the core Now-to-Poke-to-accepted-chat Simulator journey.
 - [x] Verify direct native discovery-privacy selection, save, close, and reopen against a fixture account in the installed iPhone Simulator app using the [standalone XCTest runner](test/native-ui/README.md).
+- [x] Verify Android emulator login, Now, incoming-Poke priority, acceptance into chat, meetup-consent cancellation, and discovery-privacy save/close/reopen using current Metro source and loopback fixtures.
 - [x] Approve publication of the committed redesign source, tests, migrations, and documentation to the public GitHub repository.
 - [x] Publish `product-redesign` and open draft PR #7.
 - [x] Pass the initial Linux verification workflow after repairing the lockfile and browser timezone failure.

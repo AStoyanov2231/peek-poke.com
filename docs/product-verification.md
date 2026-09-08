@@ -206,3 +206,12 @@ The SQL guards lock referenced active profiles in sorted UUID order with `FOR SH
 Attempts to observe an actual blocked concurrent transaction through the management connector and a separate REST process were inconclusive because tool dispatch and approval timing serialized or reordered execution.
 The observed late SQL write was rejected with SQLSTATE 23514, but no live lock-wait assertion is claimed.
 A deterministic two-session PostgreSQL harness with a transaction barrier remains part of the full release evidence.
+
+## Android emulator continuation
+
+On 2026-09-09, the existing PeekPoke API 36 emulator ran the current native source through Metro against loopback-only Auth and API fixtures.
+The actual UI passed login, Now, incoming-Poke priority, acceptance into chat, cancellation of the meetup-consent dialog, and discovery-privacy selection/save/close/reopen.
+Friends remained checked after reopening, and the fixture API independently returned the saved friends audience.
+The existing local development APK supplied native modules; no signed production APK or app-link verification is claimed.
+The inspected captures are kept locally under `test-results/native/android-accepted-chat.png` and `test-results/native/android-discovery-visibility-reopen.png`.
+Camera, push, calls, physical-device behavior, and signed binary distribution remain separate acceptance requirements.
