@@ -19,6 +19,12 @@ Inspected screenshots are saved locally as `test-results/native/android-invitati
 The final local checks pass 531 native logic tests, 120 platform renderer tests, native typecheck, and lint.
 React Doctor reports 91/100 with no errors and the two previously recorded root-navigator structure warnings; no suppression was added.
 The preview uses the existing deployed endpoint and requires no database migration or provider configuration change.
+[PR #16](https://github.com/AStoyanov2231/peek-poke.com/pull/16) passed all eight required checks, including thirteen browser journeys, and merged into master as `d3e452101178c9a36d51e78c30a4414d05573ae5`.
+The matching production deployment is Ready in Dublin and serves both canonical domains.
+Both homepages, Terms, Privacy, and the iOS association endpoint returned HTTP 200; the initial deployment-scoped error/fatal query returned no entries.
+The local fixture services and emulator were stopped, and their temporary port forwards and UI dump were removed.
+The sealed twenty-migration rollback archive retains its recorded SHA-256.
+The native changes still require a signed binary release, and the full goal remains open against the recorded feature and launch requirements.
 The navigation behavior matches [Expo's documented protected-route redirection](https://docs.expo.dev/router/advanced/authentication/); the fix preserves invitation intent without exposing adult-only actions during hydration.
 
 The Android packaged-build review found an obsolete generated manifest with invitation links but no Plan links, despite both being present in app.json.
