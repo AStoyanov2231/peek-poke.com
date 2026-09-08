@@ -36,6 +36,7 @@ import { fetchPlans } from "@/data/plans";
 import { sharedGroupsQuery } from "@/data/social/queries";
 import { refreshDeviceLocation, useDeviceLocation } from "@/lib/location";
 import { nextDiscoveryRadius, splitNearbyPeople, supportedDiscoveryRadii } from "@/lib/now-discovery";
+import { conciseDiscoveryReasonLabels } from "@/lib/discovery-reasons";
 import { upcomingPlansForNow } from "@/lib/now-plans";
 import type { Activity, AvailabilityUpsertRequest } from "@peekpoke/shared";
 
@@ -70,8 +71,8 @@ export default function NowScreen() {
   }, []);
   const deviceLocation = useDeviceLocation();
   const availabilityQuery = useQuery({
-    queryKey: nativeQueryKeys.availability.nearby(radius),
-    queryFn: ({ signal }) => fetchAvailability({ radiusKm: radius, signal }),
+    queryKey: nativeQueryKeys.availability.nearby(radius, true),
+    queryFn: ({ signal }) => fetchAvailability({ discoveryContext: true, radiusKm: radius, signal }),
     staleTime: 20_000,
   });
   const availability = availabilityQuery.data?.availability ?? null;
@@ -272,8 +273,9 @@ export default function NowScreen() {
           </View>
         ) : null}
         {nearbyNewPeople.length ? <Text style={styles.subsectionTitle}>People up for something</Text> : null}
-        {nearbyNewPeople.map((person) => (
-          <View
+        {nearbyNewPeople.map((person) => {
+          const discoveryLabels = conciseDiscoveryReasonLabels(person.discoveryReasons);
+          return <View
             key={person.profile.id}
             style={styles.personCard}
           >
@@ -310,6 +312,11 @@ export default function NowScreen() {
                     ? ` · ${person.sharedInterestNames.slice(0, 2).join(" · ")}`
                     : ""}
                 </Text>
+                {discoveryLabels.length ? (
+                  <Text numberOfLines={1} style={styles.personContext}>
+                    {discoveryLabels.join(" · ")}
+                  </Text>
+                ) : null}
               </View>
             </Pressable>
             <Pressable
@@ -323,28 +330,34 @@ export default function NowScreen() {
             >
               <Text style={styles.pokeButtonText}>Poke</Text>
             </Pressable>
-          </View>
-        ))}
+          </View>;
+        })}
         {nearbyFriends.length ? <>
           <View style={styles.friendSectionHeader}>
             <Text style={styles.subsectionTitle}>Friends nearby</Text>
             <Text style={styles.friendSectionHint}>Familiar faces, free right now</Text>
           </View>
-          {nearbyFriends.map((person) => (
-            <View key={person.profile.id} style={styles.personCard}>
+          {nearbyFriends.map((person) => {
+            const discoveryLabels = conciseDiscoveryReasonLabels(person.discoveryReasons);
+            return <View key={person.profile.id} style={styles.personCard}>
               <Pressable accessibilityRole="button" accessibilityLabel={`View ${displayName(person.profile)}'s profile`} onPress={() => router.push(`/(app)/profile/${person.profile.id}` as never)} style={styles.personProfileButton}>
                 <Avatar uri={person.profile.avatar_url} name={displayName(person.profile)} size={48} ringColor={colors.primary[500]} />
                 <View style={styles.personCopy}>
                   <Text style={styles.personIntent}>{labelForActivity(person.availability.activity, person.availability.customLabel)}</Text>
                   <Text style={styles.personName}>{displayName(person.profile)} · {person.distanceKm < 1 ? `${Math.round(person.distanceKm * 1000)}m` : `${person.distanceKm.toFixed(1)}km`}</Text>
                   <Text numberOfLines={1} style={styles.personMeta}>{remainingTime(person.availability.expiresAt)}</Text>
+                  {discoveryLabels.length ? (
+                    <Text numberOfLines={1} style={styles.personContext}>
+                      {discoveryLabels.join(" · ")}
+                    </Text>
+                  ) : null}
                 </View>
               </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel={`Poke ${displayName(person.profile)}`} onPress={(event) => { event.stopPropagation(); setPokePerson({ id: person.profile.id, name: displayName(person.profile), activity: person.availability.activity, customLabel: person.availability.customLabel }); }} style={styles.pokeButton}>
                 <Text style={styles.pokeButtonText}>Poke</Text>
               </Pressable>
-            </View>
-          ))}
+            </View>;
+          })}
         </> : null}
         <View style={styles.emptyCard}>
           <Text style={styles.sectionTitle}>Plans near you</Text>
@@ -751,6 +764,12 @@ const styles = StyleSheet.create({
   personMeta: {
     color: colors.ink[5],
     fontFamily: fontFamilies.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  personContext: {
+    color: colors.ink[6],
+    fontFamily: fontFamilies.medium,
     fontSize: 12,
     lineHeight: 17,
   },

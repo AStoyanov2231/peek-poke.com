@@ -51,7 +51,8 @@ import {
   type AuthBootstrapKey,
 } from "@/lib/auth-bootstrap";
 import { loadBootstrapForCurrentSession } from "@/lib/profile-bootstrap";
-import { nativeAuthenticatedHomeRoute } from "@/lib/navigation-policy";
+import { inviteTokenForReturn } from "@/lib/invite-qr-link";
+import { loginRouteForPendingIntent, routeAfterBootstrap } from "@/lib/auth-return-navigation";
 import { AgeAdmissionProvider } from "@/components/age-admission-context";
 import {
   ageAdmissionReturnIntent,
@@ -62,35 +63,6 @@ import {
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} />;
-}
-
-function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, pendingInvite?: string, pendingPlanToken?: string) {
-  if (data.age_admission.status !== "adult") {
-    router.replace({
-      pathname: "/age-admission",
-      params: ageAdmissionReturnIntent(pendingInvite, pendingPlanToken),
-    });
-    return;
-  }
-  if (!data.onboarding_completed) {
-    router.replace({
-      pathname: "/onboarding",
-      params: {
-        ...(pendingInvite ? { invite: pendingInvite } : {}),
-        ...(pendingPlanToken ? { plan_token: pendingPlanToken } : {}),
-      },
-    });
-    return;
-  }
-  if (pendingInvite) {
-    router.replace(`/invite/${pendingInvite}` as never);
-    return;
-  }
-  if (pendingPlanToken) {
-    router.replace(`/plan/${pendingPlanToken}` as never);
-    return;
-  }
-  router.replace(nativeAuthenticatedHomeRoute);
 }
 
 function authBootstrapKey(session: Session): AuthBootstrapKey {
@@ -143,10 +115,7 @@ function RootLayoutContent() {
   const routePlanToken = Array.isArray(routeParams.token) ? routeParams.token[0] : routeParams.token;
   const rawPendingInvite = pathname.startsWith("/invite/") ? routeInviter : queryInviter;
   const rawPlanToken = pathname.startsWith("/plan/") ? routePlanToken : queryPlanToken;
-  const pendingInvite = typeof rawPendingInvite === "string"
-    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPendingInvite)
-    ? rawPendingInvite
-    : undefined;
+  const pendingInvite = inviteTokenForReturn(rawPendingInvite);
   const pendingPlanToken = typeof rawPlanToken === "string" && /^[A-Za-z0-9_-]{43}$/.test(rawPlanToken) ? rawPlanToken : undefined;
   const pendingInviteRef = useRef(pendingInvite);
   const pendingPlanTokenRef = useRef(pendingPlanToken);
@@ -266,7 +235,7 @@ function RootLayoutContent() {
 
           nativeQueryClient.setQueryData(nativeQueryKeys.bootstrap, result.data);
           updateAgeAdmission(result.data.age_admission);
-          routeAfterBootstrap(result.data, pendingInviteRef.current, pendingPlanTokenRef.current);
+          router.replace(routeAfterBootstrap(result.data, pendingInviteRef.current, pendingPlanTokenRef.current) as never);
           if (result.data.age_admission.status !== "adult") return;
           await syncNativeRealtimeAuthSession(session);
           if (!canStartAgeRestrictedServices({
@@ -354,7 +323,7 @@ function RootLayoutContent() {
         setSessionUserId(null);
         setSessionResolved(true);
         const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: { ...(invite ? { invite } : {}), ...(pendingPlanTokenRef.current ? { plan_token: pendingPlanTokenRef.current } : {}) } });
+        router.replace(loginRouteForPendingIntent(invite, pendingPlanTokenRef.current));
       }
     } catch (error) {
       if (
@@ -396,7 +365,7 @@ function RootLayoutContent() {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
         const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: { ...(invite ? { invite } : {}), ...(pendingPlanTokenRef.current ? { plan_token: pendingPlanTokenRef.current } : {}) } });
+        router.replace(loginRouteForPendingIntent(invite, pendingPlanTokenRef.current));
       }
     } catch (error) {
       if (

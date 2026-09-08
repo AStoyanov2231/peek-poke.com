@@ -53,7 +53,8 @@ The final live age-admission run passed four tests in 33.61 seconds, and the fin
 Run `node test/sql/legacy-sql-special-forms.mjs` to reproduce the failure locally and verify the correction, preserved permissions, and safe reapplication.
 The scoped hosted runs removed their synthetic records and restored the observed baseline of 50 profiles, 11 Auth users, and 96 Storage objects.
 The complete nineteen-migration recovery archive verified 153 payloads with SHA-256 `551c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`; it preserves the nested eighteen-migration archive and adds guarded photo and operations reversals.
-Master PR 7 is merged at `b8d33750364d8fa38b18e9daa74b33d1aa50331e`, and Vercel deployment `dpl_87orq3DQNsTpfVMJK5827FMut7y2` is READY in `iad1`.
+Historical PR 7 and its deployment are superseded by [published PR 11](https://github.com/AStoyanov2231/peek-poke.com/pull/11), merged at `072fc488cc62a6274089e4722abbc076f708887f`.
+Production Ready was verified on 2026-09-08 at 17:23 UTC in `dub1`.
 
 ## Private Realtime provider proof
 
@@ -78,10 +79,11 @@ This is a Storage access-boundary test; it does not replace application route au
 Use `E2E_FIXTURE=1` for the fully isolated transport fixture.
 The optional `E2E_BASE_URL`, `E2E_EMAIL`, and `E2E_PASSWORD` settings are reserved for integration-specific tests against an explicitly approved backend; the fixture journeys deliberately skip in that mode.
 `E2E_BASE_URL` is restricted to a loopback URL, and that local server must use the approved Supabase target and a dedicated completed-onboarding test account.
-The nine journeys use the actual login form and cover first-time onboarding, availability, Poke retry identity, editable venue suggestions and Plan prefill, chat, mutual meetup acknowledgement, Plan creation, anonymous invitations, explicit join after sign-in, discovery visibility save recovery, activity Map and profile context, recent-Plan confirmation with retry, and low-density/error states.
+The eleven journeys use the actual login form and cover first-time onboarding, availability, Poke retry identity, editable venue suggestions and Plan prefill, chat, mutual meetup acknowledgement, Plan creation, anonymous invitations, explicit join after sign-in, discovery visibility save recovery, activity Map and profile context, recent-Plan confirmation with retry, and low-density/error states.
 Screenshots and failed-test traces are saved under `test-results/e2e`.
 Browser fixtures verify interactions and DTO handling; they do not verify hosted authentication, RLS, Storage, push delivery, or provider behavior.
-The current nine-journey fixture run, including the privacy reopen regression, passed in `/tmp/peek-web-fixture-e2e-privacy-final.log`.
+The earlier nine-journey fixture run, including the privacy reopen regression, passed in `/tmp/peek-web-fixture-e2e-privacy-final.log`.
+The current browser fixture evidence covers eleven journeys.
 
 `test/e2e/fixture-supabase-server.mjs` is a loopback-only, test-only Supabase transport fixture for this browser harness.
 It supplies a deterministic authenticated user and minimal REST/RPC results without using application bypass code, a hosted project, or production credentials.
@@ -96,7 +98,8 @@ The Simulator bridge omitted the discovery radio/button targets despite their vi
 The fixture privacy PATCH/GET persistence was separately verified and restored to everyone.
 New native screenshots are saved under `test-results/native` so rerunning Playwright does not remove them.
 The generated-username evidence is `test-results/native/onboarding-temporary-username.jpg`.
-The final native gate passed 486 Vitest tests across 63 files and 90 Jest tests across 30 iOS/Android suites, for 576 tests total.
+The current native gate passed 508 Vitest tests and 98 Jest tests, for 606 tests total.
+The earlier 486-Vitest and 90-Jest result is historical evidence.
 The native Poke sender, note, absolute local expiry, accepted-chat navigation, and Inbox badge behavior were visually verified in `test-results/native/pokes-received.jpg`, `test-results/native/poke-accepted-chat.jpg`, and `test-results/native/pokes-cleared-after-accept.jpg`.
 The fixture intentionally omits accepted incoming Pokes and sent entries after acceptance, so those screenshots do not prove terminal-history or sent-card UI; unit presentation and state tests cover those paths.
 The suite, TypeScript, and lint logs are `/tmp/peek-product-native-consolidated.log`, `/tmp/peek-product-native-consolidated-types.log`, and `/tmp/peek-product-native-consolidated-lint.log`.
@@ -121,7 +124,8 @@ Use fixture-only Metro environment values and never point this harness at produc
 
 Approximate location discovery is available only after the user grants location permission and the client has a fresh server acknowledgement.
 It excludes the caller's coordinate from discovery after ten minutes and returns other people only in coarse display cells.
-The retention migration and authorized cleanup endpoint are release prerequisites, but deletion is not active until the production scheduler is configured to invoke it.
+The retention and outbox schedules are active in production.
+Production alert configuration remains open; [the observability baseline](production-baseline/observability.md) is authoritative.
 It must never authorize a reward or prove that a meeting occurred.
 
 `POST /api/coins/meeting` remains deliberately unavailable until the service verifies an attestation from a supported device location provider.
@@ -146,11 +150,12 @@ E2E_FIXTURE=1 npm run test:e2e
 
 ## Current local verification evidence
 
-The current web/server run passed 1,314 tests across 147 files in `/tmp/peek-product-final-web-tests-rerun.log`.
-That earlier local run deliberately skipped three hosted suites because their approved target environment was not supplied.
+The current root web/server evidence records 1,361 passing tests and 10 intentional skips.
+The earlier 1,314-test run in `/tmp/peek-product-final-web-tests-rerun.log` deliberately skipped three hosted suites because its approved target environment was not supplied.
 The new hosted Realtime and Storage suites also require explicit credentials and are excluded from ordinary fixture-only CI.
 Root lint and the production build passed in `/tmp/peek-product-final-web-lint.log` and `/tmp/peek-product-final-web-build.log`.
 The high-severity production dependency audit reported zero high or critical advisories and 15 moderate advisories.
+Five SQL suites are part of the current verification set.
 
 Install Playwright Chromium when it is not available, or provide `E2E_CHROMIUM_EXECUTABLE_PATH` for an existing compatible local executable.
 The fixture binds only to loopback, uses separate build output, overrides Supabase and provider credentials, and leaves the normal application authentication checks in place.

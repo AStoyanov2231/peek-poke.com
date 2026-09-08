@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { availabilityReadResponseSchema } from "@peekpoke/shared";
 export const ownerId = "11111111-1111-4111-8111-111111111111";
 export const peerId = "22222222-2222-4222-8222-222222222222";
 export const threadId = "33333333-3333-4333-8333-333333333333";
@@ -12,7 +13,7 @@ const pageInfo = {
 };
 export async function installSocialFixture(
   page: Page,
-  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean; ageAdmission?: "pending" | "adult" | "blocked" } = {},
+  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean; discoveryContext?: boolean; ageAdmission?: "pending" | "adult" | "blocked" } = {},
 ) {
   const now = new Date().toISOString();
   const later = new Date(Date.now() + 60 * 60_000).toISOString();
@@ -31,6 +32,21 @@ export async function installSocialFixture(
     id: "66666666-6666-4666-8666-666666666666",
     userId: peerId,
     activity: "coffee",
+    customLabel: null,
+    expiresAt: later,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const contextPeer = {
+    ...owner,
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    username: "sofia",
+    display_name: "Sofia",
+  };
+  const contextPeerAvailability = {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    userId: contextPeer.id,
+    activity: "walk",
     customLabel: null,
     expiresAt: later,
     createdAt: now,
@@ -56,6 +72,7 @@ export async function installSocialFixture(
   } : null;
   let pokeAttempts = 0;
   const apiPaths: string[] = [];
+  const apiUrls: string[] = [];
   const keys: string[] = [];
   const joins: string[] = [];
   const meetups: string[] = [];
@@ -98,8 +115,10 @@ export async function installSocialFixture(
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    const requestUrl = new URL(request.url());
     const method = request.method();
     apiPaths.push(path);
+    apiUrls.push(`${path}${requestUrl.search}`);
     const json = (body: unknown, status = 200) =>
       route.fulfill({
         status,
@@ -211,11 +230,32 @@ export async function installSocialFixture(
         availability = null;
         return json({ availability });
       }
-      return json({
+      const includeDiscoveryContext = options.discoveryContext
+        && requestUrl.searchParams.get("discovery_context") === "1";
+      const response = {
         availability,
         people: options.empty
           ? []
-          : [
+          : includeDiscoveryContext
+            ? [
+                {
+                  profile: contextPeer,
+                  availability: contextPeerAvailability,
+                  distanceKm: 2,
+                  relationship: "none",
+                  sharedInterestNames: [],
+                  discoveryReasons: ["mutual_meetup", "connected_before", "mutual_friends"],
+                },
+                {
+                  profile: peer,
+                  availability: peerAvailability,
+                  distanceKm: 2,
+                  relationship: "none",
+                  sharedInterestNames: ["Coffee", "Design"],
+                  discoveryReasons: ["intent_match", "shared_interests"],
+                },
+              ]
+            : [
               {
                 profile: peer,
                 availability: peerAvailability,
@@ -224,7 +264,8 @@ export async function installSocialFixture(
                 sharedInterestNames: ["Coffee", "Design"],
               },
             ],
-      });
+      };
+      return json(availabilityReadResponseSchema.parse(response));
     }
     if (path === "/api/pokes") {
       if (method === "POST") {
@@ -396,6 +437,7 @@ export async function installSocialFixture(
   });
   return {
     apiPaths,
+    apiUrls,
     pokeKeys: keys,
     planJoins: joins,
     meetupPosts: meetups,

@@ -24,16 +24,19 @@ function readOptions(request: Request) {
       : /^\d{1,2}$/.test(radiusRaw)
         ? Number(radiusRaw)
         : null;
+  const discoveryContextRaw = params.get("discovery_context");
+  const discoveryContext = discoveryContextRaw === null ? false : discoveryContextRaw === "1";
   if (
     limit === null ||
     radiusKm === null ||
+    (discoveryContextRaw !== null && discoveryContextRaw !== "1") ||
     limit < 1 ||
     limit > 100 ||
     radiusKm < 2 ||
     radiusKm > 25
   )
     return null;
-  return { limit, radiusKm };
+  return { limit, radiusKm, discoveryContext };
 }
 
 export const GET = withNoStore(withAuth(async (request, { user }) => {
@@ -44,6 +47,7 @@ export const GET = withNoStore(withAuth(async (request, { user }) => {
     user.id,
     options.limit,
     options.radiusKm,
+    options.discoveryContext,
   );
   if (!result.error) recordProductMetrics(user.id, result.data.people);
   return result.error ?? NextResponse.json(result.data, { headers: { "cache-control": "no-store" } });

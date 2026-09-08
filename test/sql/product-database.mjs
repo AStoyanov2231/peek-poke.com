@@ -563,6 +563,117 @@ try {
   assert(retiredChatRoleGate.rows[0].summary === false && retiredChatRoleGate.rows[0].unread === false && retiredChatRoleGate.rows[0].list === false, "runtime corrections must revoke retired chat-room RPCs from authenticated clients");
   assert(blockedMeetupBeforeCorrection.rows[0].payload.error === "NOT_FOUND" && Array.isArray(blockedMeetupAfterCorrection.rows[0].payload.acknowledgements) && blockedMeetupAfterCorrection.rows[0].payload.acknowledgements.length === 0 && blockedMeetupAfterCorrection.rows[0].payload.canConfirm === false && blockedMeetupConfirmation.rows[0].payload.error === "NOT_FOUND" && blockedMeetupRows.rows[0].count === 0, "a Plan owner must retain an empty meetup-management view after blocking a member while confirmations remain denied");
 
+  const v1DiscoveryDefinitionBeforeV2 = (await db.query("select pg_get_functiondef('public.get_available_people(uuid,integer,integer)'::regprocedure) definition")).rows[0].definition;
+  await db.exec(await sql("supabase/migrations/20260908174342_discovery_context_ranking_v2.sql"));
+  const v1DiscoveryDefinitionAfterV2 = (await db.query("select pg_get_functiondef('public.get_available_people(uuid,integer,integer)'::regprocedure) definition")).rows[0].definition;
+  assert(v1DiscoveryDefinitionAfterV2 === v1DiscoveryDefinitionBeforeV2, "v2 must not alter the legacy v1 discovery function definition");
+  const discoveryIds = {
+    viewer: "90000000-0000-4000-8000-000000000001",
+    friend: "90000000-0000-4000-8000-000000000002",
+    strong: "90000000-0000-4000-8000-000000000003",
+    mutualCandidate: "90000000-0000-4000-8000-000000000004",
+    invalidMutualCandidate: "90000000-0000-4000-8000-000000000005",
+    mutual: "90000000-0000-4000-8000-000000000006",
+    blockedMutual: "90000000-0000-4000-8000-000000000007",
+    deletedMutual: "90000000-0000-4000-8000-000000000008",
+    pendingMutual: "90000000-0000-4000-8000-000000000009",
+    hiddenMutual: "90000000-0000-4000-8000-000000000010",
+    blockedCandidate: "90000000-0000-4000-8000-000000000011",
+    hiddenCandidate: "90000000-0000-4000-8000-000000000012",
+    deletedCandidate: "90000000-0000-4000-8000-000000000013",
+    pendingCandidate: "90000000-0000-4000-8000-000000000014",
+    staleCandidate: "90000000-0000-4000-8000-000000000015",
+    recent: "90000000-0000-4000-8000-000000000016",
+    old: "90000000-0000-4000-8000-000000000017",
+    shared: "90000000-0000-4000-8000-000000000018",
+    tieLow: "90000000-0000-4000-8000-000000000019",
+    tieHigh: "90000000-0000-4000-8000-000000000020",
+  };
+  const ordinaryCandidates = Array.from({ length: 25 }, (_, index) => `80000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`);
+  const discoveryProfiles = [...new Set([...Object.values(discoveryIds), ...ordinaryCandidates])];
+  for (const [index, userId] of discoveryProfiles.entries()) {
+    await db.query("insert into public.profiles(id,username,display_name) values ($1::uuid,$2,$3)", [userId, `discovery-${index}`, `Discovery ${index}`]);
+  }
+  const pendingDiscoveryAccounts = new Set([discoveryIds.pendingMutual, discoveryIds.pendingCandidate]);
+  for (const userId of discoveryProfiles) {
+    if (!pendingDiscoveryAccounts.has(userId)) {
+      await db.query("select public.record_account_age_admission_v1($1::uuid,true)", [userId]);
+    }
+  }
+  for (const userId of discoveryProfiles) {
+    if (pendingDiscoveryAccounts.has(userId)) {
+      await db.query("insert into public.user_availabilities(user_id,activity,expires_at) values ($1::uuid,'coffee',now()+interval '1 hour')", [userId]);
+    } else {
+      await db.query("select public.upsert_user_availability($1::uuid,'coffee',null,60)", [userId]);
+    }
+    await db.query("insert into public.user_locations(user_id,lat,lng,updated_at) values ($1::uuid,42.6977,23.3219,now())", [userId]);
+  }
+  await db.query("update public.user_availabilities set expires_at=date_trunc('second',now())+interval '1 hour', updated_at=date_trunc('second',now()) where user_id = any($1::uuid[])", [discoveryProfiles]);
+  await db.query("update public.user_availabilities set updated_at=now()-interval '16 minutes' where user_id=$1::uuid", [discoveryIds.old]);
+  await db.query("update public.user_locations set updated_at=now()-interval '11 minutes' where user_id=$1::uuid", [discoveryIds.staleCandidate]);
+  await db.query("update public.user_locations set lat=42.69 where user_id=$1::uuid", [discoveryIds.tieLow]);
+
+  const acceptFriendship = async (requesterId, addresseeId) => {
+    await db.query("insert into public.friendships(requester_id,addressee_id,status,responded_at) values ($1::uuid,$2::uuid,'accepted',now())", [requesterId, addresseeId]);
+  };
+  await acceptFriendship(discoveryIds.viewer, discoveryIds.friend);
+  await acceptFriendship(discoveryIds.viewer, discoveryIds.mutual);
+  await acceptFriendship(discoveryIds.mutualCandidate, discoveryIds.mutual);
+  for (const intermediary of [discoveryIds.blockedMutual, discoveryIds.deletedMutual, discoveryIds.pendingMutual, discoveryIds.hiddenMutual]) {
+    await acceptFriendship(discoveryIds.viewer, intermediary);
+    await acceptFriendship(discoveryIds.invalidMutualCandidate, intermediary);
+  }
+  await db.query("insert into public.user_blocks(blocker_id,blocked_id) values ($1::uuid,$2::uuid),($1::uuid,$3::uuid)", [discoveryIds.viewer, discoveryIds.blockedMutual, discoveryIds.blockedCandidate]);
+  await db.query("select public.update_discovery_preference($1::uuid,'hidden'::public.discovery_audience)", [discoveryIds.hiddenMutual]);
+  await db.query("select public.update_discovery_preference($1::uuid,'hidden'::public.discovery_audience)", [discoveryIds.hiddenCandidate]);
+  await db.query("update public.profiles set deleted_at=now() where id in ($1::uuid,$2::uuid)", [discoveryIds.deletedMutual, discoveryIds.deletedCandidate]);
+
+  const discoveryInterestId = "90000000-0000-4000-8000-000000000099";
+  await db.query("insert into public.interest_tags(id,name) values ($1::uuid,'Discovery coffee')", [discoveryInterestId]);
+  await db.query("insert into public.profile_interests(user_id,tag_id) values ($1::uuid,$4::uuid),($2::uuid,$4::uuid),($3::uuid,$4::uuid)", [discoveryIds.viewer, discoveryIds.shared, discoveryIds.tieLow, discoveryInterestId]);
+  await db.query("insert into public.profile_interests(user_id,tag_id) values ($1::uuid,$2::uuid)", [discoveryIds.tieHigh, discoveryInterestId]);
+  const discoveryThreadId = "90000000-0000-4000-8000-000000000098";
+  await db.query("insert into public.dm_threads(id,participant_1_id,participant_2_id) values ($1::uuid,$2::uuid,$3::uuid)", [discoveryThreadId, discoveryIds.viewer, discoveryIds.strong]);
+  await db.query("insert into public.pokes(sender_id,recipient_id,activity,status,expires_at,responded_at,thread_id) values ($1::uuid,$2::uuid,'coffee','accepted',now()+interval '1 hour',now(),$3::uuid)", [discoveryIds.viewer, discoveryIds.strong, discoveryThreadId]);
+  await db.query("insert into public.meetup_acknowledgements(user_a_id,user_b_id,meetup_day,user_a_confirmed_at,user_b_confirmed_at,confirmed_at,expires_at) values ($1::uuid,$2::uuid,current_date,now(),now(),now(),now()+interval '1 day')", [discoveryIds.viewer, discoveryIds.strong]);
+
+  const discoveryV2 = await db.query("select public.get_available_people_v2($1::uuid,100,25) payload", [discoveryIds.viewer]);
+  const discoveryPeople = discoveryV2.rows[0].payload.people;
+  const discoveryById = new Map(discoveryPeople.map((person) => [person.profile.id, person]));
+  const discoveryPosition = (userId) => discoveryPeople.findIndex((person) => person.profile.id === userId);
+  const expectedReasons = new Set(["intent_match", "nearby_friend", "shared_interests", "mutual_friends", "connected_before", "mutual_meetup"]);
+  assert(ordinaryCandidates.length > 20 && discoveryPeople.length > 20, "v2 fixture must include more than the old twenty-candidate pre-limit window");
+  for (const userId of [discoveryIds.blockedCandidate, discoveryIds.hiddenCandidate, discoveryIds.deletedCandidate, discoveryIds.pendingCandidate, discoveryIds.staleCandidate]) {
+    assert(!discoveryById.has(userId), "v2 must filter blocked, hidden, deleted, pending, and stale candidates before ranking and limit");
+  }
+  for (const person of discoveryPeople) {
+    assert(Array.isArray(person.discoveryReasons) && person.discoveryReasons.length <= 3 && person.discoveryReasons.every((reason) => expectedReasons.has(reason)), "v2 reasons must be a bounded allowlist");
+  }
+  assert(JSON.stringify(discoveryById.get(discoveryIds.strong).discoveryReasons) === JSON.stringify(["intent_match", "mutual_meetup", "connected_before"]), "v2 must order direct mutual-meetup and accepted-Poke context before lower-priority reasons");
+  assert(JSON.stringify(discoveryById.get(discoveryIds.friend).discoveryReasons) === JSON.stringify(["intent_match", "nearby_friend"]), "v2 must explain a direct friendship without exposing counts");
+  assert(JSON.stringify(discoveryById.get(discoveryIds.mutualCandidate).discoveryReasons) === JSON.stringify(["intent_match", "mutual_friends"]), "v2 must include only a valid mutual connection");
+  assert(!discoveryById.get(discoveryIds.invalidMutualCandidate).discoveryReasons.includes("mutual_friends"), "blocked, deleted, pending, or hidden intermediaries must not create a mutual-friends reason");
+  assert(JSON.stringify(discoveryById.get(discoveryIds.shared).discoveryReasons) === JSON.stringify(["intent_match", "shared_interests"]), "v2 must explain shared interests without leaking the count");
+  assert(discoveryPosition(discoveryIds.friend) < discoveryPosition(discoveryIds.strong) && discoveryPosition(discoveryIds.strong) < discoveryPosition(discoveryIds.mutualCandidate) && discoveryPosition(discoveryIds.mutualCandidate) < discoveryPosition(discoveryIds.shared), "v2 must rank direct friendship, direct prior interaction, mutual connection, and shared interests in order");
+  assert(discoveryPosition(discoveryIds.recent) < discoveryPosition(discoveryIds.old) && discoveryPosition(discoveryIds.tieLow) < discoveryPosition(discoveryIds.tieHigh), "v2 must use the fifteen-minute recency bucket and stable UUID tie-breaker");
+  assert(discoveryById.get(discoveryIds.tieLow).distanceKm === 2 && discoveryById.get(discoveryIds.tieHigh).distanceKm === 2, "v2 must present equal coarse two-kilometre buckets for nearby candidates");
+  const coarseBucketLimit = await db.query("select public.get_available_people_v2($1::uuid,6,25) payload", [discoveryIds.viewer]);
+  assert(coarseBucketLimit.rows[0].payload.people.at(-1).profile.id === discoveryIds.tieLow && !coarseBucketLimit.rows[0].payload.people.some((person) => person.profile.id === discoveryIds.tieHigh), "the inner limit must use the same coarse distance bucket and UUID tie-breaker as the response ordering");
+  const discoveryTopOne = await db.query("select public.get_available_people_v2($1::uuid,1,25) payload", [discoveryIds.viewer]);
+  assert(discoveryTopOne.rows[0].payload.people[0].profile.id === discoveryIds.friend, "v2 must rank the complete eligible set before applying the limit, rather than preserving an old top-twenty bias");
+  const discoveryV1 = await db.query("select public.get_available_people($1::uuid,100,25) payload", [discoveryIds.viewer]);
+  assert(discoveryV1.rows[0].payload.people.every((person) => !Object.hasOwn(person, "discoveryReasons")), "the unchanged v1 discovery RPC must retain its legacy response shape");
+  const strongPayload = JSON.stringify(discoveryById.get(discoveryIds.strong));
+  assert(!strongPayload.includes(discoveryIds.mutual) && !strongPayload.includes("confirmed_at") && !strongPayload.includes("responded_at") && !strongPayload.includes("mutual_friend_count") && !strongPayload.includes("latitude") && !strongPayload.includes("longitude"), "v2 must not leak intermediary identities, history dates or counts, or precise locations");
+  assert(Object.keys(discoveryV2.rows[0].payload).sort().join(",") === "availability,people", "v2 must keep the top-level discovery DTO minimal");
+  const discoveryV2RoleGate = await db.query("select has_function_privilege('public','public.get_available_people_v2(uuid,integer,integer)','execute') public_read, has_function_privilege('anon','public.get_available_people_v2(uuid,integer,integer)','execute') anon_read, has_function_privilege('authenticated','public.get_available_people_v2(uuid,integer,integer)','execute') authenticated_read, has_function_privilege('service_role','public.get_available_people_v2(uuid,integer,integer)','execute') service_read");
+  assert(discoveryV2RoleGate.rows[0].public_read === false && discoveryV2RoleGate.rows[0].anon_read === false && discoveryV2RoleGate.rows[0].authenticated_read === false && discoveryV2RoleGate.rows[0].service_read === true, "v2 discovery must be executable only by service_role");
+  for (const [limit, radius] of [[null, 25], [100, null]]) {
+    let invalidBoundsCode = null;
+    try { await db.query("select public.get_available_people_v2($1::uuid,$2::integer,$3::integer)", [discoveryIds.viewer, limit, radius]); } catch (error) { invalidBoundsCode = error?.code; }
+    assert(invalidBoundsCode === "22023", "v2 must reject null discovery bounds with SQLSTATE 22023");
+  }
+
   await db.query("update public.profiles set deleted_at=now() where id=$1::uuid", [ids.alex]);
   const tombstonedAdmission = await db.query("select public.read_account_age_admission_v1($1::uuid) payload", [ids.alex]);
   let tombstonedAdmissionWriteRejected = false;

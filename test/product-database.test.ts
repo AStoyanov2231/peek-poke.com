@@ -168,6 +168,53 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     const coinsBefore = await service.from("coin_transactions").select("id").in("user_id", [alice.id, bob.id]);
     expect(coinsBefore.error).toBeNull();
 
+    const freshLocationAt = new Date().toISOString();
+    const discoveryLocations = await service.from("user_locations").upsert([
+      { user_id: alice.id, lat: 42.6977, lng: 23.3219, updated_at: freshLocationAt },
+      { user_id: bob.id, lat: 42.6981, lng: 23.3223, updated_at: freshLocationAt },
+    ], { onConflict: "user_id" });
+    expect(discoveryLocations.error).toBeNull();
+    const [aliceAvailability, bobAvailability] = await Promise.all([
+      api(alice, "/api/availability", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ activity: "coffee", customLabel: null, durationMinutes: 60 }),
+      }),
+      api(bob, "/api/availability", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ activity: "coffee", customLabel: null, durationMinutes: 60 }),
+      }),
+    ]);
+    expect(aliceAvailability.status).toBe(200);
+    expect(bobAvailability.status).toBe(200);
+
+    type DiscoveryPerson = {
+      profile: { id: string };
+      discoveryReasons?: string[];
+    };
+    type DiscoveryResponse = { people: DiscoveryPerson[] };
+    const v1BeforePoke = await api(alice, "/api/availability?radiusKm=2");
+    expect(v1BeforePoke.status).toBe(200);
+    const v1BeforePayload = await v1BeforePoke.json() as DiscoveryResponse;
+    const v1Bob = v1BeforePayload.people.find((person) => person.profile.id === bob.id);
+    expect(v1Bob).toBeDefined();
+    expect(v1Bob).not.toHaveProperty("discoveryReasons");
+
+    const v2BeforePoke = await api(alice, "/api/availability?radiusKm=2&discovery_context=1");
+    expect(v2BeforePoke.status).toBe(200);
+    const v2BeforePayload = await v2BeforePoke.json() as DiscoveryResponse;
+    const v2BobBefore = v2BeforePayload.people.find((person) => person.profile.id === bob.id);
+    expect(v2BobBefore?.discoveryReasons).toEqual(expect.arrayContaining(["intent_match"]));
+    expect(Array.isArray(v2BobBefore?.discoveryReasons)).toBe(true);
+    expect(v2BobBefore?.discoveryReasons?.length).toBeLessThanOrEqual(3);
+    const directV2Discovery = await alice.client.rpc("get_available_people_v2", {
+      p_viewer_id: alice.id,
+      p_limit: 20,
+      p_radius_km: 2,
+    });
+    expect(directV2Discovery.error).not.toBeNull();
+
     const pokeResponse = await api(alice, "/api/pokes", {
       method: "POST",
       headers: { "content-type": "application/json", "idempotency-key": "product-it-poke-create-0001" },
@@ -193,6 +240,24 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     const coinsAfter = await service.from("coin_transactions").select("id").in("user_id", [alice.id, bob.id]);
     expect(coinsAfter.error).toBeNull();
     expect(coinsAfter.data).toHaveLength(coinsBefore.data?.length ?? 0);
+
+    const v2AfterAcceptedPoke = await api(alice, "/api/availability?radiusKm=2&discovery_context=1");
+    expect(v2AfterAcceptedPoke.status).toBe(200);
+    const v2AfterAcceptedPayload = await v2AfterAcceptedPoke.json() as DiscoveryResponse;
+    const v2BobAfter = v2AfterAcceptedPayload.people.find((person) => person.profile.id === bob.id);
+    expect(v2BobAfter?.discoveryReasons).toEqual(expect.arrayContaining(["connected_before"]));
+
+    const staleBobLocation = await service.from("user_locations")
+      .update({ updated_at: new Date(Date.now() - 11 * 60 * 1000).toISOString() })
+      .eq("user_id", bob.id);
+    expect(staleBobLocation.error).toBeNull();
+    const v2AfterStaleLocation = await api(alice, "/api/availability?radiusKm=2&discovery_context=1");
+    expect(v2AfterStaleLocation.status).toBe(200);
+    expect((await v2AfterStaleLocation.json() as DiscoveryResponse).people.some((person) => person.profile.id === bob.id)).toBe(false);
+    const restoredBobLocation = await service.from("user_locations")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("user_id", bob.id);
+    expect(restoredBobLocation.error).toBeNull();
 
     const startsAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
     const capacityPlanResponse = await api(alice, "/api/plans", {
@@ -331,6 +396,9 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
 
     const block = await service.from("user_blocks").insert({ blocker_id: alice.id, blocked_id: bob.id });
     expect(block.error).toBeNull();
+    const v2AfterBlock = await api(alice, "/api/availability?radiusKm=2&discovery_context=1");
+    expect(v2AfterBlock.status).toBe(200);
+    expect((await v2AfterBlock.json() as DiscoveryResponse).people.some((person) => person.profile.id === bob.id)).toBe(false);
     const blockedMeetup = await api(alice, `/api/plans/${meetupPlan.plan.id}/meetups`);
     expect(blockedMeetup.status).toBe(200);
     expect((await blockedMeetup.json()).acknowledgements).toEqual([]);

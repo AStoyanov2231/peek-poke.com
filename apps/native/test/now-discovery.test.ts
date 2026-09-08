@@ -18,4 +18,22 @@ describe("native Now discovery", () => {
     expect(result.friends.map((person) => person.id)).toEqual(["friend"]);
     expect(result.others.map((person) => person.id)).toEqual(["new"]);
   });
+
+  it("keeps the server's discovery ranking inside each social section", () => {
+    const result = splitNearbyPeople([
+      { id: "new-mutual-meetup", distanceKm: 1.8, relationship: "none" },
+      { id: "friend-connected", distanceKm: 1.2, relationship: "friend" },
+      { id: "new-mutual-friends", distanceKm: 0.2, relationship: "none" },
+      { id: "friend-intent", distanceKm: 0.1, relationship: "friend" },
+    ], 2);
+
+    expect(result.others.map((person) => person.id)).toEqual([
+      "new-mutual-meetup",
+      "new-mutual-friends",
+    ]);
+    expect(result.friends.map((person) => person.id)).toEqual([
+      "friend-connected",
+      "friend-intent",
+    ]);
+  });
 });

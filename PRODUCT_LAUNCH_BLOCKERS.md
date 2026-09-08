@@ -43,6 +43,7 @@
 The user authorized verification against the existing MyaouDB database on 2026-09-08 instead of creating a paid branch.
 The user subsequently approved production migration deployment and public publication, and all eighteen migrations, including the adult-admission changes and hosted corrections, are installed.
 The later worker activation exposed and repaired a nineteenth constraint migration; all nineteen are installed, and the sealed recovery package now covers the additional constraint and scheduler state.
+The twentieth migration adds a versioned discovery function while preserving the original contract, with exact hosted definition and grant verification and a new sealed recovery layer.
 Hosted tests exposed the two corrective migration requirements despite the earlier local and read-only compatibility checks.
 Those corrections are installed and the hosted product/shared-group suites now pass.
 Local browser fixtures, native Simulator journeys, and the real local PostgreSQL harness pass implemented behavior but cannot establish provider, physical-device, or isolated-environment readiness.

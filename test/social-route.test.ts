@@ -47,6 +47,16 @@ describe("social API routes", () => {
     expect(invalid.status).toBe(400);
   });
 
+  it("uses the versioned discovery RPC only after explicit context opt-in", async () => {
+    rpc.mockResolvedValue({ data: { availability: null, people: [] }, error: null });
+    const response = await availabilityGet(new Request("https://app.test/api/availability?discovery_context=1"), {} as never);
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("get_available_people_v2", { p_viewer_id: USER, p_limit: 20, p_radius_km: 25 });
+
+    const invalid = await availabilityGet(new Request("https://app.test/api/availability?discovery_context=0"), {} as never);
+    expect(invalid.status).toBe(400);
+  });
+
   it("records first availability activation only after a validated successful mutation", async () => {
     rpc.mockResolvedValue({ data: { availability: {
       id: POKE, userId: USER, activity: "coffee", customLabel: null,

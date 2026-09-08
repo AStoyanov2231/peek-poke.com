@@ -6,6 +6,24 @@ Updated: 2026-09-08.
 
 ## Current continuation
 
+The Settings policy-navigation correction merged through [PR #11](https://github.com/AStoyanov2231/peek-poke.com/pull/11) as `072fc488cc62a6274089e4722abbc076f708887f` with all eight required checks passing and a Ready production deployment.
+The final brief review then identified missing mutual-connection and prior-interaction discovery ranking, plus a native signed-invite token lost during authentication redirects.
+Web and native Now now opt into a versioned discovery response, preserve server ranking, and display at most two compact context labels.
+The database function ranks eligible adults using intent, friendship, mutually acknowledged meetups, accepted Pokes, visible mutual friends, interests, a fifteen-minute recency bucket, coarse distance, and a stable tie-breaker.
+It excludes blocked, hidden, deleted, non-admitted, or stale-location candidates before limiting results and does not expose intermediary identities, graph counts, or new history timestamps.
+The original RPC and default API response retain their previous contracts.
+Native login, age admission, and onboarding now preserve actual signed invitation tokens through to explicit Connect.
+
+The twentieth additive migration was applied after saving the absent-function state, exact legacy definition and grants, full migration history, and a rehearsed guarded rollback.
+Its hosted definition and ACL match the rehearsal, the original function is unchanged, and a read-only hosted invocation succeeds.
+The sealed twenty-migration recovery archive and fresh-extraction checksum verification are documented in [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md).
+No production rollback was executed.
+Local web lint and 1,368 tests pass with ten explicitly configured integration skips; native lint, typecheck, 516 Vitest tests, and 98 platform renderer tests pass.
+The actual SQL harness passes ranking-before-limit, privacy, service grants, legacy-definition preservation, null-bound rejection, and coarse-distance tie-break regressions.
+The local production build remains blocked by the previously observed Turbopack CSS-worker port-binding restriction, including an escalated attempt.
+The strengthened Now browser journey and scoped hosted v2 API assertions are prepared for CI and post-release validation in [PR #12](https://github.com/AStoyanov2231/peek-poke.com/pull/12).
+The source is published; required CI, merge, and deployed API verification remain pending.
+
 The Plan-link, native Plan recovery, and optional suggestion-provider batch merged through [PR #10](https://github.com/AStoyanov2231/peek-poke.com/pull/10) as `3f4be1b074dee0894433e8b5fd18cc6957abdb88`.
 All eight checks passed, the deployment reached Ready, the public iOS association served both invitation and Plan paths, and the scoped deployed social API suite passed.
 That brief-fidelity review found that the suggestions interface had no configurable AI implementation and the native Plan feed lacked complete refresh and recovery states.
@@ -36,14 +54,14 @@ An approved external monitor and notification recipient remain required, with th
 
 ## Current state
 
-The web redesign and nineteen database migrations are deployed after the user's approval.
+The web redesign and twenty database migrations are deployed after the user's approval.
 PRs #7 and #8 established the verified web release at `d41ea0b312de6eee8cf9d98b8242628dc7a978e6` with passing required CI.
 Its recovery deployment `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` passed public-domain and API verification in `dub1`, matching Supabase's Dublin region.
 The native-flow source and browser correction merged through [PR #9](https://github.com/AStoyanov2231/peek-poke.com/pull/9) as `7a2c37141e81c94e3cc65af730f6579d713c819b` after all required checks passed.
 That release passed the deployed age-admission and social API suites and public desktop/mobile rendering checks.
 PR #10 subsequently shipped the Plan association and optional provider code with its full CI and scoped live verification described above.
 All 31 authorized queued events completed, and the recurring worker returned HTTP 200 after deployment.
-The saved migration-specific recovery package covers all nineteen changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
+The saved migration-specific recovery package covers all twenty changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
 The current database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 182 migration entries.
 
 The native development build now includes editable chat reply suggestions, Now radius and low-density actions, prioritized Inbox selection, and removal of unavailable map-coin controls.
@@ -642,3 +660,6 @@ Native binary distribution and physical-device acceptance remain separate launch
 The first PR #9 browser run exposed an outdated assertion expecting a venue choice to replace the previous reply suggestion.
 Updated the actual chat journey to start with a typed draft, preserve it through both reply and venue selection, and verify zero message POST requests.
 The focused real-browser rerun passes in 9.1 seconds, with the full required CI rerun tracked in PR #9.
+
+The final discovery review also corrected a verification gap: CI previously discarded the screenshots produced by the browser journeys.
+The browser job now retains only synthetic fixture PNGs for fourteen days, allowing direct desktop/mobile inspection before release.

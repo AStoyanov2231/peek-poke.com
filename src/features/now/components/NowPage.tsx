@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/dialog";
 import { PokeDialog } from "@/features/social/components/PokeDialog";
 import { activities, activityInfo, remainingAvailability } from "../activities";
+import { activePeopleWithinRadius } from "../discovery-order";
+import { conciseDiscoveryReasonLabels } from "../discovery-reasons";
 import { AvailabilityEditor } from "./AvailabilityEditor";
 
 const availabilityKey = ["web", "availability"] as const;
@@ -55,7 +57,7 @@ export function NowPage() {
   const locationStatus = useAppStore((state) => state.locationStatus);
   const query = useQuery({
     queryKey: availabilityKey,
-    queryFn: ({ signal }) => fetchAvailability(signal),
+    queryFn: ({ signal }) => fetchAvailability({ discoveryContext: true, signal }),
     enabled: Boolean(userId),
     refetchInterval: 30_000,
   });
@@ -82,23 +84,8 @@ export function NowPage() {
       ? query.data.availability
       : null;
   const available = useMemo(
-    () =>
-      (query.data?.people ?? [])
-        .filter(
-          (person) =>
-            Date.parse(person.availability.expiresAt) > now &&
-            person.distanceKm <= radius,
-        )
-        .sort((a, b) => {
-          const score = (p: AvailablePerson) =>
-            (p.availability.activity === (selected ?? availability?.activity)
-              ? 5
-              : 0) +
-            (p.relationship === "friend" ? 2 : 0) +
-            Math.min(p.sharedInterestNames.length, 3);
-          return score(b) - score(a) || a.distanceKm - b.distanceKm;
-        }),
-    [query.data?.people, radius, now, selected, availability?.activity],
+    () => activePeopleWithinRadius(query.data?.people ?? [], radius, now),
+    [query.data?.people, radius, now],
   );
   const mutation = useMutation({
     mutationFn: saveAvailability,
@@ -571,6 +558,7 @@ function PersonCard({
   const activity = activityInfo(availability.activity);
   const Icon = activity.Icon;
   const name = profile.display_name ?? profile.username;
+  const discoveryLabels = conciseDiscoveryReasonLabels(person.discoveryReasons);
   return (
     <article className="person-intent-card">
       <div className="flex items-center justify-between">
@@ -600,11 +588,20 @@ function PersonCard({
           </p>
         </div>
       </Link>
-      <p className="person-common">
-        {person.sharedInterestNames.length
-          ? `You both like ${person.sharedInterestNames.slice(0, 3).join(", ")}`
-          : "A new face. A shared idea."}
-      </p>
+      {person.sharedInterestNames.length || !discoveryLabels.length ? (
+        <p className="person-common">
+          {person.sharedInterestNames.length
+            ? `You both like ${person.sharedInterestNames.slice(0, 3).join(", ")}`
+            : person.relationship === "friend"
+              ? "A familiar face. A fresh idea."
+              : "A new face. A shared idea."}
+        </p>
+      ) : null}
+      {discoveryLabels.length ? (
+        <p className="my-4 text-xs font-medium text-ink-6">
+          {discoveryLabels.join(" · ")}
+        </p>
+      ) : null}
       <button
         type="button"
         className="btn btn-accent btn-md w-full"
