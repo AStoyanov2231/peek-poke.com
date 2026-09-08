@@ -6,6 +6,27 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
+The goal remains active and incomplete.
+Expo login is verified as `andy2231`, and EAS created and linked `@andy2231/peek-poke`, project ID `e0631d17-11c0-47e9-a4fe-d577f0e6e06e`.
+Project creation did not start a build or submission; release signing, distribution, and physical-device verification remain open.
+Temporary Poke conversations are in local implementation using a working default of 24 hours after the latest acceptance, with readable history preserved.
+The duration is an implementation assumption, not a user-confirmed policy.
+The new shared access contract, service-owned facts endpoint, database message/call guards, delayed-call delivery check, and API expiry responses are implemented locally.
+Web and native now hide new interaction controls when access is loading, unavailable, or expired, while retaining readable history, drafts, and deletion controls.
+The expired state offers the existing Poke composer; sending alone does not reopen the conversation.
+The browser regression first reproduced the missing expiry UI, then passed history retention, hidden composer/call controls, opening the new Poke dialog, timer expiry, access-service failure, draft recovery after renewal, and zero message sends.
+That journey exposed the global disabled focus-refresh default; this permission query now explicitly refreshes on web focus, while native refreshes on screen focus and foreground activation.
+Desktop/mobile visual inspection corrected missing size classes on the new Poke action, and the final screenshots are retained under `test-results/e2e/expired-chat-*.png`.
+The first SQL fixture failure was an unqualified table in its interaction helper under the migration's restricted search path; the corrected harness passes 23 assertions, including delayed-call authorization after renewal and denial after blocking.
+The focused API/contract suite passes 106 tests, and the native hook passes six iOS/Android tests covering expiry, refreshed renewal, access failure, and account-switch isolation.
+The complete local suites pass 1,387 web tests, 531 native logic tests, 126 platform renderer tests, and fifteen browser journeys; ten hosted-only tests remain intentionally skipped outside their explicit runner.
+Accepted-Poke and friendship realtime recovery now invalidate account-scoped conversation access on both clients, keeping the database response authoritative rather than trusting event payloads.
+The focused realtime transport rerun passes four tests.
+A fresh hosted read confirms authenticated users have only SELECT on messages, no direct call/Poke table writes, and no client write-column grants.
+The database has no existing accepted Pokes and remains at 183 migrations; the proposed migration has not been applied to production.
+React Doctor reports 92/100 with four chat-component complexity/state warnings and no errors; the scoped design detector reports no findings, and no new suppression was added.
+Real RPC replay/concurrency proof, the new guarded rollback layer, complete native runtime verification, and release gates still need completion before production activation.
+
 The next packaged Android check reproduced profile invitation links losing their token on cold launch while the same warm link reached Connect.
 The invitation entry route now survives session hydration, while a screen-level boundary withholds all preview reads and Connect until an adult account is resolved.
 Signed-out warm invitations explicitly retain their token through sign-in routing.

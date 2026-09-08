@@ -418,6 +418,8 @@ createServer(async (req, res) => {
       pagination: page,
     });
   }
+  if (url.pathname === `/api/dm/${threadId}/access`)
+    return json(res, { version: "v1", account_id: ownerId, thread_id: threadId, basis: "legacy", expires_at: null, server_now: now() });
   if (url.pathname === `/api/dm/${threadId}/read`) return json(res, { success: true, last_read_sequence: 0 });
   if (url.pathname === `/api/dm/${threadId}/typing` && method === "POST")
     return json(res, { success: true });

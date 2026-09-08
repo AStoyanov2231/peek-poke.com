@@ -99,6 +99,14 @@ describe("POST /api/dm/[threadId]/call", () => {
     eligibility.canInteract.mockResolvedValue({ eligible: true });
   });
 
+  it("returns conversation expiry without broadcasting a new call", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: "PT409", message: "POKE_CONVERSATION_EXPIRED" } });
+    const response = await request({ version: 1, type: "invite", commandId: COMMAND, callId: CALL });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: "POKE_CONVERSATION_EXPIRED" });
+    expect(mocks.broadcast).not.toHaveBeenCalled();
+  });
+
   it("derives ownership server-side, commits the strict invite, and broadcasts the canonical event", async () => {
     const command = { version: 1 as const, type: "invite" as const, commandId: COMMAND, callId: CALL };
     const response = await request(command);

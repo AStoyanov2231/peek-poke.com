@@ -36,6 +36,8 @@ import {
   webQueryKeys,
   type ThreadQueryData,
 } from "@/data/web-query";
+import { useConversationAccess } from "@/features/chat/useConversationAccess";
+import { PokeDialog } from "@/features/social/components/PokeDialog";
 import { useTypingIndicator } from "@/features/chat/useTypingIndicator";
 import { uploadAndSendChatMedia } from "@/features/chat/upload-chat-media";
 import { sendPreparedWebChatMessage } from "@/data/chat-message";
@@ -89,6 +91,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   } | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [hasPendingImage, setHasPendingImage] = useState(false);
+  const [pokeOpen, setPokeOpen] = useState(false);
   const [planComposerOpen, setPlanComposerOpen] = useState(false);
   const [planPlacePrefill, setPlanPlacePrefill] = useState("");
   const lifecycleOwnerRef = useRef<PropertyKey | null>(null);
@@ -117,6 +120,8 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     ? (thread.participant_1_id === user?.id ? thread.participant_2 : thread.participant_1)
     : null;
   const isReadOnly = other?.account_deleted === true;
+  const access = useConversationAccess(threadId, user?.id);
+  const canInteract = !isReadOnly && access.canInteract;
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, user?.id);
 
   const isOtherOnline = other?.is_online === true && !isReadOnly;
@@ -218,6 +223,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canInteract) return;
     const content = input.trim();
     if (!content) return;
 
@@ -303,7 +309,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   };
 
   const handleImage = async (file: File) => {
-    if (!user?.id || uploadingImage || sendMutation.isPending) return;
+    if (!canInteract || !user?.id || uploadingImage || sendMutation.isPending) return;
     const token = sendLifecycle.begin();
     if (!token) return;
     sendAttempts.cancel();
@@ -346,7 +352,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
 
   const handleRetryImage = async () => {
     const attempt = sendAttempts.peek();
-    if (!attempt?.draft.mediaUrl || uploadingImage || sendMutation.isPending) return;
+    if (!canInteract || !attempt?.draft.mediaUrl || uploadingImage || sendMutation.isPending) return;
     const token = sendLifecycle.begin();
     if (!token) return;
     setUploadingImage(true);
@@ -368,6 +374,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   };
 
   const handleEdit = useCallback((msg: DMMessage) => {
+    if (!canInteract) return;
     if (!sendAttempts.cancel()) return;
     if (!messageMutations.cancel()) return;
     setHasPendingImage(false);
@@ -376,17 +383,17 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
     setEditError(null);
     setInput(msg.content ?? "");
     setReplyingTo(null);
-  }, [messageMutations, sendAttempts, setInput]);
+  }, [canInteract, messageMutations, sendAttempts, setInput]);
 
   const handleReply = useCallback((msg: DMMessage) => {
-    if (isReadOnly) return;
+    if (!canInteract) return;
     if (!sendAttempts.cancel()) return;
     setHasPendingImage(false);
     setReplyingTo(msg);
     setEditingMessage(null);
     setEditError(null);
     setInput("");
-  }, [isReadOnly, sendAttempts, setInput]);
+  }, [canInteract, sendAttempts, setInput]);
 
   const handleCancelEdit = useCallback(() => {
     if (!sendAttempts.cancel()) return;
@@ -403,7 +410,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   }, [sendAttempts]);
 
   const handleStartCall = useCallback(() => {
-    if (!user?.id || !other || isReadOnly) return;
+    if (!user?.id || !other || !canInteract) return;
     const callId = crypto.randomUUID();
     startOutgoingCall(user.id, threadId, callId, {
       id: other.id,
@@ -411,7 +418,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
       username: other.username,
       avatar_url: other.avatar_url,
     });
-  }, [user?.id, threadId, other, isReadOnly, startOutgoingCall]);
+  }, [user?.id, threadId, other, canInteract, startOutgoingCall]);
 
   const replyingToDisplay = replyingTo ? {
     senderName: replyingTo.sender_id === user?.id
@@ -446,16 +453,16 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
       <ChatHeader
         other={other}
         isOnline={isOtherOnline}
-        isTyping={isPeerTyping}
+        isTyping={canInteract && isPeerTyping}
         onBack={() => router.push("/inbox")}
-        onStartCall={isReadOnly ? undefined : handleStartCall}
+        onStartCall={canInteract ? handleStartCall : undefined}
       />
 
       {readReceipt.error ? (
         <ReadReceiptRecovery pending={readReceipt.isPending} onRetry={readReceipt.retry} />
       ) : null}
 
-      {!isReadOnly && other ? (
+      {canInteract && other ? (
         <ChatProximityBanner
           key={other.id}
           name={other.display_name || other.username}
@@ -464,7 +471,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         />
       ) : null}
 
-      {!isReadOnly && user && other && sociallyEligible ? <MeetupAcknowledgement accountId={user.id} peerId={other.id} name={other.display_name || other.username} onPlanAgain={() => setPlanComposerOpen(true)} /> : null}
+      {canInteract && user && other && sociallyEligible ? <MeetupAcknowledgement accountId={user.id} peerId={other.id} name={other.display_name || other.username} onPlanAgain={() => setPlanComposerOpen(true)} /> : null}
 
       <ChatMessageList
         messages={messages}
@@ -473,41 +480,11 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         isLoadingOlder={conversationQuery.isFetchingNextPage}
         onLoadOlder={() => { void conversationQuery.fetchNextPage(); }}
         onDelete={handleDelete}
-        onEdit={handleEdit}
+        onEdit={canInteract ? handleEdit : undefined}
         onReply={handleReply}
-        canReply={!isReadOnly}
+        canReply={canInteract}
       />
 
-      {isReadOnly && !editingMessage ? (
-        <div className="border-t border-hairline bg-surface px-4 py-4 text-center t-caption text-ink-5">
-          This account was deleted. The conversation history is read-only.
-        </div>
-      ) : (
-        <>
-          <ChatMomentumActions
-            threadId={threadId}
-            threadReady={Boolean(thread)}
-            hasMessages={messages.length > 0}
-            onChooseReply={(suggestion) => {
-              if (editingMessage) return;
-              setInput(appendEditableChatSuggestion(input, suggestion));
-            }}
-            onMakePlan={() => { setPlanPlacePrefill(""); setPlanComposerOpen(true); }}
-            onMeetHere={(venue) => { setPlanPlacePrefill(venue.name); setPlanComposerOpen(true); }}
-          />
-          {hasPendingImage ? (
-            <div className="mx-4 flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface px-3 py-2 text-[12px] text-ink-6 md:mx-auto md:w-full md:max-w-xl">
-              <span>Photo ready to retry without uploading again.</span>
-              <div className="flex shrink-0 gap-2">
-                <button type="button" className="font-semibold text-accent" onClick={() => void handleRetryImage()}>
-                  Retry
-                </button>
-                <button type="button" className="text-ink-5" onClick={handleDiscardImage}>
-                  Discard
-                </button>
-              </div>
-            </div>
-          ) : null}
           {deleteRecovery ? (
             <div
               role="alert"
@@ -534,6 +511,50 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
               </div>
             </div>
           ) : null}
+
+      {pokeOpen && other && !isReadOnly ? <PokeDialog recipient={other} onClose={() => setPokeOpen(false)} onSent={() => { setPokeOpen(false); void access.refetch(); }} /> : null}
+      {isReadOnly ? (
+        <div className="border-t border-hairline bg-surface px-4 py-4 text-center t-caption text-ink-5">
+          This account was deleted. The conversation history is read-only.
+        </div>
+      ) : !access.canInteract ? (
+        <div className="border-t border-hairline bg-surface px-4 py-4 text-center" role="status">
+          <p className="t-body-b text-ink-9">{access.isError ? "Conversation access is unavailable." : access.expired ? "This Poke conversation has ended." : "Checking conversation access…"}</p>
+          {access.expired && !access.isError ? (
+            <>
+              <p className="mt-1 t-caption text-ink-6">Your history and draft are saved. A new accepted Poke opens another 24 hours.</p>
+              <button type="button" className="btn btn-accent btn-lg mt-3" onClick={() => setPokeOpen(true)}>Send a new Poke</button>
+            </>
+          ) : access.isError ? (
+            <button type="button" className="btn btn-secondary btn-lg mt-3" disabled={access.isFetching} onClick={() => void access.refetch()}>Retry conversation access</button>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <ChatMomentumActions
+            threadId={threadId}
+            threadReady={Boolean(thread) && canInteract}
+            hasMessages={messages.length > 0}
+            onChooseReply={(suggestion) => {
+              if (editingMessage) return;
+              setInput(appendEditableChatSuggestion(input, suggestion));
+            }}
+            onMakePlan={() => { setPlanPlacePrefill(""); setPlanComposerOpen(true); }}
+            onMeetHere={(venue) => { setPlanPlacePrefill(venue.name); setPlanComposerOpen(true); }}
+          />
+          {hasPendingImage ? (
+            <div className="mx-4 flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface px-3 py-2 text-[12px] text-ink-6 md:mx-auto md:w-full md:max-w-xl">
+              <span>Photo ready to retry without uploading again.</span>
+              <div className="flex shrink-0 gap-2">
+                <button type="button" className="font-semibold text-accent" onClick={() => void handleRetryImage()}>
+                  Retry
+                </button>
+                <button type="button" className="text-ink-5" onClick={handleDiscardImage}>
+                  Discard
+                </button>
+              </div>
+            </div>
+          ) : null}
           <ChatComposer
             value={input}
             onChange={(value) => {
@@ -545,7 +566,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
                 if (!value.trim() || !sendAttempts.matches(nextDraft)) sendAttempts.cancel();
               }
               setInput(value);
-              if (value.trim() && !editingMessage) notifyTyping();
+              if (canInteract && value.trim() && !editingMessage) notifyTyping();
             }}
             onSubmit={handleSend}
             isPending={sendMutation.isPending || editMutation.isPending || uploadingImage}

@@ -96,6 +96,15 @@ describe("DM message mutation route", () => {
     expect(database.rpc).not.toHaveBeenCalled();
   });
 
+  it("returns an actionable expiry error with the edit retry identity intact", async () => {
+    database.rpc.mockResolvedValue({ data: null, error: { code: "PT409", message: "POKE_CONVERSATION_EXPIRED" } });
+    const response = await PATCH(request("PATCH", { body: { content: "changed" } }), {} as never);
+    expect(response.status).toBe(409);
+    expect(response.headers.get("idempotency-key")).toBe(KEY);
+    expect(response.headers.get("x-idempotency-replayed")).toBe("false");
+    expect(await response.json()).toMatchObject({ code: "POKE_CONVERSATION_EXPIRED" });
+  });
+
   it("applies one strict normalized edit through the atomic RPC", async () => {
     const body = { message: responseMessage("edit") };
     database.rpc.mockResolvedValue({

@@ -1,3 +1,4 @@
+import { conversationExpiredResponse, isConversationExpiryError } from "@/lib/dm-conversation-access";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -190,6 +191,7 @@ export const POST = withAuth<{ threadId: string }>(
           p_event_type: command.type,
           p_payload_hash: payloadHash,
         });
+    if (isConversationExpiryError(rpcResult.error)) return conversationExpiredResponse();
     if (rpcResult.error) return callCommandError(rpcResult.error.code);
 
     const parsedResult = callCommandResultSchema.safeParse(rpcResult.data);

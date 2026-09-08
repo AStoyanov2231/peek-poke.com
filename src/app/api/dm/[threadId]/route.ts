@@ -1,3 +1,4 @@
+import { conversationExpiredResponse, isConversationExpiryError } from "@/lib/dm-conversation-access";
 import { NextResponse } from "next/server";
 import {
   API_VERSION,
@@ -272,6 +273,8 @@ export const POST = withAuth<{ threadId: string }>(async (request, { user, supab
 
   // Migration-first invariant: never fall back to the non-idempotent legacy
   // RPC. The durable migration must be promoted before application traffic.
+  if (isConversationExpiryError(error)) return conversationExpiredResponse();
+
   if (error?.code === "PGRST202") {
     return messageSendUnavailable();
   }

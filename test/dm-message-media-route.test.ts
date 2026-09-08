@@ -435,6 +435,13 @@ describe("POST /api/dm/[threadId] mutation response contract", () => {
     );
   });
 
+  it("reports database expiry as a conflict instead of a generic send failure", async () => {
+    database.rpc.mockResolvedValue({ data: null, error: { code: "PT409", message: "POKE_CONVERSATION_EXPIRED" } });
+    const response = await textRequest();
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: "POKE_CONVERSATION_EXPIRED" });
+  });
+
   it("fails closed with a retryable 503 when the migration-first transactional RPC is missing", async () => {
     database.rpc.mockResolvedValue({ data: null, error: { code: "PGRST202" } });
 

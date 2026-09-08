@@ -28,6 +28,7 @@ export * from "./read-receipt";
 export * from "./call-signaling";
 export * from "./call-command-queue";
 export * from "./dm-message-mutation";
+export * from "./dm-conversation-access";
 
 export * from "./social";
 export * from "./plans";

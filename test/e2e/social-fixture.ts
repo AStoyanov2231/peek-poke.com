@@ -14,7 +14,7 @@ const pageInfo = {
 };
 export async function installSocialFixture(
   page: Page,
-  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean; discoveryContext?: boolean; ageAdmission?: "pending" | "adult" | "blocked" } = {},
+  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean; discoveryContext?: boolean; expiredPokeChat?: boolean; ageAdmission?: "pending" | "adult" | "blocked" } = {},
 ) {
   const now = new Date().toISOString();
   const later = new Date(Date.now() + 60 * 60_000).toISOString();
@@ -317,6 +317,8 @@ export async function installSocialFixture(
         total_unread: 0,
         pagination: pageInfo,
       });
+    if (path === `/api/dm/${threadId}/access`)
+      return json({ version: "v1", thread_id: threadId, account_id: ownerId, basis: options.expiredPokeChat ? "poke" : "legacy", expires_at: options.expiredPokeChat ? new Date(Date.now() - 60_000).toISOString() : null, server_now: new Date().toISOString() });
     if (path === `/api/dm/${threadId}`)
       return json({
         thread: {
@@ -330,7 +332,11 @@ export async function installSocialFixture(
           participant_1: owner,
           participant_2: peer,
         },
-        messages: [],
+        messages: options.expiredPokeChat ? [{
+          id: "abababab-abab-4bab-8bab-abababababab", thread_id: threadId, sender_id: peerId,
+          content: "See you by the café.", message_type: "text", media_url: null, media_thumbnail_url: null,
+          is_read: true, is_edited: false, is_deleted: false, created_at: now, reply_to_id: null, reply_to: null,
+        }] : [],
         pagination: pageInfo,
       });
     if (path.endsWith("/suggestions"))

@@ -1,3 +1,4 @@
+import { requireNewDmInteraction } from "@/lib/dm-conversation-access";
 import { withAuth, isBlocked, verifyThreadMembership } from "@/lib/auth";
 import { apiError } from "@/lib/api-error";
 import { isValidUUID } from "@/lib/validation";
@@ -21,6 +22,9 @@ export const GET = withNoStore(withAuth<Params>(
         : thread.participant_1_id;
     if (await isBlocked(supabase, user.id, peerId))
       return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
+    const accessError = await requireNewDmInteraction(params.threadId, user.id);
+    if (accessError) return accessError;
+
     try {
       const data = await contextualChatSuggestions(params.threadId, user.id, peerId);
       return NextResponse.json(data, {

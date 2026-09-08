@@ -1,6 +1,6 @@
 import { fixtureSupabaseOrigin } from "./fixture-origin";
 import { expect, test } from "@playwright/test";
-import { installSocialFixture, peerId, planId, threadId } from "./social-fixture";
+import { installSocialFixture, ownerId, peerId, planId, threadId } from "./social-fixture";
 const email = process.env.E2E_EMAIL ?? "e2e@peek-poke.test";
 const password = process.env.E2E_PASSWORD ?? "fixture-password";
 const canRun = process.env.E2E_FIXTURE === "1";
@@ -8,6 +8,50 @@ const canRun = process.env.E2E_FIXTURE === "1";
 test.describe("redesigned social journey", () => {
   test.use({ timezoneId: "Europe/Sofia" });
   test.skip(!canRun, "Requires an isolated loopback environment.");
+  test("expired Poke conversation preserves readable history without offering new messages", async ({ page }) => {
+    await installSocialFixture(page, { expiredPokeChat: true });
+    await page.goto(`/login?redirectTo=/chat/${threadId}`);
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === `/chat/${threadId}`);
+    await expect(page.getByText("See you by the café.", { exact: true })).toBeVisible();
+    await expect(page.getByText("This Poke conversation has ended.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Message...", exact: true })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Send a new Poke", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start video call" })).not.toBeVisible();
+    await page.screenshot({ path: "test-results/e2e/expired-chat-desktop.png" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: "test-results/e2e/expired-chat-mobile.png" });
+    await page.getByRole("button", { name: "Send a new Poke", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("dialog")).toContainText("Mila");
+  });
+  test("chat expiry preserves a draft through access failure and accepted renewal", async ({ page }) => {
+    const fixture = await installSocialFixture(page, { expiredPokeChat: true });
+    let accessMode: "active" | "error" | "renewed" = "active";
+    await page.route(`**/api/dm/${threadId}/access`, async (route) => {
+      if (accessMode === "error") return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Unavailable", code: "CONVERSATION_ACCESS_UNAVAILABLE", requestId: null }) });
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify({ version: "v1", account_id: ownerId, thread_id: threadId, basis: "poke", expires_at: new Date(Date.now() + (accessMode === "renewed" ? 86_400_000 : 4_000)).toISOString(), server_now: new Date().toISOString() }) });
+    });
+    await page.goto(`/login?redirectTo=/chat/${threadId}`);
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === `/chat/${threadId}`);
+    await page.getByRole("textbox", { name: "Message...", exact: true }).fill("I can meet tomorrow");
+    await expect(page.getByText("This Poke conversation has ended.", { exact: true })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole("textbox", { name: "Message...", exact: true })).not.toBeVisible();
+    accessMode = "error";
+    // Refocus triggers the same access refresh used when returning to the app.
+    await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await expect(page.getByText("Conversation access is unavailable.", { exact: true })).toBeVisible();
+    accessMode = "renewed";
+    await page.getByRole("button", { name: "Retry conversation access" }).click();
+    await expect(page.getByRole("textbox", { name: "Message...", exact: true })).toHaveValue("I can meet tomorrow");
+    expect(fixture.apiRequests.filter((r) => r.path === `/api/dm/${threadId}` && r.method === "POST")).toHaveLength(0);
+  });
   test("age admission sends adults to their intended destination and keeps blocked accounts out of social routes", async ({ page, browser }) => {
     const adultFixture = await installSocialFixture(page, { ageAdmission: "pending" });
     await page.goto("/login?redirectTo=/now");

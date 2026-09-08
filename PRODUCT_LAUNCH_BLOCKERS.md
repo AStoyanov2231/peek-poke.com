@@ -16,7 +16,7 @@
 - [x] Prove erasure lock ordering and bounded stale-location cleanup with a deterministic local PostgreSQL 17 two-session harness using real lock-wait evidence and synthetic data.
 - [x] Merge PR #7 into master and deploy the matching web contract after the verified database changes.
 - [x] Pass the scoped deployed age-admission and social API suites, including production Redis-backed rate limiting and exact fixture cleanup.
-- [ ] Release and verify the matching native binary on physical devices.
+- [ ] Release and verify the matching native binary on physical devices; Expo login and the `@andy2231/peek-poke` project link are verified, while signing and distribution remain unfinished.
 - [ ] Configure isolated Preview and Development environments before using them; Production has 22 production-only variables, while Preview and Development remain unconfigured following the shared-variable recovery described in [environment-isolation-recovery.md](docs/production-baseline/environment-isolation-recovery.md).
 - [x] Configure a generated production-only `CRON_SECRET` and verify its matching Supabase Vault value without exporting either secret.
 - [x] Authorize processing the 31 existing queued events and verify the authenticated Supabase-to-Vercel worker request.
@@ -38,7 +38,7 @@
 - [x] Reproduce and repair hosted age-release regressions, close retired chat RPC access, and seal the eighteen-migration rollback.
 - [x] Verify the native pending birth-date, review-before-submit, and blocked age-admission recovery screens in the Simulator.
 - [ ] Choose and operate a support/privacy contact; the user has not selected an address.
-- [ ] Decide the accepted-Poke chat lifecycle from the brief's temporary-chat requirement; current chats stay open without automatic friendship, and the user has been asked about optional 24-hour closure with readable history preserved.
+- [ ] Complete and release the temporary-chat lifecycle, currently in local implementation using a working default of 24 hours after the latest accepted Poke, with history and drafts preserved; the duration is not user-confirmed.
 - [ ] Rehearse backups/PITR, restore, provider outages, load limits, canary release, and rollback using the existing production-baseline checklist.
 - [ ] Before enabling meetup coin rewards, select and implement trusted-presence verification with server challenges, assertion validation, replay protection, and atomic award consumption; device/app integrity alone does not verify GPS proximity.
 - [ ] Prove the selected reward mechanism on two physical devices, including freshness, replay rejection, blocks, distant participants, and concurrent awards.

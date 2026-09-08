@@ -1,3 +1,4 @@
+import { requireNewDmInteraction } from "@/lib/dm-conversation-access";
 import { withAuth, isBlocked, isDeletedProfile, verifyThreadMembership } from "@/lib/auth";
 import { apiError } from "@/lib/api-error";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -25,6 +26,9 @@ export const GET = withNoStore(withAuth<Params>(async (_request, { user, params,
   const peerId = thread.participant_1_id === user.id ? thread.participant_2_id : thread.participant_1_id;
   if (await isBlocked(supabase, user.id, peerId)) return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
   if (await isDeletedProfile(peerId)) return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
+
+  const accessError = await requireNewDmInteraction(params.threadId, user.id);
+  if (accessError) return accessError;
 
   const db = createServiceClient();
   const freshAfter = new Date(Date.now() - 10 * 60_000).toISOString();
