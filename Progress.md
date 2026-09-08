@@ -20,7 +20,13 @@ Native provider failures now show a short recovery message instead of the reprod
 Temporary diagnostic logging was removed, the app-specific Simulator location permission was restored to its original denied state, and the synthetic coordinate was cleared.
 The local gates pass 1,371 web tests with ten intentional skips, 521 native logic tests, 100 platform renderer tests, root/native lint, and native typecheck.
 All twelve local browser journeys pass in 52.6 seconds.
-[PR #13](https://github.com/AStoyanov2231/peek-poke.com/pull/13) tracks the required CI, master merge, and deployment checks for this batch.
+[PR #13](https://github.com/AStoyanov2231/peek-poke.com/pull/13) passed all eight required checks and merged into master as `8f7c47ad0d702893b8e571f270bd8838aae0c4c9`.
+The matching production deployment reached Ready in Dublin and serves both canonical domains.
+Read-only post-release checks returned HTTP 200 for both homepages, Terms, Privacy, and the iOS association endpoint.
+The deployment-scoped error/fatal log query returned no entries in the initial observation window; this does not establish ongoing alert coverage.
+No new database migration or provider configuration change was made in this batch.
+The twenty-migration rollback archive still matches SHA-256 `4cff473598c05a098e74f466516de81288d1a8c83e14de97bc6b68ccb3af77ab`.
+Full native binary distribution, physical-device acceptance, support/privacy operations, external monitoring, and the remaining brief items are still open.
 The long multi-navigation privacy renderer test has a ten-second timeout; its assertions are unchanged.
 Browser fixtures now support a separate loopback Auth port so those checks can run alongside the native fixture without interrupting it.
 
