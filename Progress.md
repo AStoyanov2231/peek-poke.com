@@ -27,6 +27,13 @@ Native verification passes 529 logic tests, 108 platform renderer tests, typeche
 React Doctor reports 91/100 with no errors and two existing root-navigator structure warnings; no suppression was added.
 The earlier profile-interest bounce finding is fixed with smooth exponential easing, with no ignore added.
 No production database or provider configuration changed in this batch.
+[PR #15](https://github.com/AStoyanov2231/peek-poke.com/pull/15) passed all eight required checks, including thirteen browser journeys, and merged into master as `33333333ee683d9dbe3630f80294378443a92b86`.
+The matching production deployment is Ready in Dublin and serves both canonical domains.
+Both homepages, Terms, Privacy, and the iOS association endpoint returned HTTP 200, and the initial deployment-scoped error/fatal query returned no entries.
+This web deployment does not distribute the updated native binary.
+The test emulator and synthetic API/Auth processes were stopped, and only the test port forwards and UI dump were removed.
+The sealed twenty-migration rollback archive still matches its recorded SHA-256.
+The full goal remains open against the feature coverage and launch requirements recorded below.
 
 The next recovery review reproduced chat meetup status failing to load while the UI still offered an acknowledgement with no retry.
 The actual browser regression failed before the fix, then passed through load failure, explicit retry, peer acknowledgement, separate consent, and mutual confirmation.
