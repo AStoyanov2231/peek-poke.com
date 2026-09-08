@@ -607,3 +607,6 @@ The consolidated local checks pass: 1,353 web tests, 505 native Vitest tests, 94
 Ten hosted-only web tests remain deliberately skipped outside the separately authorized runner.
 The final source is published in [PR #9](https://github.com/AStoyanov2231/peek-poke.com/pull/9), and its review record is the source for final CI, merge, and deployment status.
 Native binary distribution and physical-device acceptance remain separate launch requirements after the source merge.
+The first PR #9 browser run exposed an outdated assertion expecting a venue choice to replace the previous reply suggestion.
+Updated the actual chat journey to start with a typed draft, preserve it through both reply and venue selection, and verify zero message POST requests.
+The focused real-browser rerun passes in 9.1 seconds, with the full required CI rerun tracked in PR #9.

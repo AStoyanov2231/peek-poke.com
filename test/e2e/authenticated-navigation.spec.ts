@@ -256,6 +256,12 @@ test.describe("redesigned social journey", () => {
     page,
   }) => {
     const fixture = await installSocialFixture(page, { peerMet: true, venues: true });
+    let sentMessages = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && new URL(request.url()).pathname === `/api/dm/${threadId}`) {
+        sentMessages += 1;
+      }
+    });
     await page.goto("/login?redirectTo=/inbox");
     await page.getByPlaceholder("Email").fill(email);
     await page.getByPlaceholder("Password").fill(password);
@@ -265,12 +271,12 @@ test.describe("redesigned social journey", () => {
     await page.screenshot({ path: "test-results/e2e/inbox-desktop.png" });
     await page.getByRole("button", { name: "I’m in", exact: true }).click();
     await page.waitForURL((url) => url.pathname === `/chat/${threadId}`);
+    const draft = page.getByRole("textbox", { name: "Message...", exact: true });
+    await draft.fill("I can meet after work.");
     await page
       .getByRole("button", { name: "Would 20 minutes work?", exact: true })
       .click();
-    await expect(
-      page.getByRole("textbox", { name: "Message...", exact: true }),
-    ).toHaveValue("Would 20 minutes work?");
+    await expect(draft).toHaveValue("I can meet after work. Would 20 minutes work?");
     await expect(
       page.getByText("Mila marked that you met. Did you?"),
     ).toBeVisible();
@@ -282,7 +288,8 @@ test.describe("redesigned social journey", () => {
     await expect(page.getByText("You both marked this meetup.")).toBeVisible();
     expect(fixture.meetupPosts).toHaveLength(1);
     await page.getByRole("button", { name: "Suggest place", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Message...", exact: true })).toHaveValue("How about Park Café?");
+    await expect(draft).toHaveValue("I can meet after work. Would 20 minutes work? How about Park Café?");
+    expect(sentMessages).toBe(0);
     await page.getByRole("button", { name: "Meet here", exact: true }).click();
     const planDialog = page.getByRole("dialog", { name: "Make a plan" });
     await expect(planDialog.getByLabel("Place or area", { exact: true })).toHaveValue("Park Café");
