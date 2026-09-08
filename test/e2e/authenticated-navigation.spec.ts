@@ -63,6 +63,34 @@ test.describe("redesigned social journey", () => {
       await blockedContext.close();
     }
   });
+  test("chat meetup status recovers from a failed read before allowing confirmation", async ({ page }) => {
+    const fixture = await installSocialFixture(page, { peerMet: true });
+    let unavailable = true;
+    await page.route("**/api/meetups?**", async (route) => {
+      if (unavailable) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Meetup service unavailable" }) });
+      return route.fallback();
+    });
+    await page.goto("/login?redirectTo=/inbox");
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === "/inbox");
+    await page.getByRole("button", { name: "I’m in", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === `/chat/${threadId}`);
+    await expect(page.getByText("Meetup confirmation could not be loaded.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "We met", exact: true })).not.toBeVisible();
+    expect(fixture.meetupPosts).toHaveLength(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: "test-results/e2e/chat-meetup-recovery-mobile.png", fullPage: true });
+    unavailable = false;
+    await page.getByRole("button", { name: "Retry meetup confirmation" }).click();
+    await expect(page.getByText("Mila marked that you met. Did you?")).toBeVisible();
+    await page.getByRole("button", { name: "We met", exact: true }).click();
+    expect(fixture.meetupPosts).toHaveLength(0);
+    await page.getByRole("button", { name: "Yes, we met", exact: true }).click();
+    await expect(page.getByText("You both marked this meetup.")).toBeVisible();
+    expect(fixture.meetupPosts).toHaveLength(1);
+  });
   test("password recovery callback remains reachable for a pending account", async ({ page }) => {
     await page.request.post(`${fixtureSupabaseOrigin}/__test/age-admission`, {
       data: { status: "pending" },

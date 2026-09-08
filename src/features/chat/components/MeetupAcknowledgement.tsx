@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, HandHeart } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { acknowledgeMeetup, fetchMeetupAcknowledgement } from "@/data/meetups";
 import { WEB_QUERY_STALE_TIME, webQueryKeys } from "@/data/web-query";
@@ -15,12 +15,18 @@ import {
 } from "@/components/ui/dialog";
 
 interface MeetupAcknowledgementProps {
+  accountId: string;
   peerId: string;
   name: string;
   onPlanAgain: () => void;
 }
 
-export function MeetupAcknowledgement({
+export function MeetupAcknowledgement(props: MeetupAcknowledgementProps) {
+  return <MeetupAcknowledgementSession key={`${props.accountId}:${props.peerId}`} {...props} />;
+}
+
+function MeetupAcknowledgementSession({
+  accountId,
   peerId,
   name,
   onPlanAgain,
@@ -28,28 +34,50 @@ export function MeetupAcknowledgement({
   const [confirming, setConfirming] = useState(false);
   const attemptKeyRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
+  const lifetime = useRef<object | null>(null);
+  useEffect(() => {
+    lifetime.current = {};
+    return () => { lifetime.current = null; };
+  }, []);
   const acknowledgement = useQuery({
-    queryKey: webQueryKeys.meetup(peerId),
+    queryKey: webQueryKeys.meetup(peerId, accountId),
     queryFn: ({ signal }) => fetchMeetupAcknowledgement(peerId, signal),
     staleTime: WEB_QUERY_STALE_TIME.social,
     refetchInterval: 30_000,
   });
   const currentMeetup = acknowledgement.data?.meetup ?? null;
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
+      const owner = lifetime.current;
       attemptKeyRef.current ??= crypto.randomUUID();
-      return acknowledgeMeetup(peerId, attemptKeyRef.current);
+      const response = await acknowledgeMeetup(peerId, attemptKeyRef.current);
+      return { ...response, owner };
     },
-    onSuccess: ({ meetup: nextMeetup }) => {
-      queryClient.setQueryData(webQueryKeys.meetup(peerId), {
+    onSuccess: ({ meetup: nextMeetup, owner }) => {
+      if (!owner || lifetime.current !== owner) return;
+      queryClient.setQueryData(webQueryKeys.meetup(peerId, accountId), {
         meetup: nextMeetup,
       });
       void queryClient.invalidateQueries({
-        queryKey: webQueryKeys.meetup(peerId),
+        queryKey: webQueryKeys.meetup(peerId, accountId),
       });
       setConfirming(false);
     },
   });
+
+  if (acknowledgement.isPending) {
+    return <p role="status" className="mx-4 mt-3 t-caption text-ink-6">Loading meetup confirmation…</p>;
+  }
+  if (acknowledgement.isError) {
+    return (
+      <div className="mx-4 mt-3 flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface p-3">
+        <p role="alert" className="t-caption text-ink-7">Meetup confirmation could not be loaded.</p>
+        <button type="button" className="btn btn-secondary btn-sm shrink-0" aria-label="Retry meetup confirmation" disabled={acknowledgement.isFetching} onClick={() => void acknowledgement.refetch()}>
+          {acknowledgement.isFetching ? "Retrying…" : "Try again"}
+        </button>
+      </div>
+    );
+  }
 
   if (currentMeetup?.status === "confirmed") {
     return (
@@ -97,11 +125,6 @@ export function MeetupAcknowledgement({
           {name} marked that you met. Did you?
         </p>
       ) : null}
-      {mutation.isError ? (
-        <p role="alert" className="mx-4 mt-2 t-caption text-danger-500">
-          {mutation.error.message}
-        </p>
-      ) : null}
       <Dialog
         open={confirming}
         onOpenChange={(open) => !mutation.isPending && setConfirming(open)}
@@ -114,6 +137,7 @@ export function MeetupAcknowledgement({
               attached.
             </DialogDescription>
           </DialogHeader>
+          {mutation.isError ? <p role="alert" className="t-caption text-danger-500">{mutation.error.message}</p> : null}
           <DialogFooter>
             <button
               type="button"
