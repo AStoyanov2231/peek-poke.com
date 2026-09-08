@@ -16,7 +16,7 @@
 - [x] Prove erasure lock ordering and bounded stale-location cleanup with a deterministic local PostgreSQL 17 two-session harness using real lock-wait evidence and synthetic data.
 - [x] Merge PR #7 into master and deploy the matching web contract after the verified database changes.
 - [x] Pass the scoped deployed age-admission and social API suites, including production Redis-backed rate limiting and exact fixture cleanup.
-- [ ] Release and verify the matching native binary on physical devices; Expo login and the `@andy2231/peek-poke` project link are verified, while signing and distribution remain unfinished.
+- [ ] Release and verify the matching native binary on physical devices; Expo login and the `@andy2231/peek-poke` project link are verified; project/account build variables are absent in all three environments, and signing and distribution remain unfinished.
 - [ ] Configure isolated Preview and Development environments before using them; Production has 22 production-only variables, while Preview and Development remain unconfigured following the shared-variable recovery described in [environment-isolation-recovery.md](docs/production-baseline/environment-isolation-recovery.md).
 - [x] Configure a generated production-only `CRON_SECRET` and verify its matching Supabase Vault value without exporting either secret.
 - [x] Authorize processing the 31 existing queued events and verify the authenticated Supabase-to-Vercel worker request.

@@ -195,11 +195,29 @@ npm run build
 
 For separate-session lock and stale-location batching evidence, run `npm run test:postgres-concurrency` with PostgreSQL 17 installed.
 Set `POSTGRES_BIN` to its binary directory when `pg_config` and the Homebrew fallback cannot locate it.
-The harness starts a temporary Unix-socket-only cluster with synthetic rows, verifies actual lock waits in both account-erasure orderings and bounded `SKIP LOCKED` cleanup, and removes the cluster afterwards.
+The harnesses start temporary Unix-socket-only clusters with synthetic rows, verify actual lock waits in both account-erasure orderings, bounded `SKIP LOCKED` cleanup, and temporary-conversation expiry/retry/renewal ordering, then remove the clusters.
+The existing SQL CI gate installs PostgreSQL 17 on Ubuntu 24.04 and runs both harnesses through the same command.
+The runner uses short `/tmp` socket paths on macOS and Linux.
+The first hosted execution of this added CI step remains pending source publication.
 This local check does not constitute a hosted restore rehearsal or production concurrency test.
 
 The production mobile build evaluates `apps/native/app.config.js` and rejects missing or mismatched production public API and Supabase origins.
+Development and preview EAS profiles also reject either production dependency, so mixed API/database environments fail before compilation.
 Run the configured EAS production build configuration evaluation for each platform before submitting a binary.
+
+## Native release configuration status
+
+On 2026-09-09, the authenticated Expo account was `andy2231`, and the linked project was `@andy2231/peek-poke` (`e0631d17-11c0-47e9-a4fe-d577f0e6e06e`).
+Read-only EAS checks found no production, preview, or development variables at either project or account scope and no cloud builds.
+Those checks did not inspect signing credentials and did not start a build or submission.
+Each environment still needs its approved API origin, Supabase URL and public client key, and Mapbox public token through the four `EXPO_PUBLIC_*` variables required by `apps/native/scripts/verify-environment.js`.
+Android preview/production additionally requires the matching Firebase `GOOGLE_SERVICES_JSON` file; no local file was present during verification.
+Keep provider secrets and signing material out of Git and chat, and configure them through their respective managed stores.
+Development and preview need isolated services before they can build under their EAS profiles.
+Production must use the canonical API and Supabase origins already enforced by the build guard.
+Signing credentials, native push delivery, app-link association, and physical-device acceptance remain unverified release gates.
+The development-profile regression was reproduced through the actual Expo config command with production origins and synthetic keys, then verified to fail after the guard correction.
+The same command accepts isolated loopback services while preserving the linked EAS project.
 
 ## References
 
@@ -207,3 +225,6 @@ Run the configured EAS production build configuration evaluation for each platfo
 - [Supabase pg_net](https://supabase.com/docs/guides/database/extensions/pg_net) documents asynchronous HTTP behavior, response retention, and `net.http_get`.
 - [Supabase Vault](https://supabase.com/docs/guides/database/vault) documents encrypted storage and warns that `vault.decrypted_secrets` exposes plaintext values.
 - [Vercel Cron usage and pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) documents Hobby's daily-only schedule and imprecise timing.
+
+- [GitHub Ubuntu 24.04 runner image](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md) documents the runner's packaged database baseline.
+- [PostgreSQL Ubuntu packages](https://www.postgresql.org/download/linux/ubuntu/) documents selecting an explicit supported major version from the PostgreSQL APT repository.

@@ -17,7 +17,8 @@ async function until(label, predicate, timeout = 8_000) {
 export async function withLocalPostgres(work) {
   const bin = postgresBin();
   assert.match(execFileSync(`${bin}/postgres`, ["--version"], { encoding: "utf8" }), /PostgreSQL\)?\s+17\./);
-  const temp = mkdtempSync("/private/tmp/peek-conversation-pg-");
+  // Keep Unix socket paths short on both macOS and Linux runners.
+  const temp = mkdtempSync("/tmp/ppcw-");
   const data = `${temp}/data`;
   const socket = `${temp}/socket`;
   const log = `${temp}/postgres.log`;

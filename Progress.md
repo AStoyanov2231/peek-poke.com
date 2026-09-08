@@ -8,6 +8,12 @@ Updated: 2026-09-09.
 
 The goal remains active and incomplete.
 The latest verified source checkpoint is `bac1ce63c` on `product-redesign`.
+A read-only Expo follow-up found no project or account environment variables in production, preview, or development, and no cloud builds.
+Actual Expo config evaluation reproduced development builds accepting production services; the guard now rejects production API or Supabase origins for both development and preview while allowing isolated services.
+The complete native logic suite passes 535 tests, including ten release-environment tests; native typecheck and root lint also pass.
+The PostgreSQL concurrency harness now uses a short cross-platform `/tmp` socket path, and both real concurrency suites pass after that change.
+The existing SQL CI gate now installs PostgreSQL 17 and runs those suites; hosted CI remains pending the publication permission below.
+The workflow YAML parses successfully, and [product operations](docs/product-operations.md) records the verified EAS configuration gaps and required next release evidence.
 Publishing for CI is paused because automatic approval review rejected `git push origin product-redesign`, requiring explicit authorization to export repository contents to the configured GitHub destination `AStoyanov2231/peek-poke.com`.
 The remote URL was verified, the push did not occur, and production remains unchanged.
 The synthetic API, auth fixture, Metro process, test app, and task-started Android emulator were stopped after verification; the pre-existing iOS Simulator remains available.
