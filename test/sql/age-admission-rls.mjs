@@ -6,7 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 const root = resolve(import.meta.dirname, "../..");
 const read = (path) => readFile(resolve(root, path), "utf8");
 const candidateDirectory = process.env.AGE_ADMISSION_CANDIDATE_DIR;
-const migration = await read("supabase/migrations/20260908125054_account_age_admission.sql");
+const migration = await read("supabase/migrations/20260908134739_account_age_admission.sql");
 
 function section(source, name) {
   const start = `-- BEGIN AGE ${name}\n`;

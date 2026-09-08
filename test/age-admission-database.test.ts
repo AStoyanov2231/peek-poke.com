@@ -179,6 +179,19 @@ describe.skipIf(!configured)("18+ age admission hosted boundary", { timeout: 45_
     await expect(bootstrap.json()).resolves.toMatchObject({
       age_admission: { status: "adult" },
     });
+
+    const retiredCalls = await Promise.all([
+      adult.client.rpc("get_chat_room_summary", { p_room_id: randomUUID() }),
+      adult.client.rpc("get_chat_room_unread_count"),
+      adult.client.rpc("list_chat_room_summaries", {
+        p_limit: 1,
+        p_cursor_at: null,
+        p_cursor_id: null,
+      }),
+    ]);
+    for (const retiredCall of retiredCalls) {
+      expect(retiredCall.error?.code).toBe("42501");
+    }
   });
 
   it("keeps account deletion available to pending and blocked users, and purges final decisions", async () => {

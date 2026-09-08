@@ -22,14 +22,16 @@
 - [ ] Enable Supabase leaked-password protection after confirming the Auth plan supports it; the live security advisor reports it disabled.
 - [ ] Complete an operator-specific privacy notice, supported privacy contact, formal terms, retention policy, age policy, and moderation/support response process.
 - [x] Confirm the product is restricted to adults aged 18 and over.
-- [ ] Complete and verify default-deny age admission across web, native, server, database RPCs, and private Realtime before publishing the matching app release.
+- [x] Implement default-deny age admission across web, native, server, database RPCs, and private Realtime; local and hosted checks pass with no birth-date storage.
+- [x] Reproduce and repair hosted age-release regressions, close retired chat RPC access, and seal the eighteen-migration rollback.
+- [ ] Verify the native age-admission screens directly; Device Hub currently returns `-10005` and Simulator is not an enabled UI-control surface.
 - [ ] Choose and operate a support/privacy contact; the user has not selected an address.
 - [ ] Rehearse backups/PITR, restore, provider outages, load limits, canary release, and rollback using the existing production-baseline checklist.
 - [ ] Before enabling meetup coin rewards, integrate server-verified device attestations and prove freshness, replay rejection, blocks, exact proximity, concurrent awards, and two-device behavior.
 - [ ] Before accepting new Peek+ payments, implement the advertised optional benefits and confirm storefront eligibility.
 
 The user authorized verification against the existing MyaouDB database on 2026-09-08 instead of creating a paid branch.
-The user subsequently approved production migration deployment and public publication, and all 16 migrations, including two hosted-runtime corrections, are installed.
+The user subsequently approved production migration deployment and public publication, and all eighteen migrations, including the adult-admission changes and hosted corrections, are installed.
 Hosted tests exposed the two corrective migration requirements despite the earlier local and read-only compatibility checks.
 Those corrections are installed and the hosted product/shared-group suites now pass.
 Local browser fixtures and embedded PostgreSQL pass the implemented behavior but cannot establish production-provider or physical-device readiness.

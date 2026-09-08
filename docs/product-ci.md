@@ -12,7 +12,7 @@ It fails for high- or critical-severity production dependency advisories and del
 The gate reports risk only; it never changes dependency manifests or the lockfile automatically.
 The latest local production audit reported zero high or critical advisories and 15 moderate advisories.
 The web job then runs root linting, browser-independent tests, and a production Next build with loopback fixture values only in `.next-ci-verify`.
-The SQL job runs the legacy SQL compatibility fixture and three product PGlite suites covering the complete migration chain, restrictive age policies, and filtered group pagination.
+The SQL job runs the legacy SQL compatibility fixture and four product PGlite suites covering the complete migration chain, restrictive age policies, filtered group pagination, and service-reader compatibility.
 The native job runs the Expo TypeScript, lint, Vitest, and Jest checks.
 The browser job installs Chromium with the [Playwright CI installation command](https://playwright.dev/docs/ci) and runs all eleven Playwright journeys with `E2E_FIXTURE=1`.
 The fixture launcher overwrites Supabase, Stripe, Redis, TURN, cron, and app-URL settings with loopback or inert values.

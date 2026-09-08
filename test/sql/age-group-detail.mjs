@@ -4,9 +4,12 @@ import { resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 
 const root = resolve(import.meta.dirname, "../..");
-const migration = await readFile(resolve(root, "supabase/migrations/20260908125054_account_age_admission.sql"), "utf8");
-const sql = migration.split("-- BEGIN AGE GROUP_DETAIL\n")[1]?.split("-- END AGE GROUP_DETAIL")[0];
-assert.ok(sql, "age migration must contain the group-detail reader");
+const ageMigration = await readFile(resolve(root, "supabase/migrations/20260908134739_account_age_admission.sql"), "utf8");
+const correctionMigration = await readFile(resolve(root, "supabase/migrations/20260908135910_adult_social_runtime_corrections.sql"), "utf8");
+const initialSql = ageMigration.split("-- BEGIN AGE GROUP_DETAIL\n")[1]?.split("-- END AGE GROUP_DETAIL")[0];
+const correctionSql = correctionMigration.split("-- BEGIN AGE GROUP_DETAIL CORRECTION\n")[1]?.split("-- END AGE GROUP_DETAIL CORRECTION")[0];
+assert.ok(initialSql, "age migration must contain the original group-detail reader");
+assert.ok(correctionSql, "runtime corrections migration must replace the group-detail reader");
 const actor = "00000000-0000-4000-8000-000000000001";
 const hidden = "00000000-0000-4000-8000-000000000200";
 const groupId = "10000000-0000-4000-8000-000000000001";
@@ -47,8 +50,6 @@ try {
       sequence bigint not null,
       content text,
       message_type text not null default 'text',
-      media_url text,
-      media_thumbnail_url text,
       is_read boolean not null default false,
       is_edited boolean not null default false,
       is_deleted boolean not null default false,
@@ -59,7 +60,8 @@ try {
       select p_user_a <> p_user_b and p_user_b <> '${hidden}'::uuid
     $$;
   `);
-  await db.exec(sql);
+  await db.exec(initialSql);
+  await db.exec(correctionSql);
   await db.query("insert into public.shared_groups(id,created_at) values($1,'2026-09-08T10:00:00Z')", [groupId]);
   for (let index = 1; index <= 200; index += 1) {
     const userId = `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
@@ -90,6 +92,8 @@ try {
   assert.deepEqual(firstDetail.messages.map((message) => message.sequence), [2, 1]);
   assert.doesNotMatch(JSON.stringify(firstDetail), /pending author must stay private/);
   assert.equal(firstDetail.messages[0].sender.username, "member_1");
+  assert.equal(firstDetail.messages[0].media_url, null, "legacy group messages have no media column but retain the shared message contract");
+  assert.equal(firstDetail.messages[0].media_thumbnail_url, null, "legacy group messages have no thumbnail column but retain the shared message contract");
 
   const second = await db.query(
     "select public.get_shared_group_detail_for_user_v1($1,$2,2,$3,1) detail",

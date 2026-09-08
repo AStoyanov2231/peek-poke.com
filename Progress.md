@@ -469,3 +469,27 @@ The latest local production build is blocked by Turbopack's CSS worker being den
 The earlier production build passed; the final source still requires a successful CI build.
 Generated a separate guarded age-layer rollback restoring all 61 captured functions, removing eleven helpers and twelve restrictive policies, and returning exactly to the captured 179-entry history.
 Its embedded PostgreSQL rehearsal is in progress and the production age migration remains unapplied.
+
+## Hosted adult admission and recovery
+
+Published adult admission as commit `aff5e1057`, and all four GitHub checks passed in run `34233685521`, including the production build and eleven browser journeys.
+Applied `20260908134739_account_age_admission` after preserving and rehearsing its rollback.
+The first hosted run exposed two group-reader regressions and a blocked-Plan meetup regression.
+The group detail function referenced media columns absent from the actual shared-group table; its correction preserves the response fields as null values.
+Restored the older one-argument group reader's forwarding to the bounded, age-filtered reader.
+Plan owners can now read an empty meetup view after blocking a member, while confirmation for the blocked pair remains denied.
+Reproduced authenticated access to three unused legacy chat-room RPCs and revoked that retired API access.
+These changes are installed in `20260908135910_adult_social_runtime_corrections`; the applied age migration remains unchanged apart from its verified filename.
+
+All six hosted suites pass, ten tests in 63.81 seconds, including the new admission and retired-RPC regressions.
+The final database contains 181 migration entries, 72 public/Realtime policies, 50 profiles, 11 Auth users, and 96 Storage objects, with no test age decisions, Pokes, or Plans left behind.
+The age table contains only `user_id`, `status`, `decided_at`, and `policy_version`.
+The final local root suite passes 1,348 tests across 153 files, with ten hosted tests deliberately skipped outside the approved runner, and root lint passes.
+All four product SQL scripts pass, including exact hosted group columns, large-group pagination, service-reader compatibility, blocked-Plan management, and retired-RPC permissions.
+
+The complete rollback chain was rehearsed locally from 181 to 180 to 179 to the original 163 migration entries.
+It restores six runtime-correction functions, then 61 pre-age functions, then the fifteen original redesign-affected functions with their saved permissions.
+Sealed `.supabase-backups/MyaouDB-deployed-18-migration-rollback-20260908.tar.gz` without changing the previous archives.
+All 130 payload hashes pass after a fresh extraction; archive SHA-256 is `b75393c4e3bd88717041bc520e463ae083093d0627d5b84b077fa653aa523bfa`.
+Updated [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) with the three-step recovery procedure and its data-restore limits.
+The native Device Hub retry still returns `-10005`, and Simulator is not an enabled CUA surface, leaving direct native privacy save/reload and age visual proof open.

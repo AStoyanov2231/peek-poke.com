@@ -11,6 +11,14 @@ The project has `pg_cron` and Vault installed.
 `pg_net` is not installed and is needed only for the outbox HTTP invocation.
 Vercel Hobby permits one cron invocation per day with hour-level timing, so it cannot drive the one-minute outbox or location-retention cadence.
 
+## Production readiness snapshot - 2026-09-08
+
+The private pre-change snapshot is `.supabase-backups/deployment-20260908/ops-prechange-snapshot.json`.
+Production has `pg_cron` 1.6.4, no `pg_net`, one active weekly soft-deleted-message cleanup job, and no Vault secret names.
+The three documented scheduler job names and `peek_poke_outbox_cron_secret` are unused.
+There are zero user locations older than ten minutes.
+Before a change window, recapture this metadata, verify the Vercel production secret separately, enable `pg_net` only for outbox HTTP delivery, and save every created job ID for reversal.
+
 ## Required scheduler design
 
 Use direct `pg_cron` jobs for database-only, bounded cleanup.

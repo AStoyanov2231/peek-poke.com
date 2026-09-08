@@ -46,6 +46,12 @@ try {
     create table public.chat_rooms (id uuid primary key default gen_random_uuid(), created_by uuid, created_at timestamptz default now());
     create table public.chat_room_members (room_id uuid, user_id uuid, primary key(room_id,user_id));
     create table public.chat_room_messages (id uuid primary key default gen_random_uuid(), room_id uuid, sender_id uuid, reply_to_id uuid, created_at timestamptz default now());
+    -- Legacy function signatures are present only so migration 18 can revoke
+    -- retired browser grants without reconstructing their unrelated bodies.
+    create function public.get_chat_room_summary(uuid) returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+    create function public.get_chat_room_unread_count() returns integer language sql stable as $$ select 0 $$;
+    create function public.list_chat_room_summaries(integer, timestamptz, uuid) returns table(id uuid) language sql stable as $$ select null::uuid where false $$;
+    grant execute on function public.get_chat_room_summary(uuid), public.get_chat_room_unread_count(), public.list_chat_room_summaries(integer, timestamptz, uuid) to authenticated;
     create table public.user_locations (user_id uuid primary key references public.profiles(id), lat double precision not null, lng double precision not null, updated_at timestamptz not null default now());
     create table public.interest_tags (id uuid primary key default gen_random_uuid(), name text not null, icon text);
     create table public.profile_interests (id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles(id), tag_id uuid not null references public.interest_tags(id));
@@ -507,7 +513,7 @@ try {
   const metricsRoleGate = await db.query("select has_function_privilege('authenticated', 'public.product_daily_funnel_metrics(date, date)', 'EXECUTE') app_read, has_function_privilege('service_role', 'public.product_daily_funnel_metrics(date, date)', 'EXECUTE') service_read, has_function_privilege('authenticated', 'public.product_weekly_social_activity_metrics(date, date)', 'EXECUTE') app_weekly_read, has_function_privilege('service_role', 'public.product_weekly_social_activity_metrics(date, date)', 'EXECUTE') service_weekly_read");
   assert(metricsRoleGate.rows[0].app_read === false && metricsRoleGate.rows[0].service_read === true && metricsRoleGate.rows[0].app_weekly_read === false && metricsRoleGate.rows[0].service_weekly_read === true, "product metrics must be service-only");
 
-  await db.exec(await sql("supabase/migrations/20260908125054_account_age_admission.sql"));
+  await db.exec(await sql("supabase/migrations/20260908134739_account_age_admission.sql"));
   const pendingAdmission = await db.query("select public.read_account_age_admission_v1($1::uuid) payload", [ids.alex]);
   const adultAdmission = await db.query("select public.record_account_age_admission_v1($1::uuid,true) payload", [ids.alex]);
   const immutableAdmission = await db.query("select public.record_account_age_admission_v1($1::uuid,false) payload", [ids.alex]);
@@ -536,6 +542,16 @@ try {
   const acceptedPoke = await db.query("select public.respond_to_poke($1::uuid,$2::uuid,'accept','age-poke-accept-001') payload", [adultB, adultPoke.rows[0].payload.poke.id]);
   const adultPlan = await db.query("select public.plan_create_v2($1::uuid,'Coffee','Age verified plan',now()+interval '2 hours','Public cafe','private',null::uuid,2::smallint,null::uuid,'age-plan-happy-0001',repeat('a',64),false) payload", [adultA]);
   const adultPlans = await db.query("select public.plans_list_v2($1::uuid) payload", [adultA]);
+  const blockedMeetupPlanId = "88888888-8888-4888-8888-888888888888";
+  await db.query("insert into public.plans(id,owner_id,activity,title,starts_at,place_text,visibility,participant_limit,status) values ($1::uuid,$2::uuid,'coffee','Blocked meetup status',now()-interval '1 hour','Public cafe','private',2,'active')", [blockedMeetupPlanId, adultA]);
+  await db.query("insert into public.plan_members(plan_id,user_id,role) values ($1::uuid,$2::uuid,'owner'),($1::uuid,$3::uuid,'member')", [blockedMeetupPlanId, adultA, adultB]);
+  await db.query("insert into public.user_blocks(blocker_id,blocked_id) values ($1::uuid,$2::uuid)", [adultA, adultB]);
+  const blockedMeetupBeforeCorrection = await db.query("select public.plan_meetup_status_v1($1::uuid,$2::uuid) payload", [adultA, blockedMeetupPlanId]);
+  await db.exec(await sql("supabase/migrations/20260908135910_adult_social_runtime_corrections.sql"));
+  const retiredChatRoleGate = await db.query("select has_function_privilege('authenticated','public.get_chat_room_summary(uuid)','execute') summary, has_function_privilege('authenticated','public.get_chat_room_unread_count()','execute') unread, has_function_privilege('authenticated','public.list_chat_room_summaries(integer,timestamp with time zone,uuid)','execute') list");
+  const blockedMeetupAfterCorrection = await db.query("select public.plan_meetup_status_v1($1::uuid,$2::uuid) payload", [adultA, blockedMeetupPlanId]);
+  const blockedMeetupConfirmation = await db.query("select public.plan_meetup_acknowledge_v1($1::uuid,$2::uuid,$3::uuid,'blocked-meetup-ack-0001',repeat('b',64)) payload", [adultA, blockedMeetupPlanId, adultB]);
+  const blockedMeetupRows = await db.query("select count(*)::int count from public.plan_meetup_acknowledgements where plan_id=$1::uuid", [blockedMeetupPlanId]);
   let pendingAvailabilityDenied = false;
   let blockedPokesDenied = false;
   try { await db.query("select public.upsert_user_availability($1::uuid,'coffee',null,30)", [ids.casey]); } catch (error) { pendingAvailabilityDenied = error?.message?.includes("AGE_ADMISSION_REQUIRED"); }
@@ -544,6 +560,8 @@ try {
   const pendingPeerRows = await db.query("select count(*)::int count from public.pokes where sender_id=$1::uuid and recipient_id=$2::uuid and note='Must not persist'", [adultA, ids.casey]);
   assert(adultAvailability.rows[0].payload.availability?.userId === adultA && adultInbox.rows[0].payload.received.length === 1 && acceptedPoke.rows[0].payload.threadId && adultPlan.rows[0].payload.plan?.id && adultPlans.rows[0].payload.plans.some((plan) => plan.id === adultPlan.rows[0].payload.plan.id), "adult admission must preserve availability, Poke acceptance into a DM, and Plan creation/listing");
   assert(pendingAvailabilityDenied && blockedPokesDenied && pendingPeerPoke.rows[0].payload.error === "BLOCKED" && pendingPeerRows.rows[0].count === 0, "pending or blocked actors and pending peers must be denied before social writes");
+  assert(retiredChatRoleGate.rows[0].summary === false && retiredChatRoleGate.rows[0].unread === false && retiredChatRoleGate.rows[0].list === false, "runtime corrections must revoke retired chat-room RPCs from authenticated clients");
+  assert(blockedMeetupBeforeCorrection.rows[0].payload.error === "NOT_FOUND" && Array.isArray(blockedMeetupAfterCorrection.rows[0].payload.acknowledgements) && blockedMeetupAfterCorrection.rows[0].payload.acknowledgements.length === 0 && blockedMeetupAfterCorrection.rows[0].payload.canConfirm === false && blockedMeetupConfirmation.rows[0].payload.error === "NOT_FOUND" && blockedMeetupRows.rows[0].count === 0, "a Plan owner must retain an empty meetup-management view after blocking a member while confirmations remain denied");
 
   await db.query("update public.profiles set deleted_at=now() where id=$1::uuid", [ids.alex]);
   const tombstonedAdmission = await db.query("select public.read_account_age_admission_v1($1::uuid) payload", [ids.alex]);
