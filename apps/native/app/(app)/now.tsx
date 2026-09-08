@@ -36,6 +36,7 @@ import { fetchPlans } from "@/data/plans";
 import { sharedGroupsQuery } from "@/data/social/queries";
 import { refreshDeviceLocation, useDeviceLocation } from "@/lib/location";
 import { nextDiscoveryRadius, splitNearbyPeople, supportedDiscoveryRadii } from "@/lib/now-discovery";
+import { upcomingPlansForNow } from "@/lib/now-plans";
 import type { Activity, AvailabilityUpsertRequest } from "@peekpoke/shared";
 
 function labelForActivity(activity: Activity, customLabel: string | null) {
@@ -79,9 +80,7 @@ export default function NowScreen() {
   const nearbyPeople = [...nearbyFriends, ...nearbyNewPeople];
   const plansQuery = useQuery({ queryKey: nativeQueryKeys.plans.all, queryFn: ({ signal }) => fetchPlans(signal), staleTime: 30_000 });
   const circlesQuery = useQuery(sharedGroupsQuery());
-  const joinablePlans = (plansQuery.data?.plans ?? [])
-    .filter((plan) => plan.status === "active" && Date.parse(plan.starts_at) > now)
-    .slice(0, 3);
+  const joinablePlans = upcomingPlansForNow(plansQuery.data?.plans ?? [], now);
   const circles = (circlesQuery.data?.groups ?? []).slice(0, 3);
   const mutation = useMutation<Awaited<ReturnType<typeof saveAvailability>>, Error, AvailabilityUpsertRequest>({
     mutationFn: (request) => saveAvailability(request),
@@ -96,7 +95,10 @@ export default function NowScreen() {
     setLocationPrimerVisible(false);
     try {
       await refreshDeviceLocation();
-      await queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability.all }),
+        queryClient.invalidateQueries({ queryKey: nativeQueryKeys.plans.all }),
+      ]);
     } catch (error) {
       Alert.alert(
         "Location unavailable",
@@ -345,11 +347,53 @@ export default function NowScreen() {
           ))}
         </> : null}
         <View style={styles.emptyCard}>
-          <Text style={styles.sectionTitle}>Plans</Text>
-          <Text style={styles.emptyText}>Join something coming up, or bring people together with a plan of your own.</Text>
-          {joinablePlans.map((plan) => <Pressable key={plan.id} accessibilityRole="button" onPress={() => router.push(`/plans/${plan.id}` as never)} style={styles.nowRow}><Text style={styles.nowRowTitle}>{plan.title ?? plan.activity}</Text><Text style={styles.nowRowMeta}>{plan.place_text} · {plan.member_count}/{plan.participant_limit} going</Text></Pressable>)}
-          {!plansQuery.isPending && joinablePlans.length === 0 ? <Text style={styles.emptyText}>No plans are available in your feed yet. Start a simple one.</Text> : null}
-          <Pressable accessibilityRole="button" onPress={() => router.push("/(app)/plans" as never)}><Text style={styles.mapLink}>Browse or create a plan</Text></Pressable>
+          <Text style={styles.sectionTitle}>Plans near you</Text>
+          <Text style={styles.emptyText}>
+            Open Plans near your approximate area, plus Plans you can already access.
+          </Text>
+          {plansQuery.isPending ? (
+            <ActivityIndicator
+              accessibilityLabel="Loading Plans near you"
+              color={colors.primary[500]}
+              style={styles.loading}
+            />
+          ) : null}
+          {plansQuery.isError ? (
+            <View style={styles.planRecovery}>
+              <Text style={styles.emptyText}>Plans couldn’t load right now.</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void plansQuery.refetch()}
+                style={styles.planRetry}
+              >
+                <Text style={styles.mapLink}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {joinablePlans.map((plan) => (
+            <Pressable
+              key={plan.id}
+              accessibilityRole="button"
+              onPress={() => router.push(`/plans/${plan.id}` as never)}
+              style={styles.nowRow}
+            >
+              <Text style={styles.nowRowTitle}>{plan.title ?? plan.activity}</Text>
+              <Text style={styles.nowRowMeta}>
+                {plan.place_text} · {plan.member_count}/{plan.participant_limit} going
+              </Text>
+            </Pressable>
+          ))}
+          {!plansQuery.isPending && !plansQuery.isError && joinablePlans.length === 0 ? (
+            <Text style={styles.emptyText}>
+              No open Plans near you yet. Start a simple one.
+            </Text>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/(app)/plans" as never)}
+          >
+            <Text style={styles.mapLink}>Browse or create a plan</Text>
+          </Pressable>
         </View>
         <View style={styles.emptyCard}>
           <Text style={styles.sectionTitle}>Your Circles</Text>
@@ -607,6 +651,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadows.e1,
   },
+  planRecovery: { gap: spacing[2] },
+  planRetry: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: spacing[2] },
   emptyTitle: {
     color: colors.ink[8],
     fontFamily: fontFamilies.semibold,

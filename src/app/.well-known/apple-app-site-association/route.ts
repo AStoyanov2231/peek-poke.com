@@ -18,7 +18,7 @@ export function GET() {
         details: [
           {
             appIDs: [`${TEAM_ID}.${BUNDLE_ID}`],
-            components: [{ "/": "/invite/*" }],
+            components: [{ "/": "/invite/*" }, { "/": "/plan/*" }],
           },
         ],
       },

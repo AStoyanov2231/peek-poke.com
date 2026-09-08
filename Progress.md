@@ -4,12 +4,32 @@ Branch: `product-redesign`.
 Brief: [PRODUCT-REDESIG.md](PRODUCT-REDESIG.md).
 Updated: 2026-09-08.
 
+## Current continuation
+
+The prior source batch merged through PR #9 and passed its live verification.
+The next brief-fidelity review found that the suggestions interface had no configurable AI implementation and the native Plan feed lacked complete refresh and recovery states.
+An optional external provider now uses explicit server-only configuration, minimized structured input, strict output validation, a four-second timeout, and a bounded response reader, retaining deterministic replies by default.
+No live model call or provider-environment change has been made.
+The Plan API already applies coarse nearby visibility rules; native Now now refreshes it after location updates and presents loading, retryable failure, and empty states while retaining authorized member Plans.
+
+The public iOS association response and native Android manifest both omitted `/plan/` links.
+The omission was reproduced against the public endpoint and in two failing configuration tests before adding Plan-preview coverage.
+The focused tests now pass and preserve the narrow invitation/Plan route scope.
+The Android association endpoint remains unavailable until the actual distributed signing fingerprint is configured, and OS-level link verification still requires signed devices.
+Device inventory found a paired physical iPhone, but no matching local provisioning profile.
+A separate unsigned iPhoneOS Debug build succeeded with a development bundle identifier, without installing over the existing app or changing signing-portal configuration.
+The Android SDK is installed, but no Android device or emulator is attached.
+The consolidated native gate passes typecheck, lint, 508 Vitest tests, and 94 iOS/Android renderer tests.
+The web gate passes lint and 1,361 tests; ten explicitly configured integration tests skip in the local fixture-free run.
+Direct Simulator privacy selection still cannot be automated through the available actionable element references.
+
 ## Current state
 
 The web redesign and nineteen database migrations are deployed after the user's approval.
 PRs #7 and #8 established the verified web release at `d41ea0b312de6eee8cf9d98b8242628dc7a978e6` with passing required CI.
 Its recovery deployment `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` passed public-domain and API verification in `dub1`, matching Supabase's Dublin region.
-The final native-flow source is committed as `949939b` and published in [PR #9](https://github.com/AStoyanov2231/peek-poke.com/pull/9), which records the current CI, merge, and deployment evidence.
+The native-flow source and browser correction merged through [PR #9](https://github.com/AStoyanov2231/peek-poke.com/pull/9) as `7a2c37141e81c94e3cc65af730f6579d713c819b` after all required checks passed.
+That release passed the deployed age-admission and social API suites and public desktop/mobile rendering checks.
 All 31 authorized queued events completed, and the recurring worker returned HTTP 200 after deployment.
 The saved migration-specific recovery package covers all nineteen changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
 The current database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 182 migration entries.
