@@ -40,6 +40,7 @@ import { InboxDataRecovery } from "@/components/inbox-data-recovery";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { fetchPokes, respondToPoke } from "@/data/pokes";
 import { usePendingPokes } from "@/hooks/use-pending-received-pokes";
+import { useInboxPriorityTab } from "@/hooks/use-inbox-priority-tab";
 import { fetchPlans } from "@/data/plans";
 import {
   createOrFindThread,
@@ -60,12 +61,13 @@ import {
   sharedGroupsQuery,
   socialQuery,
 } from "@/data/social/queries";
+import { explicitInboxTab, type InboxTab } from "@/lib/inbox-priority";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} title="Couldn't load inbox" />;
 }
 
-type Tab = "chats" | "pokes" | "plans" | "friends" | "requests";
+type Tab = InboxTab;
 type FriendRowData = SocialFriend & { profile: SocialProfileCard };
 type IncomingRequest = SocialFriend & { requester: SocialProfileCard };
 type SentRequest = SocialFriend & { addressee: SocialProfileCard };
@@ -75,11 +77,6 @@ type Confirmation =
 type InboxConversation =
   | { kind: "dm"; item: ThreadSummary; sortAt: string }
   | { kind: "group"; item: SharedGroupSummary; sortAt: string };
-
-function normalizeTab(value: string | string[] | undefined): Tab {
-  const tab = Array.isArray(value) ? value[0] : value;
-  return tab === "friends" || tab === "requests" || tab === "pokes" || tab === "plans" ? tab : "chats";
-}
 
 function friendRows(data: SocialData | undefined, viewerId: string | undefined): FriendRowData[] {
   if (!data || !viewerId) return [];
@@ -107,7 +104,7 @@ function outgoingRequests(data: SocialData | undefined): SentRequest[] {
 // react-doctor-disable-next-line no-giant-component
 export default function InboxScreen() {
   const params = useLocalSearchParams<{ tab?: string | string[] }>();
-  const tab = normalizeTab(params.tab);
+  const explicitTab = explicitInboxTab(params.tab);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [pokeResponseError, setPokeResponseError] = useState<{
@@ -121,8 +118,17 @@ export default function InboxScreen() {
   const threadsQuery = useQuery(inboxQuery());
   const groupsQuery = useQuery(sharedGroupsQuery());
   const socialDataQuery = useQuery(socialQuery());
-  const pokesQuery = useQuery({ queryKey: nativeQueryKeys.pokes, queryFn: ({ signal }) => fetchPokes(signal) });
-  const plansQuery = useQuery({ queryKey: nativeQueryKeys.plans.all, queryFn: ({ signal }) => fetchPlans(signal) });
+  const accountId = identityQuery.data?.identity.id;
+  const pokesQuery = useQuery({
+    queryKey: [...nativeQueryKeys.pokes, accountId ?? "unknown"],
+    queryFn: ({ signal }) => fetchPokes(signal),
+    enabled: Boolean(accountId),
+  });
+  const plansQuery = useQuery({
+    queryKey: [...nativeQueryKeys.plans.all, "inbox", accountId ?? "unknown"],
+    queryFn: ({ signal }) => fetchPlans(signal),
+    enabled: Boolean(accountId),
+  });
   const cachedPokes = useMemo(
     () => [...(pokesQuery.data?.received ?? []), ...(pokesQuery.data?.sent ?? [])],
     [pokesQuery.data?.received, pokesQuery.data?.sent],
@@ -132,13 +138,29 @@ export default function InboxScreen() {
     () => pendingPokes.filter((poke) => pokesQuery.data?.received.some((received) => received.id === poke.id)),
     [pendingPokes, pokesQuery.data?.received],
   );
+  const actionablePlans = useMemo(
+    () => (plansQuery.data?.plans ?? []).filter(
+      (plan) => plan.status === "active" && Date.parse(plan.starts_at) > Date.now(),
+    ),
+    [plansQuery.data?.plans],
+  );
+  const priority = useInboxPriorityTab({
+    accountId,
+    identityState: identityQuery.isError ? "error" : identityQuery.isSuccess ? "success" : "pending",
+    explicitTab,
+    pendingReceivedPokeCount: pendingReceivedPokes.length,
+    actionablePlanCount: actionablePlans.length,
+    pokesState: pokesQuery.isError ? "error" : pokesQuery.isSuccess ? "success" : "pending",
+    plansState: plansQuery.isError ? "error" : plansQuery.isSuccess ? "success" : "pending",
+  });
+  const tab = priority.tab;
   const pendingReceivedPokeIds = useMemo(() => new Set(pendingReceivedPokes.map((poke) => poke.id)), [pendingReceivedPokes]);
   const pokeResponseMutation = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "accept" | "later" | "decline" }) =>
       respondToPoke(id, { action }),
     onSuccess: (response) => {
       setPokeResponseError(null);
-      queryClient.setQueryData<PokeInboxResponse>(nativeQueryKeys.pokes, (current) => {
+      queryClient.setQueryData<PokeInboxResponse>([...nativeQueryKeys.pokes, accountId ?? "unknown"], (current) => {
         if (!current) return current;
         const update = (items: PokeInboxItem[]) => items.map((item) =>
           item.id === response.poke.id ? { ...item, ...response.poke } : item,
@@ -232,6 +254,17 @@ export default function InboxScreen() {
       else next.delete(id);
       return next;
     });
+  }
+
+  function selectTab(nextTab: Tab) {
+    router.setParams({ tab: nextTab });
+  }
+
+  async function retryPriority() {
+    const identity = await identityQuery.refetch();
+    if (identity.isSuccess) {
+      await Promise.all([pokesQuery.refetch(), plansQuery.refetch()]);
+    }
   }
 
   function retryInbox() {
@@ -354,10 +387,23 @@ export default function InboxScreen() {
         <Text style={styles.title}>Inbox</Text>
       </View>
 
+      {priority.waitingForPriority ? (
+        <View accessibilityRole="progressbar" style={styles.priorityLoading}>
+          <ActivityIndicator color={colors.primary[500]} size="small" />
+          <Caption style={styles.priorityLoadingText}>Checking what needs your attention</Caption>
+        </View>
+      ) : priority.priorityError ? (
+        <ErrorRecovery
+          error={pokesQuery.error ?? plansQuery.error ?? new Error("Inbox priorities could not load")}
+          fill={false}
+          onRetry={retryPriority}
+          title="Couldn't check Inbox priorities"
+        />
+      ) : <>
       <View style={styles.tabsWrap}>
         <SegmentedControl
-          value={tab}
-          onChange={(nextTab) => router.setParams({ tab: nextTab })}
+          value={tab ?? "chats"}
+          onChange={selectTab}
           options={[
             { value: "chats", label: "Chats", badge: unread },
             { value: "pokes", label: "Pokes", badge: pendingReceivedPokes.length },
@@ -624,6 +670,7 @@ export default function InboxScreen() {
           )}
         </View>
       ) : null}
+      </>}
 
       <ConfirmationDialog
         confirmation={confirmation}
@@ -927,6 +974,18 @@ const styles = StyleSheet.create({
   },
   tabsWrap: {
     paddingBottom: spacing[3],
+  },
+  priorityLoading: {
+    minHeight: 64,
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    backgroundColor: colors.ink[2],
+  },
+  priorityLoadingText: {
+    color: colors.ink[6],
   },
   list: {
     marginHorizontal: -spacing[2],

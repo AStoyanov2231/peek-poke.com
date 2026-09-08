@@ -11,3 +11,11 @@ export const chatSuggestionsResponseSchema = z.strictObject({
 export type ChatSuggestionsResponse = z.infer<
   typeof chatSuggestionsResponseSchema
 >;
+
+/** Adds a suggestion to a live draft without replacing an unsent message. */
+export function appendEditableChatSuggestion(draft: string, suggestion: string) {
+  const next = suggestion.trim();
+  if (!next) return draft;
+  if (!draft.trim()) return next;
+  return `${draft}${/\s$/.test(draft) ? "" : " "}${next}`;
+}

@@ -6,24 +6,22 @@ Updated: 2026-09-08.
 
 ## Current state
 
-The local redesign now implements Now > Poke > Chat > Plan > Meet across web, native, shared contracts, and additive database migrations.
-The completion audit closed missing onboarding, privacy, Scan, venue, native Plan, and persistence behavior.
-The current continuation adds profile context, activity map pins, explicit Plan meetup confirmation, and durable activation/discovery metrics.
-The consolidated web, database, build, and native test results below include the latest additions.
-The updated signed iOS development binary builds with Expo 57.0.20 and React Native 0.86.3 on the existing iPhone 16 Simulator.
-The unlocked Mac enabled real Simulator verification of Login, Now availability, Poke sending and acceptance, Chat, Plans, location-decline recovery, Me, and the loaded discovery-settings sheet.
-Native onboarding replay now starts with a generated username, saves the chosen username, selects three interests, declines optional intent/location, and returns to Now with completion persisted.
-Direct native privacy save/reload remains unverified because the settings controls are omitted from the Simulator bridge targets and the Device Hub connection times out.
-Production promotion is not complete.
-Supabase is authenticated and the ChatApp organization containing MyaouDB is verified.
-The user authorized verification directly against MyaouDB instead of creating a paid branch.
-Read-only preflight found 50 profiles, 11 auth accounts, and no compatibility blocker for the 13 ordered redesign migrations.
-The initial deployment attempt was rejected because verification-only authorization did not include production schema changes.
-The user subsequently approved production migration deployment and public branch publication.
-The outstanding release requirements are tracked in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
-All 16 migrations are installed with their connector-assigned timestamps recorded in local filenames, including both corrections found through hosted verification.
-The matching web/native release, provider configuration, and billing settings have not been deployed or changed.
-The existing-schema integration checks created and removed dedicated synthetic records; post-run counts returned to 50 profiles and 11 auth accounts.
+The web redesign and nineteen database migrations are deployed after the user's approval.
+Master is `d41ea0b312de6eee8cf9d98b8242628dc7a978e6`, merged through PRs #7 and #8 with passing required CI.
+Vercel deployment `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` serves both public domains from `dub1`, matching Supabase's Dublin region.
+All 31 authorized queued events completed, and the recurring worker returned HTTP 200 after deployment.
+The saved migration-specific recovery package covers all nineteen changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
+The current database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 182 migration entries.
+
+The native development build now includes editable chat reply suggestions, Now radius and low-density actions, prioritized Inbox selection, and removal of unavailable map-coin controls.
+Simulator verification reached pending age admission, date review, blocked-account recovery, and Now through Poke acceptance into chat.
+Direct native privacy save/reload remains unverified because the available Simulator automation cannot activate the rendered radio controls.
+Real separate-session PostgreSQL lock and bounded-retention verification passes with synthetic local data.
+Production has twenty-two verified Production-only variables, with no project variables in Preview or Development.
+An environment-scope operation accidentally deleted shared variable records; Production was restored, rebuilt, and passed deployed API verification as documented in [environment-isolation-recovery.md](docs/production-baseline/environment-isolation-recovery.md).
+Preview and Development require isolated service configuration before use.
+Operator details, provider configuration, physical-device proof, monitoring, and full recovery prerequisites remain in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
+The sections below retain chronological implementation and verification evidence, including earlier counts and resolved blockers.
 
 ## Applied production migrations
 
@@ -49,13 +47,16 @@ Existing records are preserved by the migration scripts; retention deletion runs
 - [20260908113704_legacy_sql_special_forms.sql](supabase/migrations/20260908113704_legacy_sql_special_forms.sql).
 - [20260908115135_product_social_runtime_grants_and_outbox_indexes.sql](supabase/migrations/20260908115135_product_social_runtime_grants_and_outbox_indexes.sql).
 - [20260908121358_account_erasure_product_social_records.sql](supabase/migrations/20260908121358_account_erasure_product_social_records.sql).
+- [20260908134739_account_age_admission.sql](supabase/migrations/20260908134739_account_age_admission.sql).
+- [20260908135910_adult_social_runtime_corrections.sql](supabase/migrations/20260908135910_adult_social_runtime_corrections.sql).
+- [20260908150805_profile_photo_moderation_buckets.sql](supabase/migrations/20260908150805_profile_photo_moderation_buckets.sql).
 
 The initial 13 redesign migrations passed hosted read-only compatibility review and the ordered embedded PostgreSQL chain.
 The fourteenth legacy SQL repair passed an execution-failure regression and permission/security-context preservation checks.
-All 16 files are applied, and the hosted history contains exactly 179 entries: the original 163 plus the 16 recorded deployments.
+The first sixteen migrations produced 179 history entries; the three subsequent corrections and admission changes bring the current total to 182.
 Their SQL bytes match the reviewed SHA-256 values; only filenames and direct references changed to retain the actual remote migration versions.
 Hosted testing exposed Poke outbox uniqueness, server-role privilege, and soft-deletion cleanup defects.
-The two corrective migrations are installed; their final hosted verification is in progress.
+The hosted regressions now pass, and later sections record admission and worker verification after the remaining migrations.
 
 ## Completed implementation
 
@@ -560,3 +561,47 @@ Recognized provider failures now retain only validated codes and status values, 
 Corrected two public checksum transcription errors and verified that all four recovery references match the sealed archive's sidecar.
 PR #8 is the current source for the final CI, merge, and deployed visual evidence.
 The remaining operator, provider, physical-device, and full recovery prerequisites remain open in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
+
+## Native flow completion and runtime recovery
+
+PR #8 passed all eight push and pull-request checks and merged at 15:34 UTC as `d41ea0b312de6eee8cf9d98b8242628dc7a978e6`.
+The production release serves both public domains from Dublin.
+An attempted Preview scope cleanup incorrectly deleted fourteen shared Vercel variable records, including their Production targets and nine Development targets.
+The existing deployment remained available, and further deployment was held while Production configuration was recovered.
+Nine values were restored from the unchanged ignored local environment file, and the existing Upstash resource connection recreated the other five.
+All five Redis variables retained sensitive protection after a verified type-only update.
+Production has twenty-two Production-only variables; Preview and Development have none and require isolated setup.
+The reviewed master source was rebuilt as `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` using the recovered configuration.
+The deployed age suite passed four tests in 7.35 seconds, and the social flow passed in 14.53 seconds, exercising live Redis-backed rate limiting.
+The final 16:06 UTC counts remained 50 profiles, 11 Auth users, 96 Storage objects, 182 migrations, and all 31 original events completed; the three latest scheduled worker responses were HTTP 200.
+The incident, recovery, remaining Development gap, and prevention rule are recorded in [environment-isolation-recovery.md](docs/production-baseline/environment-isolation-recovery.md).
+Private metadata evidence is saved separately from the unchanged sealed Supabase recovery archive.
+
+The final brief review found and closed native gaps in chat suggestions, Now radius and empty-state actions, Inbox default selection, and disabled coin promotion on Map.
+Native Now requests the selected 2, 10, or 25 km radius from the server, isolates cache entries by radius, and provides expansion, invitation, and Plan actions.
+Inbox chooses pending Pokes, then active Plans, then Chats once both account-scoped data sources succeed, while preserving explicit navigation and user choices.
+A lifecycle regression reproduced a background refresh failure hiding an already-loaded Inbox; the fixed initial-loading and error states now apply only before automatic selection finishes.
+An initial account lookup failure now exposes retry instead of an indefinite spinner, and retry resolves identity before refreshing account-scoped priorities.
+Native chat now offers typed, editable suggestions and a separate Plan action; shared web/native insertion preserves existing unsent drafts and never sends automatically.
+The native venue suggestion action follows the same draft-preserving policy.
+Native Map no longer requests or advertises disabled coin collection, while user markers, accessible actions, and contextual scanning remain available.
+
+Recovered the local native runtime by replacing a broken Metro bundle process and clearing a stuck Simulator deep-link sheet with a non-erasing restart.
+Direct Simulator proof reached pending date entry, date review without submission, blocked-account recovery, and Now through an incoming Poke and acceptance into chat.
+Replaced the nonexistent Expo Router `(auth)` screen registration with the actual login and welcome routes, preserving admission guards and eliminating the observed route warning on fresh launch.
+Native privacy controls were rendered and their focused persistence tests pass, but direct radio selection and save/reopen remain unverified with the available automation surface.
+Screenshots are retained locally under `test-results/native/`.
+The deterministic native fixture now serves the chat-suggestions contract, and Simulator interaction confirmed that `I can do 6` becomes `I can do 6 Would 20 minutes work?` without activating Send.
+That interaction reproduced an unhandled typing-status request failure from a missing fixture endpoint.
+The fixture now serves the typed POST response, and production typing signals consume best-effort request failures without interrupting the draft.
+The fresh Simulator capture and Metro window are free of the reproduced uncaught error after the fix.
+
+Added `npm run test:postgres-concurrency`, using a temporary PostgreSQL 17 cluster and synthetic rows with the current migration function bodies.
+Actual lock-wait barriers prove that a writer committed before account erasure is purged and that a writer released after erasure cannot resurrect availability.
+Concurrent stale-location cleanup skips a locked 250-row batch, deletes at most 1,000 rows per call, eventually removes all 2,000 stale rows, and retains a fresh row.
+The server, sessions, and temporary files were cleaned up after the successful run.
+This is real local PostgreSQL evidence, not a hosted restore or full production load test.
+
+The consolidated local checks pass: 1,353 web tests, 505 native Vitest tests, 94 iOS/Android renderer tests, root/native lint, and native typecheck.
+Ten hosted-only web tests remain deliberately skipped outside the separately authorized runner.
+The final source still requires its new pull-request CI and merge before these native changes are considered released.

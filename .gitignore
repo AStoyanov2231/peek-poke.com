@@ -76,6 +76,7 @@ test_screenshots/
 .worktrees/
 
 # Expo / React Native
+/.expo/
 /android/
 apps/native/.env
 apps/native/.env.local

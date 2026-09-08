@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   clusterMarkerAccessibility,
-  coinMarkerAccessibility,
   userMarkerAccessibility,
 } from "@/lib/map-marker-accessibility";
 
@@ -20,15 +19,6 @@ describe("map marker accessibility actions", () => {
       label: "Alex",
       hint: "Select this person on the map",
       state: { busy: true, selected: true },
-    });
-  });
-
-  it("only enables coin collection while the coin is in range", () => {
-    expect(coinMarkerAccessibility(true).state).toEqual({ disabled: false });
-    expect(coinMarkerAccessibility(false)).toEqual({
-      label: "Coin, get closer",
-      hint: "Move closer before collecting this coin",
-      state: { disabled: true },
     });
   });
 });

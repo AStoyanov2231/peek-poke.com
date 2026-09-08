@@ -144,7 +144,7 @@ export function SettingsSheet({
               const savedPreference = await saveDiscoveryPreference({ audience });
               queryClient.setQueryData(["discovery-preferences"], savedPreference);
               await Promise.all([
-                queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability }),
+                queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability.all }),
                 queryClient.invalidateQueries({ queryKey: ["discovery", "nearby"] }),
               ]);
             }} /> : preference.isError ? (

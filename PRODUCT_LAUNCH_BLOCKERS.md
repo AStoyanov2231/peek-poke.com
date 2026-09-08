@@ -1,7 +1,8 @@
 # Production launch requirements
 
 - [x] Save the pre-migration recovery package and verify its guarded rollback locally; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) describes the private archive and its limits.
-- [ ] Verify direct native privacy save/reload, generated-username onboarding, and the core Now, Poke, Chat, Plan, and meetup-confirmation Simulator journeys pass; XcodeBuildMCP now renders the native discovery-visibility baseline, but its radio controls expose no actionable element references for the save/reopen assertion.
+- [x] Verify the native Now radius and low-density empty state, Inbox priority, editable chat suggestions and draft safety, removal of disabled Map coin controls, and the core Now-to-Poke-to-accepted-chat Simulator journey.
+- [ ] Verify direct native discovery-privacy save and reopen with a real fixture account; the controls are visible, but the Simulator automation cannot yet target their save/reopen actions.
 - [x] Approve publication of the committed redesign source, tests, migrations, and documentation to the public GitHub repository.
 - [x] Publish `product-redesign` and open draft PR #7.
 - [x] Pass the initial Linux verification workflow after repairing the lockfile and browser timezone failure.
@@ -11,11 +12,11 @@
 - [x] Pass the hosted product/shared-group suites and private Realtime delivery/authorization test, with exact scoped cleanup.
 - [x] Seal the actual 16-migration rollback archive with all saved Storage files and verify the local rollback plus extracted file hashes.
 - [x] Pass the private Storage service lifecycle and authenticated owner/outsider denial checks, with strict generated-object cleanup.
-- [ ] Prove the erasure lock ordering using a deterministic two-session PostgreSQL harness; the hosted late-write rejections pass, but connector timing prevented a live wait assertion.
+- [x] Prove erasure lock ordering and bounded stale-location cleanup with a deterministic local PostgreSQL 17 two-session harness using real lock-wait evidence and synthetic data.
 - [x] Merge PR #7 into master and deploy the matching web contract after the verified database changes.
 - [x] Pass the scoped deployed age-admission and social API suites, including production Redis-backed rate limiting and exact fixture cleanup.
 - [ ] Release and verify the matching native binary on physical devices.
-- [ ] Separate preview/production variable scopes.
+- [ ] Configure isolated Preview and Development environments before using them; Production has 22 production-only variables, while Preview and Development remain unconfigured following the shared-variable recovery described in [environment-isolation-recovery.md](docs/production-baseline/environment-isolation-recovery.md).
 - [x] Configure a generated production-only `CRON_SECRET` and verify its matching Supabase Vault value without exporting either secret.
 - [x] Authorize processing the 31 existing queued events and verify the authenticated Supabase-to-Vercel worker request.
 - [x] Repair the reproduced legacy photo-bucket constraint failure, complete all 31 queued events, and verify the first recurring outbox request with an empty queue.
@@ -31,7 +32,7 @@
 - [x] Confirm the product is restricted to adults aged 18 and over.
 - [x] Implement default-deny age admission across web, native, server, database RPCs, and private Realtime; local and hosted checks pass with no birth-date storage.
 - [x] Reproduce and repair hosted age-release regressions, close retired chat RPC access, and seal the eighteen-migration rollback.
-- [ ] Verify the native pending, review, and blocked age-admission screens directly; the enabled XcodeBuildMCP Simulator surface renders native screens, but fixture sign-in currently has no visible transition or runtime error after its Sign In action.
+- [x] Verify the native pending birth-date, review-before-submit, and blocked age-admission recovery screens in the Simulator.
 - [ ] Choose and operate a support/privacy contact; the user has not selected an address.
 - [ ] Rehearse backups/PITR, restore, provider outages, load limits, canary release, and rollback using the existing production-baseline checklist.
 - [ ] Before enabling meetup coin rewards, integrate server-verified device attestations and prove freshness, replay rejection, blocks, exact proximity, concurrent awards, and two-device behavior.
@@ -42,6 +43,6 @@ The user subsequently approved production migration deployment and public public
 The later worker activation exposed and repaired a nineteenth constraint migration; all nineteen are installed, and the sealed recovery package now covers the additional constraint and scheduler state.
 Hosted tests exposed the two corrective migration requirements despite the earlier local and read-only compatibility checks.
 Those corrections are installed and the hosted product/shared-group suites now pass.
-Local browser fixtures and embedded PostgreSQL pass the implemented behavior but cannot establish production-provider or physical-device readiness.
+Local browser fixtures, native Simulator journeys, and the real local PostgreSQL harness pass implemented behavior but cannot establish provider, physical-device, or isolated-environment readiness.
 The saved recovery archive supports undoing the exact migration batch; it does not satisfy the separate full-backup, Auth/Vault recovery, or hosted restore requirements.
 Additional existing infrastructure prerequisites remain in [manual-actions.md](docs/production-baseline/manual-actions.md).

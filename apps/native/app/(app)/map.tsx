@@ -59,15 +59,10 @@ import {
   visibleHighlightedUser,
   type MapFilter,
 } from "@/features/map/filters";
-import { fetchCoins, fetchCurrentProfile } from "@/data/api";
+import { fetchCurrentProfile } from "@/data/api";
 import { nativeQueryClient } from "@/data/query-client";
 import { nativeQueryKeys } from "@/data/query-keys";
-import {
-  updateLocation,
-  type Bot,
-  type PublicProfileData,
-} from "@/data/discovery/api";
-import { collectAndApplyNativeBot } from "@/data/discovery/bot-collection";
+import { updateLocation, type PublicProfileData } from "@/data/discovery/api";
 import {
   createLocationSyncCoordinator,
   locationFailureRequiresRecovery,
@@ -86,7 +81,6 @@ import {
   shouldRunDiscovery,
 } from "@/data/discovery/policy";
 import {
-  botsQueryOptions,
   nearbyQueryOptions,
   publicProfileQueryOptions,
   resolvedTagsQueryOptions,
@@ -98,17 +92,15 @@ import { joinSharedGroup } from "@/data/shared-groups";
 import { fetchAvailability } from "@/data/availability";
 import { PokeComposer } from "@/components/poke-composer";
 import { planShareTokenFromQrContent } from "@/lib/plan-share-link";
-import { commitFriendshipBalance } from "@/data/social/cache";
 import {
   createOrFindThread,
   sendFriendRequest as createFriendRequest,
   type SocialData,
 } from "@/data/social/api";
 import { env } from "@/lib/env";
-import { formatDistanceKm, haversineKm } from "@/lib/format";
+import { formatDistanceKm } from "@/lib/format";
 import {
   clusterMarkerAccessibility,
-  coinMarkerAccessibility,
   userMarkerAccessibility,
 } from "@/lib/map-marker-accessibility";
 import {
@@ -128,15 +120,13 @@ const DEFAULT_ZOOM = 17;
 const DEFAULT_PITCH = 50;
 const MAP_STYLE = "mapbox://styles/mapbox/standard";
 const MAX_VISIBLE = 10;
-const BOT_COLLECT_RANGE_KM = 0.05;
 const EMPTY_NEARBY_USERS: NearbyUser[] = [];
 
 type UserPointProperties = { userId: string };
 type Viewport = { bbox: [number, number, number, number]; zoom: number };
 type MapMarkerAction =
   | { key: string; kind: "cluster"; clusterId: number; count: number }
-  | { key: string; kind: "user"; userId: string; name: string }
-  | { key: string; kind: "coin"; bot: Bot; collectable: boolean };
+  | { key: string; kind: "user"; userId: string; name: string };
 
 function useDebouncedValue<T>(value: T, delay: number) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -177,10 +167,6 @@ export default function MapScreen() {
     queryFn: fetchCurrentProfile,
   });
   const socialDataQuery = useQuery(socialQuery());
-  const coinsQuery = useQuery({
-    queryKey: nativeQueryKeys.coins,
-    queryFn: fetchCoins,
-  });
   const profile = profileQuery.data;
   const locationAccountScope = useMemo(
     () => ({ userId: profile?.id ?? null }),
@@ -202,10 +188,6 @@ export default function MapScreen() {
     () => socialData?.sentRequestUserIds ?? [],
     [socialData?.sentRequestUserIds],
   );
-  const coins = coinsQuery.data?.balance ?? 0;
-  const setCoins = useCallback((balance: number) => {
-    commitFriendshipBalance(queryClient, balance);
-  }, [queryClient]);
   const sentRequestIds = useMemo(() => new Set(sentRequestUserIds), [sentRequestUserIds]);
   const activity = useDiscoveryActivity();
   const deviceLocation = useDeviceLocation();
@@ -233,7 +215,7 @@ export default function MapScreen() {
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
   const [selectedClusterUserIds, setSelectedClusterUserIds] = useState<string[] | null>(null);
   const [pokeUser, setPokeUser] = useState<NearbyUser | null>(null);
-  const availabilityQuery = useQuery({ queryKey: nativeQueryKeys.availability, queryFn: ({ signal }) => fetchAvailability(signal), staleTime: 30_000, refetchInterval: 30_000 });
+  const availabilityQuery = useQuery({ queryKey: nativeQueryKeys.availability.nearby(25), queryFn: ({ signal }) => fetchAvailability({ radiusKm: 25, signal }), staleTime: 30_000, refetchInterval: 30_000 });
   const [friendLoadingId, setFriendLoadingId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [locationSyncFailure, setLocationSyncFailure] = useState<{
@@ -300,19 +282,6 @@ export default function MapScreen() {
   const searchOthers = useMemo(
     () => (userSearchQuery.data ?? []).filter((user) => !user.is_nearby),
     [userSearchQuery.data]
-  );
-
-  const botsQuery = useQuery({
-    ...botsQueryOptions(location ?? { lat: 0, lng: 0 }, profile?.id ?? ""),
-    enabled: discoveryActive && !!location && locationFresh,
-  });
-
-  const [collectedBotIds, setCollectedBotIds] = useState<Set<string>>(() => new Set());
-  const bots = useMemo(
-    () => locationFresh
-      ? (botsQuery.data ?? []).filter((bot) => !collectedBotIds.has(bot.id))
-      : [],
-    [botsQuery.data, collectedBotIds, locationFresh]
   );
 
   const showNotice = useCallback((message: string) => {
@@ -487,18 +456,8 @@ export default function MapScreen() {
       });
     }
 
-    for (const bot of bots) {
-      actions.push({
-        key: `coin-${bot.id}`,
-        kind: "coin",
-        bot,
-        collectable: location
-          ? haversineKm(location.lat, location.lng, bot.lat, bot.lng) <= BOT_COLLECT_RANGE_KM
-          : false,
-      });
-    }
     return actions;
-  }, [bots, clusters, highlightedUser, location, usersById]);
+  }, [clusters, highlightedUser, usersById]);
 
   const selectCluster = useCallback((clusterId: number) => {
     setSelectedClusterId(clusterId);
@@ -661,32 +620,10 @@ export default function MapScreen() {
   async function openChat(userId: string) {
     try {
       const thread = await createOrFindThread(userId);
-      setCoins(thread.balance);
       clearSelection();
       router.push({ pathname: "/chat/[threadId]", params: { threadId: thread.id } } as never);
     } catch (error) {
       showNotice(error instanceof Error ? error.message : "Could not start chat");
-    }
-  }
-
-  async function collectBot(bot: Bot) {
-    if (!location || !locationFresh) return;
-    const collectable = haversineKm(location.lat, location.lng, bot.lat, bot.lng) <= BOT_COLLECT_RANGE_KM;
-    if (!collectable) {
-      showNotice("Get closer");
-      return;
-    }
-
-    try {
-      await collectAndApplyNativeBot(bot.id, location, {
-        setBalance: setCoins,
-        markCollected: (botId) => {
-          setCollectedBotIds((current) => new Set(current).add(botId));
-        },
-        refetchBots: () => void botsQuery.refetch(),
-      });
-    } catch (error) {
-      showNotice(error instanceof Error ? error.message : "Could not collect coin");
     }
   }
 
@@ -853,27 +790,6 @@ export default function MapScreen() {
             );
           })}
 
-          {bots.map((bot) => {
-            const collectable = haversineKm(location.lat, location.lng, bot.lat, bot.lng) <= BOT_COLLECT_RANGE_KM;
-            return (
-              <MapMarkerButton
-                key={bot.id}
-                coordinate={[bot.lng, bot.lat]}
-                accessibilityLabel={collectable ? "Collect coin" : "Coin — get closer"}
-                onPress={() => void collectBot(bot)}
-                style={styles.annotationTarget}
-              >
-                <View style={[styles.botPin, collectable ? styles.botCollectable : styles.botFar]}>
-                  <IconGlyph
-                    name="coins"
-                    color={collectable ? colors.surface : colors.ink[6]}
-                    size={18}
-                  />
-                </View>
-              </MapMarkerButton>
-            );
-          })}
-
           {highlightedUser ? (
             <Mapbox.PointAnnotation
               id={`highlighted-${highlightedUser.userId}`}
@@ -1025,7 +941,6 @@ export default function MapScreen() {
         selectedClusterId={selectedClusterId}
         zoom={viewport.zoom}
         onClose={() => setMarkerActionsOpen(false)}
-        onCollectCoin={(bot) => void collectBot(bot)}
         onSelectCluster={selectCluster}
         onSelectUser={(userId) => void selectUser(userId)}
       />
@@ -1034,11 +949,6 @@ export default function MapScreen() {
         <View style={styles.onlinePill}>
           <View style={styles.onlineDot} />
           <Text style={styles.pillText}>{friendsOnline} friends online</Text>
-        </View>
-        <View style={styles.coinPill}>
-          <IconGlyph name="coins" color="#e8c547" size={15} />
-          <Text style={styles.coinText}>{coins} / 5</Text>
-          <Text style={styles.coinSubtext}>coins</Text>
         </View>
       </View>
 
@@ -1143,18 +1053,14 @@ function MapMarkerActionRow({
 }) {
   const accessibility = action.kind === "cluster"
     ? clusterMarkerAccessibility(action.count, zoom, selectedClusterId === action.clusterId)
-    : action.kind === "user"
-      ? userMarkerAccessibility(
-          action.name,
-          highlightedUserId === action.userId,
-          pendingUserId === action.userId,
-        )
-      : coinMarkerAccessibility(action.collectable);
+    : userMarkerAccessibility(
+        action.name,
+        highlightedUserId === action.userId,
+        pendingUserId === action.userId,
+      );
   const detail = action.kind === "cluster"
     ? `Cluster · zoom ${Math.round(zoom)}`
-    : action.kind === "user"
-      ? "Person"
-      : action.collectable ? "Coin · in range" : "Coin · get closer";
+    : "Person";
   const handlePress = useCallback(() => onSelect(action), [action, onSelect]);
 
   return (
@@ -1173,7 +1079,7 @@ function MapMarkerActionRow({
       ]}
     >
       <IconGlyph
-        name={action.kind === "cluster" ? "users" : action.kind === "user" ? "profile" : "coins"}
+        name={action.kind === "cluster" ? "users" : "profile"}
         color={colors.ink[7]}
         size={20}
       />
@@ -1194,7 +1100,6 @@ function MapMarkerActionSheet({
   selectedClusterId,
   zoom,
   onClose,
-  onCollectCoin,
   onSelectCluster,
   onSelectUser,
 }: {
@@ -1206,17 +1111,14 @@ function MapMarkerActionSheet({
   selectedClusterId: number | null;
   zoom: number;
   onClose: () => void;
-  onCollectCoin: (bot: Bot) => void;
   onSelectCluster: (clusterId: number) => void;
   onSelectUser: (userId: string) => void;
 }) {
   const selectAction = useCallback((action: MapMarkerAction) => {
-    if (action.kind === "coin" && !action.collectable) return;
     onClose();
     if (action.kind === "cluster") onSelectCluster(action.clusterId);
-    else if (action.kind === "user") onSelectUser(action.userId);
-    else onCollectCoin(action.bot);
-  }, [onClose, onCollectCoin, onSelectCluster, onSelectUser]);
+    else onSelectUser(action.userId);
+  }, [onClose, onSelectCluster, onSelectUser]);
   const renderAction: ListRenderItem<MapMarkerAction> = useCallback(({ item }) => (
     <MapMarkerActionRow
       action={item}
@@ -1925,29 +1827,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "600",
   },
-  coinPill: {
-    height: 36,
-    borderRadius: radii.pill,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
-    backgroundColor: colors.ink[9],
-  },
-  coinText: {
-    color: colors.surface,
-    fontFamily: fontFamilies.semibold,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
-  },
-  coinSubtext: {
-    color: "rgba(255,255,255,0.7)",
-    fontFamily: fontFamilies.semibold,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
-  },
   recenter: {
     position: "absolute",
     right: spacing[4],
@@ -2005,22 +1884,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     fontWeight: "700",
-  },
-  botPin: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.e2,
-  },
-  botCollectable: {
-    backgroundColor: colors.warn[500],
-  },
-  botFar: {
-    backgroundColor: colors.ink[3],
   },
   nearbyRail: {
     position: "absolute",

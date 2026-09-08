@@ -4,6 +4,16 @@ import { supabase } from "@/lib/supabase";
 
 const TYPING_SEND_INTERVAL_MS = 2_000;
 
+/** Typing is best-effort. A transient signal failure must never surface as an unhandled promise. */
+export function sendTypingSignal(threadId: string): Promise<void> {
+  return apiFetch(`/api/dm/${encodeURIComponent(threadId)}/typing`, {
+    method: "POST",
+  }).then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
 export function useTypingIndicator(threadId: string, userId: string | undefined) {
   const [isPeerTyping, setIsPeerTyping] = useState(false);
   const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -39,9 +49,7 @@ export function useTypingIndicator(threadId: string, userId: string | undefined)
     const now = Date.now();
     if (!threadId || now - lastSentAt.current < TYPING_SEND_INTERVAL_MS) return;
     lastSentAt.current = now;
-    void apiFetch(`/api/dm/${encodeURIComponent(threadId)}/typing`, {
-      method: "POST",
-    });
+    void sendTypingSignal(threadId);
   }, [threadId]);
 
   return { isPeerTyping, notifyTyping };

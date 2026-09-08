@@ -43,6 +43,7 @@ import { ReadReceiptRecovery } from "@/features/chat/components/ReadReceiptRecov
 import { mutatePreparedWebDmMessage } from "@/data/dm-message-mutations";
 import { ChatMomentumActions } from "@/features/chat/components/ChatMomentumActions";
 import { PlanComposerDialog } from "@/features/plans/components/PlanComposerDialog";
+import { appendEditableChatSuggestion } from "@peekpoke/shared/chat-suggestions";
 
 interface ChatSheetContentProps {
   threadId: string;
@@ -479,7 +480,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
             hasMessages={messages.length > 0}
             onChooseReply={(suggestion) => {
               if (editingMessage) return;
-              setInput(suggestion);
+              setInput(appendEditableChatSuggestion(input, suggestion));
             }}
             onMakePlan={() => { setPlanPlacePrefill(""); setPlanComposerOpen(true); }}
             onMeetHere={(venue) => { setPlanPlacePrefill(venue.name); setPlanComposerOpen(true); }}

@@ -14,9 +14,9 @@ Vercel Hobby permits one cron invocation per day with hour-level timing, so it c
 
 The private pre-change snapshot is `.supabase-backups/deployment-20260908/ops-prechange-snapshot.json`.
 The original snapshot remains a valid chronological record of the pre-change state: `pg_cron` 1.6.4, no `pg_net`, one active weekly soft-deleted-message cleanup job, and no Vault entries.
-Master PR 7 is merged at `b8d33750364d8fa38b18e9daa74b33d1aa50331e`; Vercel deployment `dpl_87orq3DQNsTpfVMJK5827FMut7y2` is READY.
-Its current Function region is `iad1`.
-The single-region Hobby `dub1` configuration is a separate next change and is not part of this deployment.
+Master PRs 7 and 8 are merged at `d41ea0b312de6eee8cf9d98b8242628dc7a978e6`; recovery deployment `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` is READY.
+Its Function region is `dub1`, matching Supabase's Dublin region under the existing single-region Hobby plan.
+Production environment recovery and its successful deployed API checks are recorded in [environment-isolation-recovery.md](production-baseline/environment-isolation-recovery.md).
 Production now has a generated production-only Vercel `CRON_SECRET` and the matching Vault entry `peek_poke_outbox_cron_secret`; a SHA-256 equality check verified the match without exporting either value.
 Retention job 5 purges stale locations each minute, and job 6 purges old product metrics daily at 03:17 UTC.
 Both cleanup functions completed their manual preflight with no expired records present, and job 5 completed a scheduled successful run at 14:33 UTC on 2026-09-08.
@@ -189,6 +189,11 @@ npm run lint
 npm test
 npm run build
 ```
+
+For separate-session lock and stale-location batching evidence, run `npm run test:postgres-concurrency` with PostgreSQL 17 installed.
+Set `POSTGRES_BIN` to its binary directory when `pg_config` and the Homebrew fallback cannot locate it.
+The harness starts a temporary Unix-socket-only cluster with synthetic rows, verifies actual lock waits in both account-erasure orderings and bounded `SKIP LOCKED` cleanup, and removes the cluster afterwards.
+This local check does not constitute a hosted restore rehearsal or production concurrency test.
 
 The production mobile build evaluates `apps/native/app.config.js` and rejects missing or mismatched production public API and Supabase origins.
 Run the configured EAS production build configuration evaluation for each platform before submitting a binary.
