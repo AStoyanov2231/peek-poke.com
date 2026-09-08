@@ -20,7 +20,7 @@ export function LandingPage() {
           peek & poke<span>.</span>
         </Link>
         <nav aria-label="Public navigation">
-          <a href="#how-it-works" className="hidden sm:inline-flex">
+          <a href="#how-it-works" className="public-header-secondary-link">
             How it works
           </a>
           <Link href="/login">

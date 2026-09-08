@@ -515,3 +515,48 @@ A Vercel production environment PING attempt could not retrieve sensitive Redis 
 Added a separate exact-origin opt-in for scoped deployed API verification, retaining every existing production-project gate and rejecting mismatched origins, ports, targets, or missing authorization flags.
 The age and product test helpers now refuse HTTP redirects for bearer-authenticated requests.
 The focused target-guard tests and lint pass; the deployed test runner remains private and has not run before the matching application release.
+
+## Deployed release verification
+
+All eight checks passed for `a4d8b3559`, and PR #7 was merged into master at `b8d33750364d8fa38b18e9daa74b33d1aa50331e` on 2026-09-08 at 14:46 UTC.
+Vercel production deployment `dpl_87orq3DQNsTpfVMJK5827FMut7y2` is ready and serves both public domains.
+The scoped deployed age suite passed all four tests in 33.61 seconds, and the deployed social suite passed in 32.27 seconds.
+They exercised the real Vercel routes, production Redis-backed rate limiting, admission, Pokes, Plans, and scoped deletion.
+Cleanup restored 50 profiles, 11 Auth users, 96 Storage objects, zero age decisions, Pokes, and Plans, and the original 31-event queue.
+Captured the live landing page at 1440 and 390 pixels with no horizontal overflow.
+The phone capture reproduced wrapped header links caused by an inert responsive utility; the scoped mobile CSS correction is prepared with lint and design checks passing.
+The deployed server functions defaulted to `iad1`; a single-region `dub1` configuration is prepared to match Supabase's `eu-west-1` location under the existing Hobby plan.
+
+The user authorized processing the 31 queued events and activating the worker.
+Saved a fresh operations snapshot and reversal notes before installing `pg_net` 0.19.5 through the Supabase Extensions dashboard.
+The manual Vault-authenticated HTTP request returned 200, completed fourteen events, and retried eleven moderation events, with six group-message events still unclaimed.
+The recurring outbox job remains absent while that failure is repaired.
+A rolled-back finalizer call reproduced SQLSTATE 23514: `profile_photos_storage_bucket_check` only admits legacy and private buckets, rejecting the existing approved and quarantine workflows.
+Saved its exact prior definition, 181 migration versions, eleven affected photo rows, and five affected profiles privately before preparing a corrective migration.
+Snapshot SHA-256 is `3665b613432f6d2fa8cc466020074a82f0c967418bc33cc28fce113599592242`.
+The correction only expands the bucket allowlist to the four existing workflow buckets; its SQL regression and guarded rollback are in progress before application.
+The fifth embedded SQL script passes legacy rejection, the exact four-bucket correction, preservation of existing rows and unrelated constraints, and refusal of an unexpected baseline.
+The rollback now locks the photo table before checking drift, verifies the validated constraint and exact history, and refuses rows still using the newer buckets.
+All 22 original source/thumbnail objects referenced by the eleven affected photos were verified present in the unchanged sealed Storage archive.
+Applied the correction as `20260908150805_profile_photo_moderation_buckets`, bringing history to 182 entries, and verified the exact validated four-bucket constraint.
+The local source filename and its regression test match that actual hosted timestamp, and the rollback rehearsal passes with the actual version.
+Improved private outbox retry diagnostics to retain only validated provider error codes and HTTP status, excluding arbitrary provider messages and details.
+Rollback-contained live finalization now passes for both approval and quarantine after migration 19.
+The next authorized worker request returned 200 and completed all seventeen remaining events with zero retries or dead letters.
+All 31 original queued events are completed, including seven photo approvals and four quarantines, with profile/Auth/Storage counts still 50/11/96.
+Activated outbox cron job 7 every minute, using the matched Vault secret at execution time.
+The first scheduled run succeeded at 15:13 UTC and its HTTP response was 200 with an empty queue, zero queue age, zero retries, and zero dead letters.
+The guarded outbox-job reversal passed confirmation, drift, unrelated-job preservation, and repeat-run checks.
+Sealed the complete nineteen-migration recovery package with the unchanged nested eighteen-migration package, all original Storage files, photo snapshots, and operations reversal records.
+All 153 payload hashes passed a fresh extraction of `.supabase-backups/MyaouDB-deployed-19-migration-rollback-20260908.tar.gz`, SHA-256 `551c56b1e7cbbea54cd7ddccd114f5af046cd15b70395015e674925594379d1c`.
+The final local root run passes 1,350 tests across 153 files, with ten hosted tests deliberately skipped outside their explicit runner, and root lint is clean.
+The final Supabase security review reports only the thirteen intentional service-owned RLS tables without client policies and the existing disabled leaked-password protection setting.
+
+## Worker and deployment follow-up
+
+[PR #8](https://github.com/AStoyanov2231/peek-poke.com/pull/8) contains the completed worker correction, nineteen-migration recovery references, mobile landing-header fix, and Dublin server-region configuration.
+The release review reproduced a Supabase `PostgrestError` subclass bypassing provider-message redaction and added coverage through the installed SDK error type, including malformed diagnostic fields.
+Recognized provider failures now retain only validated codes and status values, while ordinary application errors keep their bounded diagnostics.
+Corrected two public checksum transcription errors and verified that all four recovery references match the sealed archive's sidecar.
+PR #8 is the current source for the final CI, merge, and deployed visual evidence.
+The remaining operator, provider, physical-device, and full recovery prerequisites remain open in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).

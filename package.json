@@ -19,7 +19,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:product-db": "node test/sql/product-database.mjs && node test/sql/age-admission-rls.mjs && node test/sql/age-group-detail.mjs && node test/sql/age-shared-groups-compat.mjs",
+    "test:product-db": "node test/sql/product-database.mjs && node test/sql/age-admission-rls.mjs && node test/sql/age-group-detail.mjs && node test/sql/age-shared-groups-compat.mjs && node test/sql/profile-photo-buckets.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",

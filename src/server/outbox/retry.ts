@@ -1,3 +1,5 @@
+import { PostgrestError } from "@supabase/supabase-js";
+
 export const OUTBOX_MAX_ATTEMPTS = 8;
 export const OUTBOX_MAX_DELAY_MS = 60 * 60 * 1000;
 
@@ -43,7 +45,49 @@ export function resumableOutboxRetryDecision(
   };
 }
 
+const SQLSTATE_CODE = /^[0-9A-Z]{5}$/;
+const POSTGREST_CODE = /^PGRST[0-9]{3}$/;
+
+function safeProviderError(error: unknown): string | null {
+  const isPostgrestError = error instanceof PostgrestError;
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    (error instanceof Error && !isPostgrestError)
+  )
+    return null;
+
+  try {
+    const candidate = error as { code?: unknown; status?: unknown };
+    const code = candidate.code;
+    const status = candidate.status;
+    const parts: string[] = [];
+
+    if (
+      typeof code === "string" &&
+      (SQLSTATE_CODE.test(code) || POSTGREST_CODE.test(code))
+    )
+      parts.push(`code ${code}`);
+    if (
+      typeof status === "number" &&
+      Number.isInteger(status) &&
+      status >= 400 &&
+      status <= 599
+    )
+      parts.push(`HTTP status ${status}`);
+
+    return parts.length > 0
+      ? `Provider error: ${parts.join(", ")}`
+      : isPostgrestError
+        ? "Provider error"
+        : null;
+  } catch {
+    return isPostgrestError ? "Provider error" : null;
+  }
+}
+
 export function safeOutboxError(error: unknown) {
-  const message = error instanceof Error ? error.message : "Unknown worker error";
+  const message = safeProviderError(error) ??
+    (error instanceof Error ? error.message : "Unknown worker error");
   return message.replace(/[\r\n]+/g, " ").slice(0, 1000);
 }
