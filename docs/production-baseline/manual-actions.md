@@ -1,17 +1,22 @@
 # Remaining manual actions
 
-- Pull the complete 134-migration schema-only baseline into an isolated project, reconcile the hosted/local migration-history name drift, apply `20260729235452_durable_workflows.sql` followed by the cursor indexes, and pass migration/RLS/rollback checks. The current checkout cannot recreate the hosted schema from its two additive migrations alone.
+- Rehearse a fresh project from the complete hosted baseline and migration history.
+  The current hosted database has 179 migrations after the approved redesign deployment, while the compact local fixture does not recreate every legacy or provider-managed object.
 - Configure separate development, preview/staging, and production Supabase/Vercel/EAS variables and project references. Do not reuse production values in preview.
 - Configure a restricted server-only `GOOGLE_PLACES_API_KEY` in each environment, enable Nearby Search (New), and verify API and billing restrictions. The venue endpoint intentionally returns no cards until this key is present.
-- Configure a per-environment `CRON_SECRET` for authorized outbox invocations, promote the migration first, then deploy the `dub1` Vercel region. Verify the function region from `x-vercel-id`, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency.
+- Configure production `CRON_SECRET` and the authenticated outbox scheduler before relying on asynchronous delivery.
+  The database migrations are installed.
+  Verify the deployed function region, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency.
 - Enable Supabase leaked-password protection and rerun security advisors. Record the previous setting and rollback action before changing it.
-- Promote the committed server-only `public.user_locations` RLS policy after isolated verification; the live advisor currently reports RLS enabled with no policy.
-- Apply `20260908060000_privacy_location_retention.sql` and deploy `/api/internal/privacy-cleanup`, then configure an authorized scheduler to invoke it at most once per minute with `CRON_SECRET`. Alert on missed runs and purge failures. Until that scheduler is active, exact locations are only excluded from discovery after ten minutes and are not physically deleted.
+- Activate exact-location retention using the installed `purge_stale_user_locations` function and the reversible scheduler runbook in `../product-operations.md`.
+  Direct database cron avoids the current Vercel Hobby scheduling limit.
+  Alert on missed runs and purge failures; until scheduled, stale coordinates are excluded from discovery but are not physically deleted.
 - Configure Vercel WAF/rate-limit rules for authentication-related traffic. Supabase Auth is a direct client integration and needs provider/edge coverage.
 - Enable/verify Supabase backups and PITR; rehearse restore into an isolated non-production project and record RTO/RPO, gaps, and rollback steps.
 - Create Vercel dashboard views/alerts from the structured log fields and generate real preview samples. Query-level DB/RPC, Realtime, cache, and queue metrics remain unavailable until those systems expose telemetry.
 - Keep production secret values only in Vercel, Supabase, and EAS. Rotate any credential that may have been exposed outside those stores before production use.
 - Configure and validate APNs/FCM/Expo credentials plus universal/app-link provider association. Confirm iOS and Android notification delivery and allowlisted navigation in approved internal builds.
 - Record the product owner's current outbound web-billing eligibility for each iOS/Android environment, region, and storefront. Keep the native link denied where the applicable store program or policy does not permit it.
-- Run the release evidence excluded from this goal: browser flows, TestFlight and Android internal-track device journeys, native binaries, provider failure injection, production-like load tests, canary observation, store review/submission, and rollback/PITR rehearsal.
+- Complete the outstanding release evidence in `../../PRODUCT_LAUNCH_BLOCKERS.md`, including physical-device journeys, provider failure injection, load, canary observation, store submission, and a hosted restore rehearsal.
+  Existing browser, Simulator, hosted product, and Realtime evidence is recorded in `../product-verification.md`.
 - Track the upstream `brace-expansion` advisory in the ESLint/Expo development-tool chain and the Expo `uuid` advisory. `npm audit --omit=optional` currently reports no compatible non-breaking fix for those paths; they are not imported by the deployed application runtime.

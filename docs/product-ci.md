@@ -21,7 +21,7 @@ Fixture mode opts into software WebGL for its test-owned Map scene, matching the
 The flag is confined to `E2E_FIXTURE=1`; the normal application does not set browser flags.
 No workflow job receives a repository secret, contacts a hosted Supabase project, deploys code, publishes artifacts, or applies migrations.
 The existing Vercel Git integration is separate from this workflow.
-`vercel.json` disables automatic deployment only for `product-redesign` while its required database migrations await approval.
+`vercel.json` disables automatic deployment only for `product-redesign` while its hosted verification and release configuration are completed.
 This uses Vercel's documented [branch-specific deployment control](https://vercel.com/docs/project-configuration/git-configuration#gitdeploymentenabled); other branches retain their existing behavior.
 Remove that branch entry when the target database is migrated and an application deployment is approved.
 
@@ -33,6 +33,9 @@ Those checks require separately approved environments, credentials, and release 
 The workflow-equivalent production build passed locally on Node 24.10.0 with every `.env.local` key overridden and only the workflow fixture values injected.
 The latest root production build reported exit 0 in `/tmp/peek-product-final-web-build.log`.
 The matching root lint log is `/tmp/peek-product-final-web-lint.log`.
-The first GitHub run is still required to verify the fresh Linux install and complete runner environment.
-The implementation is committed locally, but automatic approval review rejected the branch push because the repository is public and disclosure of the new payload requires explicit authorization.
-No workflow run or draft pull request has been created for this branch.
+The user approved public publication, and [draft PR #7](https://github.com/AStoyanov2231/peek-poke.com/pull/7) contains the redesign.
+The first Linux run exposed a missing `source-map@0.6.1` lockfile entry, which is corrected and verified with CI's Node 24.20 and npm 11.19.
+The browser run exposed a timezone mismatch between the UTC runner and the Europe/Sofia browser.
+The Plan journey now calculates its future local datetime inside the browser, verifies the successful creation response, and checks that the creation dialog closes.
+All four jobs pass for commit `cecc8e17f` in the [PR verification run](https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34222558669) and its matching push run.
+The additional hosted-test regressions and recorded production migration versions require a new run after their release commit is pushed.

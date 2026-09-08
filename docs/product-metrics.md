@@ -1,6 +1,6 @@
 # Product funnel metrics
 
-`20260908090000_private_product_funnel_metrics.sql` provides a service-only, daily aggregate for a maximum of 31 UTC days.
+`20260908113529_private_product_funnel_metrics.sql` provides a service-only, daily aggregate for a maximum of 31 UTC days.
 It returns only counts for durable social activation, current availability records created, Pokes sent and accepted, Plans created, Plans created from accepted-Poke threads, successful Plan joins, and mutually acknowledged meetups.
 
 The aggregate reads durable domain records and idempotency records.
@@ -15,13 +15,13 @@ A mutual meetup is an explicit social acknowledgement, not proof of physical pre
 Social activity is a sent or responded-to Poke, a created or successfully joined Plan, or a mutual acknowledgement.
 Passive readers are excluded because the current domain schema does not retain a durable read event.
 
-`20260908110000_private_product_activity_metrics.sql` adds a separate, service-only activity input for the metrics that cannot be reconstructed from mutable availability rows.
+`20260908113628_private_product_activity_metrics.sql` adds a separate, service-only activity input for the metrics that cannot be reconstructed from mutable availability rows.
 The first availability activation or Poke activation is recorded once per account and is preserved when availability is edited or cleared.
 Successful availability reads record only the returned opportunity counts within 2 km, 10 km, and 25 km, using the server-calculated `distanceKm` values.
 The daily records hold no message, name, location, or coordinate content.
 The service-only cleanup RPC removes records older than the configured 31-day window when invoked; its scheduler and monitoring are release prerequisites.
 Weekly active accounts include availability activation, Poke activation, and successful discovery activity.
-`20260908120000_plan_meetup_attribution.sql` records an explicit, separate confirmation for a specific Plan and participant pair.
+`20260908113639_plan_meetup_attribution.sql` records an explicit, separate confirmation for a specific Plan and participant pair.
 It does not alter or infer from generic pair-day meetup acknowledgements.
 The confirmation window opens at the Plan start time and closes 48 hours later.
 Both live accounts must still be current Plan members, the Plan must remain active, and either-direction blocks remove the peer from the response and deny a confirmation.

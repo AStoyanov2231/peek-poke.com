@@ -12,14 +12,14 @@ They are never unlocked by a subscription.
 
 ## Server controls
 
-The `20260908010000_free_social_graph_and_coarse_nearby.sql` migration retains the existing durable idempotency records, 20-per-minute friendship mutation limit, normalized pair locks, block checks, and outbox events.
+The `20260908113140_free_social_graph_and_coarse_nearby.sql` migration retains the existing durable idempotency records, 20-per-minute friendship mutation limit, normalized pair locks, block checks, and outbox events.
 It removes wallet debits and friend-count subscription limits from new social actions.
 New free friend requests carry a durable zero-cost marker.
 Pending requests created by the previous paid flow have no such marker, so their existing one-time, capped refund and ledger entry remain intact when removed.
 Existing earned coin balances and verified meeting rewards are untouched.
 
 The same migration returns nearby people in 0.01-degree display cells.
-The follow-on `20260908060000_privacy_location_retention.sql` migration adds a service-only, lock-safe batch purge for coordinates older than ten minutes; its scheduler must be configured before release.
+The follow-on `20260908113454_privacy_location_retention.sql` migration adds a service-only, lock-safe batch purge for coordinates older than ten minutes; its scheduler must be configured before release.
 Exact coordinates remain in `user_locations` for server-side matching and are never returned by discovery APIs.
 Only a future server-verified device attestation may authorize a reward-bearing proximity claim.
 Do not use client coordinates to grant rewards or disclose an exact friend location unless the user has explicitly shared it for a bounded period.

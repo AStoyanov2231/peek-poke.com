@@ -71,6 +71,13 @@ async function removeByIds(table: string, column: string, ids: string[]) {
   if (error) throw error;
 }
 
+async function expectServerOnlyReadDenied(
+  request: PromiseLike<{ error: { message: string } | null }>,
+) {
+  const { error } = await request;
+  expect(error).not.toBeNull();
+}
+
 async function cleanUpSyntheticData() {
   const errors: Error[] = [];
   const attempt = async (operation: () => Promise<void>) => {
@@ -213,6 +220,30 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     expect(meetupPlanResponse.status).toBe(201);
     const meetupPlan = await meetupPlanResponse.json();
     planIds.push(meetupPlan.plan.id);
+
+    // A deliberately shared private Plan remains private to authenticated
+    // non-members. Only its capability URL may return the minimized preview.
+    const privateRead = await api(casey, `/api/plans/${meetupPlan.plan.id}`);
+    expect(privateRead.status).toBe(404);
+    const shareResponse = await api(alice, `/api/plans/${meetupPlan.plan.id}/share`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(shareResponse.status).toBe(201);
+    const share = await shareResponse.json();
+    expect(typeof share.token).toBe("string");
+    const publicPreview = await fetch(`${appUrl()}/api/plans/share/${share.token}`);
+    expect(publicPreview.status).toBe(200);
+    const previewPayload = await publicPreview.json();
+    expect(previewPayload.plan).toEqual(expect.objectContaining({ id: meetupPlan.plan.id, activity: "walk" }));
+    expect(previewPayload.plan).not.toHaveProperty("visibility");
+    expect(previewPayload.plan).not.toHaveProperty("owner_id");
+    const revokedShare = await api(alice, `/api/plans/${meetupPlan.plan.id}/share`, { method: "DELETE" });
+    expect(revokedShare.status).toBe(200);
+    const revokedPreview = await fetch(`${appUrl()}/api/plans/share/${share.token}`);
+    expect(revokedPreview.status).toBe(404);
+
     const bobJoin = await api(bob, `/api/plans/${meetupPlan.plan.id}/join`, {
       method: "POST",
       headers: { "content-type": "application/json", "idempotency-key": "product-it-plan-join-b-002" },
@@ -244,6 +275,36 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     const directTableRead = await casey.client.from("plan_meetup_acknowledgements").select("id").eq("plan_id", meetupPlan.plan.id);
     expect(directTableRead.error).not.toBeNull();
 
+    // These relations and functions are route-only. Verify an authenticated
+    // browser token cannot bypass the server-owned authorization boundary.
+    await expectServerOnlyReadDenied(casey.client.from("plans").select("id").eq("id", meetupPlan.plan.id));
+    await expectServerOnlyReadDenied(casey.client.from("plan_members").select("user_id").eq("plan_id", meetupPlan.plan.id));
+    await expectServerOnlyReadDenied(casey.client.from("plan_share_tokens").select("id").eq("plan_id", meetupPlan.plan.id));
+    await expectServerOnlyReadDenied(casey.client.from("plan_join_idempotency").select("actor_id").eq("actor_id", casey.id));
+    await expectServerOnlyReadDenied(casey.client.from("plan_create_idempotency").select("actor_id").eq("actor_id", casey.id));
+    await expectServerOnlyReadDenied(casey.client.from("pokes").select("id").eq("id", poke.poke.id));
+    await expectServerOnlyReadDenied(casey.client.from("user_availabilities").select("user_id").eq("user_id", casey.id));
+    await expectServerOnlyReadDenied(casey.client.from("social_idempotency_records").select("actor_id").eq("actor_id", casey.id));
+    await expectServerOnlyReadDenied(casey.client.from("product_first_activations").select("user_id").eq("user_id", casey.id));
+    await expectServerOnlyReadDenied(casey.client.from("product_activity_days").select("user_id").eq("user_id", casey.id));
+    await expectServerOnlyReadDenied(casey.client.from("product_discovery_daily_activity").select("user_id").eq("user_id", casey.id));
+    const directPokeRpc = await casey.client.rpc("create_poke", {
+      p_sender_id: casey.id,
+      p_recipient_id: alice.id,
+      p_activity: "coffee",
+      p_custom_label: null,
+      p_note: null,
+      p_idempotency_key: "product-it-direct-poke-0001",
+    });
+    expect(directPokeRpc.error).not.toBeNull();
+    const directAvailabilityRpc = await casey.client.rpc("upsert_user_availability", {
+      p_user_id: casey.id,
+      p_activity: "coffee",
+      p_custom_label: null,
+      p_duration_minutes: 30,
+    });
+    expect(directAvailabilityRpc.error).not.toBeNull();
+
     const firstConfirmation = await api(alice, `/api/plans/${meetupPlan.plan.id}/meetups`, {
       method: "POST",
       headers: { "content-type": "application/json", "idempotency-key": "product-it-meetup-a-0001" },
@@ -273,5 +334,112 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
       body: JSON.stringify({ recipientId: bob.id, activity: "coffee", customLabel: null }),
     });
     expect(blockedPoke.status).toBe(404);
+
+    // Exercise the account-erasure worker transaction with only records owned
+    // by a tracked synthetic account. This catches missing cascades in new
+    // social tables without selecting or deleting any pre-existing records.
+    const caseyAvailability = await api(casey, "/api/availability", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ activity: "coffee", customLabel: null, durationMinutes: 30 }),
+    });
+    expect(caseyAvailability.status).toBe(200);
+    const caseyPlanResponse = await api(casey, "/api/plans", {
+      method: "POST",
+      headers: { "content-type": "application/json", "idempotency-key": "product-it-plan-create-c-001" },
+      body: JSON.stringify({ activity: "coffee", starts_at: startsAt, place_text: "Casey cleanup cafe", visibility: "private", participant_limit: 2 }),
+    });
+    expect(caseyPlanResponse.status).toBe(201);
+    const caseyPlan = await caseyPlanResponse.json();
+    planIds.push(caseyPlan.plan.id);
+    const caseyShareResponse = await api(casey, `/api/plans/${caseyPlan.plan.id}/share`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(caseyShareResponse.status).toBe(201);
+    const caseyPokeResponse = await api(casey, "/api/pokes", {
+      method: "POST",
+      headers: { "content-type": "application/json", "idempotency-key": "product-it-poke-create-c-001" },
+      body: JSON.stringify({ recipientId: alice.id, activity: "coffee", customLabel: null }),
+    });
+    expect(caseyPokeResponse.status).toBe(200);
+    const caseyPoke = await caseyPokeResponse.json();
+    pokeIds.push(caseyPoke.poke.id);
+
+    const erased = await service.rpc("erase_account_data", { p_user_id: casey.id });
+    expect(erased.error).toBeNull();
+    expect(erased.data.success).toBe(true);
+    const [erasedPlan, erasedMembers, erasedShares, erasedPoke, erasedAvailability, erasedActivation, erasedActivity, erasedDiscovery, erasedIdempotency, erasedOutbox] = await Promise.all([
+      service.from("plans").select("id").eq("id", caseyPlan.plan.id),
+      service.from("plan_members").select("plan_id").eq("plan_id", caseyPlan.plan.id),
+      service.from("plan_share_tokens").select("plan_id").eq("plan_id", caseyPlan.plan.id),
+      service.from("pokes").select("id").eq("id", caseyPoke.poke.id),
+      service.from("user_availabilities").select("user_id").eq("user_id", casey.id),
+      service.from("product_first_activations").select("user_id").eq("user_id", casey.id),
+      service.from("product_activity_days").select("user_id").eq("user_id", casey.id),
+      service.from("product_discovery_daily_activity").select("user_id").eq("user_id", casey.id),
+      service.from("social_idempotency_records").select("actor_id").eq("actor_id", casey.id),
+      service.from("outbox_events").select("id").eq("aggregate_id", caseyPoke.poke.id),
+    ]);
+    const erasedRecords = {
+      plans: erasedPlan,
+      members: erasedMembers,
+      shares: erasedShares,
+      pokes: erasedPoke,
+      availability: erasedAvailability,
+      firstActivation: erasedActivation,
+      activityDays: erasedActivity,
+      discoveryActivity: erasedDiscovery,
+      socialIdempotency: erasedIdempotency,
+      outbox: erasedOutbox,
+    };
+    for (const [relation, result] of Object.entries(erasedRecords)) {
+      expect(result.error).toBeNull();
+      expect(result.data, `${relation} must be erased with the synthetic account`).toEqual([]);
+    }
+
+    // Model a request that passed API authentication immediately before
+    // erasure and reaches a service-owned RPC after the account tombstone.
+    // Each write must fail closed and must not recreate private activity.
+    const staleJoin = await service.rpc("plan_join_v1", {
+      p_actor_id: casey.id,
+      p_plan_id: capacityPlan.plan.id,
+      p_idempotency_key: "product-it-stale-plan-join-001",
+      p_request_hash: "a".repeat(64),
+      p_share_token: null,
+    });
+    const staleAvailability = await service.rpc("upsert_user_availability", {
+      p_user_id: casey.id,
+      p_activity: "coffee",
+      p_custom_label: null,
+      p_duration_minutes: 30,
+    });
+    const staleDiscovery = await service.rpc("record_product_discovery_v1", {
+      p_user_id: casey.id,
+      p_2: 0,
+      p_10: 0,
+      p_25: 0,
+    });
+    expect(staleJoin.error).not.toBeNull();
+    expect(staleAvailability.error).not.toBeNull();
+    expect(staleDiscovery.error).not.toBeNull();
+    const [staleJoinRecord, staleAvailabilityRecord, staleActivationRecord, staleActivityRecord, staleDiscoveryRecord] = await Promise.all([
+      service.from("plan_join_idempotency").select("actor_id").eq("actor_id", casey.id),
+      service.from("user_availabilities").select("user_id").eq("user_id", casey.id),
+      service.from("product_first_activations").select("user_id").eq("user_id", casey.id),
+      service.from("product_activity_days").select("user_id").eq("user_id", casey.id),
+      service.from("product_discovery_daily_activity").select("user_id").eq("user_id", casey.id),
+    ]);
+    for (const [relation, result] of Object.entries({
+      staleJoinRecord,
+      staleAvailabilityRecord,
+      staleActivationRecord,
+      staleActivityRecord,
+      staleDiscoveryRecord,
+    })) {
+      expect(result.error).toBeNull();
+      expect(result.data, `${relation} must stay absent after a stale RPC`).toEqual([]);
+    }
   }, 90_000);
 });

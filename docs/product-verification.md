@@ -3,7 +3,7 @@
 ## Baseline test gate
 
 Run `npm test` for the browser-independent suite.
-The shared QR group database suites are integration tests and skip when no `SUPABASE_TEST_*` configuration is present.
+The shared-group, product-social, and private Realtime suites are integration tests and skip when no `SUPABASE_TEST_*` configuration is present.
 They fail before running when any partial or unapproved configuration is present, so accidental use of a non-test database is visible.
 
 WebRTC overall-deadline behavior is tested at the deterministic command-queue boundary, including dispatch that ignores abort.
@@ -36,13 +36,33 @@ Hosted mode also requires `SUPABASE_TEST_TARGET` to match the project reference 
 A production target requires explicit user authorization in addition to the opt-in flags.
 The existing QR suites support the installed legacy schema; the product suite requires all ordered redesign migrations first.
 The 2026-09-08 inventory found 163 hosted migration records and confirmed that the initial 13 redesign migrations are compatible with the full baseline schema.
-The first production apply attempt was rejected by automatic approval review because verification permission did not include schema deployment, so no migration was applied.
+The user subsequently approved production schema deployment and public publication after the initial verification-only authorization.
 The existing QR migration-boundary test passed with real hosted authentication.
 The shared-group lifecycle passed concurrent creation, membership isolation, messaging, and retry checks before reproducing account deletion returning HTTP 500 from a legacy `pg_catalog.coalesce` call.
-The additional `20260908140000_legacy_sql_special_forms.sql` migration corrects only the 13 audited function signatures that contain invalid qualified SQL special forms.
-All 14 reviewed migrations still require explicit deployment approval after the automatic approval review rejection.
+The additional `20260908113704_legacy_sql_special_forms.sql` migration corrects only the 13 audited function signatures that contain invalid qualified SQL special forms.
+All 16 migrations are installed with their actual hosted timestamps recorded in the repository.
+The fifteenth corrects hosted Poke outbox uniqueness and service-role access.
+The sixteenth removes product-social records when a profile is tombstoned and serializes concurrent writes with account erasure.
+The final hosted regression run passes all three product/shared-group suites, including scoped account erasure and late service-RPC write rejection.
 Run `node test/sql/legacy-sql-special-forms.mjs` to reproduce the failure locally and verify the correction, preserved permissions, and safe reapplication.
-Both hosted test runs removed their synthetic accounts and restored the observed baseline of 50 profiles and 11 auth users.
+The scoped hosted runs removed their synthetic records and restored the observed baseline of 50 profiles, 11 Auth users, and 96 Storage objects.
+
+## Private Realtime provider proof
+
+`test/product-realtime-database.test.ts` uses the same explicit hosted-target guard and does not need an application server.
+Run it separately from suites that create accounts, because it checks whole-project counts before and after its scoped fixtures.
+The hosted run passed on 2026-09-08: the synthetic owner subscribed to its private `sync:user:<uuid>` topic, received a real service-originated `messages-changed` broadcast, and received a new broadcast after reconnecting with a fresh authenticated client.
+An unrelated synthetic account was denied with the provider's `CHANNEL_ERROR`, not merely a timeout.
+Cleanup restored all three baseline counts: 50 profiles, 11 Auth users, and 96 Storage objects.
+Broadcast is ephemeral, so this proves new delivery after reconnect; missed-event recovery remains the application's API refresh on subscription, not provider replay.
+
+## Private Storage provider proof
+
+`test/product-storage-database.test.ts` passed against the explicitly approved hosted target on 2026-09-08.
+It verifies the private `media` bucket's service upload/read/delete lifecycle and denies direct reads or signed-URL creation to both a synthetic owner and an outsider.
+This matches the application's server-mediated media architecture.
+Strict teardown checks the exact generated key is absent and removes only its tracked synthetic profiles and Auth accounts.
+This is a Storage access-boundary test; it does not replace application route authorization tests or a full media recovery rehearsal.
 
 ## Authenticated browser checks
 
@@ -99,7 +119,7 @@ It must never authorize a reward or prove that a meeting occurred.
 `POST /api/coins/meeting` remains deliberately unavailable until the service verifies an attestation from a supported device location provider.
 The web and native runtime retain their eligibility and transport paths but do not submit automatic or manual reward claims until an explicit server-issued attestation capability is available.
 Before enabling awards, record and verify the provider assertion server-side, bind it to the authenticated account and a short expiry, reject replayed assertions, and run two-device tests that prove stale, spoofed, blocked, distant, and concurrent claims cannot create an award.
-The additive `20260908050000_mutual_meetup_acknowledgements.sql` migration provides a separate participant-private, pair-per-day acknowledgement with independent confirmation, expiry, account-deletion cascade, block handling, and idempotent API delivery.
+The additive `20260908113347_mutual_meetup_acknowledgements.sql` migration provides a separate participant-private, pair-per-day acknowledgement with independent confirmation, expiry, account-deletion cascade, block handling, and idempotent API delivery.
 It must never be represented as evidence of physical presence or used to award coins.
 Realtime convergence for acknowledgements is not yet emitted through the existing outbox worker, so clients refresh `GET /api/meetups?peerId=UUID` every 30 seconds and after acknowledgement requests until that follow-up is implemented.
 
@@ -119,7 +139,8 @@ E2E_FIXTURE=1 npm run test:e2e
 ## Current local verification evidence
 
 The current web/server run passed 1,314 tests across 147 files in `/tmp/peek-product-final-web-tests-rerun.log`.
-Three hosted-database integration suites deliberately skipped because their approved target environment was not supplied.
+That earlier local run deliberately skipped three hosted suites because their approved target environment was not supplied.
+The new hosted Realtime and Storage suites also require explicit credentials and are excluded from ordinary fixture-only CI.
 Root lint and the production build passed in `/tmp/peek-product-final-web-lint.log` and `/tmp/peek-product-final-web-build.log`.
 The high-severity production dependency audit reported zero high or critical advisories and 15 moderate advisories.
 
@@ -131,13 +152,13 @@ The fixture harness must always override real credentials with its loopback fixt
 
 The canonical SQL lives in `supabase/migrations` in timestamp dependency order.
 Review compatibility against the complete preexisting schema before applying it to an approved target.
-All 14 reviewed migrations remain unapplied after automatic approval review rejected the first deployment attempt.
-Production deployment requires explicit approval and must precede the matching application release.
+The approved production migration batch is installed and its follow-up hosted regressions are tracked in `Progress.md`.
+The matching application release must follow successful hosted verification and the release configuration checks.
 `npm run test:product-db` executes the chain against a compact legacy fixture and checks domain invariants, but it does not simulate separate concurrent backend connections, full RLS roles, Storage, or Realtime infrastructure.
 Before promotion, run simultaneous duplicate Poke responses, last-capacity Plan joins, reciprocal acknowledgements, block changes, and legacy refund attempts using synthetic accounts.
 Verify that new application contracts are deployed only after their database functions and tables.
 
-For rollback, stop new traffic to the affected feature and roll back application deployment first.
+For rollback, stop application writes, workers, and scheduled jobs, then follow [SUPABASE_ROLLBACK.md](../SUPABASE_ROLLBACK.md) for the exact deployed batch.
 Preserve new social records and idempotency evidence; do not blindly drop populated tables or reintroduce coin charges while clients can still retry old operations.
 Use a reviewed forward repair or restore rehearsal appropriate to the failing migration, and record the chosen database recovery point before promotion.
 
@@ -150,3 +171,11 @@ The general advisor explanation is available in the [Supabase function-execution
 
 The advisor also reported disabled leaked-password protection.
 Enabling it remains a hosted Auth configuration task under the [Supabase password-security guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+## Separate-session erasure test limitation
+
+The hosted stale-request regressions prove that writes reaching the database after a tombstone cannot recreate availability, Plan membership, idempotency, or metrics rows.
+The SQL guards lock referenced active profiles in sorted UUID order with `FOR SHARE`, which conflicts with the profile's deletion update.
+Attempts to observe an actual blocked concurrent transaction through the management connector and a separate REST process were inconclusive because tool dispatch and approval timing serialized or reordered execution.
+The observed late SQL write was rejected with SQLSTATE 23514, but no live lock-wait assertion is claimed.
+A deterministic two-session PostgreSQL harness with a transaction barrier remains part of the full release evidence.

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260908020000_product_social_intent.sql"), "utf8");
+const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260908113317_product_social_intent.sql"), "utf8");
 
 describe("product social intent migration", () => {
   it("uses expiry, block gates, and atomic response-to-thread creation", () => {

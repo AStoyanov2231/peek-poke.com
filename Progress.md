@@ -18,39 +18,44 @@ Production promotion is not complete.
 Supabase is authenticated and the ChatApp organization containing MyaouDB is verified.
 The user authorized verification directly against MyaouDB instead of creating a paid branch.
 Read-only preflight found 50 profiles, 11 auth accounts, and no compatibility blocker for the 13 ordered redesign migrations.
-Automatic approval review rejected the first migration because verification authorization does not include production schema deployment; no migration was applied.
-The reviewed production migration deployment needs explicit user approval.
+The initial deployment attempt was rejected because verification-only authorization did not include production schema changes.
+The user subsequently approved production migration deployment and public branch publication.
 The outstanding release requirements are tracked in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
-No production schema, deployment, provider configuration, or billing settings have been changed.
+All 16 migrations are installed with their connector-assigned timestamps recorded in local filenames, including both corrections found through hosted verification.
+The matching web/native release, provider configuration, and billing settings have not been deployed or changed.
 The existing-schema integration checks created and removed dedicated synthetic records; post-run counts returned to 50 profiles and 11 auth accounts.
 
-## Pending production migration deployment
+## Applied production migrations
 
 Target: MyaouDB (`ttojvnwpnpuhkyjncwxn`).
-Deploy the following files in numeric order after explicit approval.
+The following files were applied in numeric order after explicit approval.
 They add the new social data model and service-only APIs, replace legacy paid social behavior with free friendship/messaging, and repair the observed account-deletion SQL failure.
 The changes also affect existing function permissions and behavior, so the database deployment must be coordinated with the matching application release.
 Existing records are preserved by the migration scripts; retention deletion runs only when its dedicated worker is invoked.
 
-- [20260908010000_free_social_graph_and_coarse_nearby.sql](supabase/migrations/20260908010000_free_social_graph_and_coarse_nearby.sql).
-- [20260908020000_product_social_intent.sql](supabase/migrations/20260908020000_product_social_intent.sql).
-- [20260908030000_product_plans.sql](supabase/migrations/20260908030000_product_plans.sql).
-- [20260908040000_meeting_social_eligibility.sql](supabase/migrations/20260908040000_meeting_social_eligibility.sql).
-- [20260908050000_mutual_meetup_acknowledgements.sql](supabase/migrations/20260908050000_mutual_meetup_acknowledgements.sql).
-- [20260908060000_privacy_location_retention.sql](supabase/migrations/20260908060000_privacy_location_retention.sql).
-- [20260908070000_discovery_audience_preferences.sql](supabase/migrations/20260908070000_discovery_audience_preferences.sql).
-- [20260908080000_plan_nearby_discovery.sql](supabase/migrations/20260908080000_plan_nearby_discovery.sql).
-- [20260908090000_private_product_funnel_metrics.sql](supabase/migrations/20260908090000_private_product_funnel_metrics.sql).
-- [20260908100000_profile_social_context.sql](supabase/migrations/20260908100000_profile_social_context.sql).
-- [20260908110000_private_product_activity_metrics.sql](supabase/migrations/20260908110000_private_product_activity_metrics.sql).
-- [20260908120000_plan_meetup_attribution.sql](supabase/migrations/20260908120000_plan_meetup_attribution.sql).
-- [20260908130000_plan_recent_member_lifecycle.sql](supabase/migrations/20260908130000_plan_recent_member_lifecycle.sql).
-- [20260908140000_legacy_sql_special_forms.sql](supabase/migrations/20260908140000_legacy_sql_special_forms.sql).
+- [20260908113140_free_social_graph_and_coarse_nearby.sql](supabase/migrations/20260908113140_free_social_graph_and_coarse_nearby.sql).
+- [20260908113317_product_social_intent.sql](supabase/migrations/20260908113317_product_social_intent.sql).
+- [20260908113327_product_plans.sql](supabase/migrations/20260908113327_product_plans.sql).
+- [20260908113338_meeting_social_eligibility.sql](supabase/migrations/20260908113338_meeting_social_eligibility.sql).
+- [20260908113347_mutual_meetup_acknowledgements.sql](supabase/migrations/20260908113347_mutual_meetup_acknowledgements.sql).
+- [20260908113454_privacy_location_retention.sql](supabase/migrations/20260908113454_privacy_location_retention.sql).
+- [20260908113507_discovery_audience_preferences.sql](supabase/migrations/20260908113507_discovery_audience_preferences.sql).
+- [20260908113518_plan_nearby_discovery.sql](supabase/migrations/20260908113518_plan_nearby_discovery.sql).
+- [20260908113529_private_product_funnel_metrics.sql](supabase/migrations/20260908113529_private_product_funnel_metrics.sql).
+- [20260908113540_profile_social_context.sql](supabase/migrations/20260908113540_profile_social_context.sql).
+- [20260908113628_private_product_activity_metrics.sql](supabase/migrations/20260908113628_private_product_activity_metrics.sql).
+- [20260908113639_plan_meetup_attribution.sql](supabase/migrations/20260908113639_plan_meetup_attribution.sql).
+- [20260908113651_plan_recent_member_lifecycle.sql](supabase/migrations/20260908113651_plan_recent_member_lifecycle.sql).
+- [20260908113704_legacy_sql_special_forms.sql](supabase/migrations/20260908113704_legacy_sql_special_forms.sql).
+- [20260908115135_product_social_runtime_grants_and_outbox_indexes.sql](supabase/migrations/20260908115135_product_social_runtime_grants_and_outbox_indexes.sql).
+- [20260908121358_account_erasure_product_social_records.sql](supabase/migrations/20260908121358_account_erasure_product_social_records.sql).
 
 The initial 13 redesign migrations passed hosted read-only compatibility review and the ordered embedded PostgreSQL chain.
 The fourteenth legacy SQL repair passed an execution-failure regression and permission/security-context preservation checks.
-All 14 files remain unapplied until explicit deployment approval is granted.
-Hosted product concurrency and RLS verification follows deployment using dedicated synthetic accounts.
+All 16 files are applied, and the hosted history contains exactly 179 entries: the original 163 plus the 16 recorded deployments.
+Their SQL bytes match the reviewed SHA-256 values; only filenames and direct references changed to retain the actual remote migration versions.
+Hosted testing exposed Poke outbox uniqueness, server-role privilege, and soft-deletion cleanup defects.
+The two corrective migrations are installed; their final hosted verification is in progress.
 
 ## Completed implementation
 
@@ -91,7 +96,8 @@ Hosted product concurrency and RLS verification follows deployment using dedicat
 
 - [x] Prepare a read-only GitHub Actions gate for locked installs, web lint/tests/build, both SQL fixtures, native checks, and nine browser fixture journeys.
 - [x] Validate the CI-equivalent production build with inert environment values on Node 24.10.0; the tracked process exited 0 (`/tmp/peek-ci-build-root.log`).
-- [ ] Run the workflow on GitHub after the branch is published to verify the fresh Linux runner.
+- [x] Run the initial GitHub workflow on the published branch and repair the clean-install and browser-timezone failures.
+- [ ] Pass GitHub CI on the final hosted-regression commit.
 
 - [x] Web/server: 1,314 tests pass across 147 files; three hosted-database integration suites deliberately skip without explicit target credentials.
 - [x] Root lint and the production build pass in `/tmp/peek-product-final-web-lint.log` and `/tmp/peek-product-final-web-build.log`.
@@ -105,7 +111,7 @@ Hosted product concurrency and RLS verification follows deployment using dedicat
 - [x] Fixed and verified the native account-switch race that could let stale queued writes recreate cleared call state.
 - [x] Signed iOS and Android compilation pass after the scene-configuration and SDK compatibility fixes.
 - [x] Run the existing hosted QR migration boundary with real authentication and verify direct-client access denial.
-- [ ] Complete the hosted shared-group lifecycle: creation, concurrent scans, membership denial, messaging, and idempotency pass, but account deletion reproduces HTTP 500 from invalid legacy SQL special-form qualification.
+- [x] Pass the complete hosted shared-group lifecycle after repairing the reproduced legacy account-deletion SQL defect.
 - [x] Prepare a narrow correction for the 13 affected legacy functions, preserving signatures, security context, and grants; execute it in the ordered embedded PostgreSQL chain and in a failure-reproduction regression.
 - [x] Add 10 fail-closed integration-target guard tests and prepare scoped hosted Poke, Plan concurrency, mutual confirmation, access-denial, and block coverage.
 - [x] Verify native Login, Now availability, Poke Send, Inbox accept-to-chat, Plan creation/detail/Back, recent mutual confirmation, Plan again, location Not now recovery, Me, and loaded discovery controls.
@@ -207,9 +213,10 @@ Public privacy-control guidance and community rules are implemented; operator-sp
 
 The user selected direct MyaouDB verification; no paid branch was created.
 All 14 migrations completed their reviewed compatibility and privilege assessment.
-Automatic approval review requires explicit production migration-deployment approval before the new hosted product tests can run.
+At this earlier checkpoint, explicit production migration-deployment approval was still pending.
+The later approved deployment and hosted results are recorded below.
 The existing-schema integration checks use dedicated test accounts, loopback-only application traffic, and explicit production opt-in guards.
-The live account-deletion failure adds `20260908140000_legacy_sql_special_forms.sql` to the reviewed deployment set.
+The live account-deletion failure adds `20260908113704_legacy_sql_special_forms.sql` to the reviewed deployment set.
 Its local regression reproduces the invalid SQL call and verifies the correction without broad data changes.
 Live verification log: `/tmp/peek-hosted-existing-db.log`.
 The final native verification gate passed with 486 Vitest tests across 63 files and 90 Jest tests across 30 iOS/Android suites.
@@ -218,7 +225,7 @@ The earlier `test-results/e2e/native-*.png` screenshots are historical and may b
 
 ## Release continuation after migration approval request
 
-The automatic continuation did not grant production migration permission, so the 14 SQL files remain unapplied.
+At this historical checkpoint, automatic continuation did not grant production migration permission and the 14 SQL files remained unapplied.
 The previous goal turn made progress through native interaction fixes, hosted failure reproduction, scoped test cleanup, and the validated SQL repair.
 The next independent release work adds the CI gate documented in [product-ci.md](docs/product-ci.md).
 
@@ -286,12 +293,12 @@ The fixture intentionally omits accepted incoming Pokes and sent entries after a
 ## GitHub release verification
 
 The preceding goal turn completed the final privacy/Poke fixes, native verification, and evidence reconciliation.
-Production migration approval remains pending, but publishing the review branch and running its independent GitHub checks can proceed.
+At this historical checkpoint, production migration approval was pending and the independent CI gate was prepared.
 Verified that `master` is the repository default and current Vercel production branch, then corrected the workflow push trigger from `main` to `master`.
 The release packaging check found intended source, tests, documentation, and migrations only; ignored credentials and generated native/build/test artifacts are excluded.
 Added a Vercel deployment exclusion scoped to `product-redesign` so publishing this review branch does not deploy contracts before their database migrations.
 The existing production deployment remains at `d4cc8088590a468fd634d44fe1eea1865e743cf3`.
-- [ ] Publish the review commit and draft pull request.
+- [x] Publish the review commit and draft pull request.
 - [ ] Inspect the GitHub workflow to completion and resolve any fresh-runner failures.
 
 The verified implementation is saved in local commit `6695ee6` across 300 intended files.
@@ -299,14 +306,14 @@ The prepublication check found no matching private environment values, private-k
 Automatic approval review rejected `git push --set-upstream origin product-redesign` because publishing this new source, tests, migrations, and documentation to the public repository requires explicit disclosure authorization.
 The push did not execute, so the GitHub workflow has not run and no draft pull request exists.
 The prepared pull-request body is `/tmp/peek-product-redesign-pr.md`.
-Public branch publication and the production database migration deployment are separate pending approvals.
+At this historical checkpoint, public publication and database deployment were separate pending approvals.
 The production migration blocker has recurred across three consecutive goal turns, and all remaining release actions now require user approval, operator information, or physical-device access.
 At that checkpoint, the goal was marked blocked rather than complete; local tests and build evidence do not establish production readiness.
 
 ## Supabase rollback package requested before deployment
 
 The user requested preservation of the database state and rollback instructions before migrations or a master release.
-The current database still contains 163 baseline migrations and none of the 14 redesign migrations.
+At backup capture, the database contained 163 baseline migrations and none of the 14 redesign migrations.
 Created a private, Git-ignored directory at `.supabase-backups/20260908T103717Z-pre-product-redesign` with mode 700 and backup files restricted to mode 600.
 Saved catalog metadata for 91 table definitions, 130 selected non-extension functions, 59 policies, constraints, indexes, privileges, roles without passwords, and other database metadata.
 Saved 764 records across 54 application, Storage-metadata, and migration-history tables in a single SQL statement snapshot at 10:40:36 UTC.
@@ -341,5 +348,61 @@ The Device Hub computer-use connection timed out again.
 A temporary `serve-sim@0.1.46` browser mirror rendered the real Simulator frame and logged the attempted taps, but neither the visibility selection nor the visible error dismiss control responded.
 Direct native privacy save/reload therefore remains unverified; the existing QueryClient renderer evidence is unchanged.
 Closed the browser mirror and stopped its helper and the temporary Auth fixture, preserving the existing Metro and native fixture processes.
-Production migration deployment and publication of the prepared branch remain pending explicit approval after the earlier automatic approval review rejections.
+At this historical checkpoint, production migration deployment and public publication were still pending approval.
 The broader goal remains incomplete because hosted, provider, physical-device, and operational release evidence is still outstanding.
+
+## Approved deployment and hosted verification
+
+The user explicitly approved applying the reviewed database migrations and publishing the redesign to the public repository.
+Published `product-redesign` and opened draft PR #7 at https://github.com/AStoyanov2231/peek-poke.com/pull/7.
+The first clean Linux installs exposed a missing `source-map` lockfile entry; the corrected lockfile passes clean installation with CI's Node 24.20 and npm 11.19.
+The subsequent browser run exposed a timezone mismatch: the UTC Node runner generated a time that was already past in the Europe/Sofia browser.
+The test now calculates the future datetime inside the browser, waits for the actual successful Plan creation response, and checks that the named creation dialog closes.
+All 14 Supabase migrations applied successfully, with strict one-row migration-history readback after each apply and no manual history repair.
+Post-deployment counts remained 50 profiles, 11 Auth users, and 96 Storage objects.
+The original recovery archive remains immutable; a separate mapped rollback package uses the actual deployed timestamps and passes the full local round trip and guard tests.
+Hosted shared-group suites now pass, including the repaired legacy account-deletion path.
+The new product suite reproduces Poke creation returning HTTP 503 because its outbox ON CONFLICT clause lacks a matching unique index in the full hosted baseline.
+It also exposes missing service-role table grants, and catalog review confirms the worker's delivery-authorization RPC needs an explicit service-role execution grant.
+The failed run cleaned its synthetic accounts and restored the same baseline counts.
+The local SQL fixture's broad outbox uniqueness masked the hosted constraint mismatch; the corrective work removes that inaccurate assumption and tests the explicit grants.
+The post-deployment security advisor reports browser-denied server tables, three previously reviewed authenticated chat-summary functions, and disabled leaked-password protection.
+No advisor suppression was added.
+
+## Hosted runtime corrections and provider evidence
+
+The fifteenth migration adds the two missing Poke outbox indexes, 32 explicit service-role CRUD grants, the worker-only delivery authorization grant, and four useful foreign-key indexes on new tables.
+Hosted catalog checks confirm all required grants while anonymous and authenticated browser roles retain zero direct CRUD grants on those server tables.
+The local SQL fixture now reproduces the actual legacy outbox constraint shape instead of masking it with a global unique constraint.
+The next hosted product run passed Poke creation, acceptance, Plan sharing, revocation, and direct-client denial before finding account erasure left product-social data behind.
+The sixteenth migration serializes product-social writes with profile tombstones using sorted shared row locks, removes retained peer response snapshots, and rejects late writes after account erasure.
+The preflight found zero Pokes, Plans, or affected legacy reply/outbox rows, and the actual migration added exactly one history entry without manual repair.
+The shared-group test's nondeterministic UUID ordering expectation is corrected to match its ordered database query.
+The private Realtime provider test passes owner delivery, outsider denial, and fresh delivery after reconnect; scoped teardown restores 50 profiles, 11 Auth users, and 96 Storage objects.
+
+Read-only Vercel configuration checks confirm Node 24, the existing Hobby plan, correctly paired MyaouDB application credentials, and successful Auth/service-role probes.
+Redis REST, Google Places, and APNs variables exist, but sensitive Redis values are withheld by the CLI and still need deployment-runtime validation.
+The HTTPS apex application URL redirects to canonical www and is not a correctness blocker.
+Production lacks `CRON_SECRET` and TURN settings, and Supabase has only its preexisting weekly soft-deleted-message cleanup job.
+The reversible scheduler approach is documented in [product-operations.md](docs/product-operations.md), using direct database cron for retention and authenticated HTTP for the outbox.
+No scheduler, secret, billing plan, or application deployment has been changed during this configuration audit.
+
+The final hosted rerun after migration 16 passed all three product/shared-group suites in 14.40 seconds, including stale actor RPC rejection and exact cleanup to 50 profiles, 11 Auth users, and 96 Storage objects.
+The final mapped rollback rehearsal restores all 15 captured functions exactly and removes the 16 account-erasure triggers and four new helpers along with the earlier redesign objects.
+Sealed `.supabase-backups/MyaouDB-deployed-16-migration-rollback-20260908.tar.gz`, containing the original records and all 96 Storage object bodies.
+Its 114 payload hashes pass after fresh extraction; archive SHA-256 is `cc80d92fd5e849a84541318160a8991b56b7b67953bfbbf28ff15b32690b88a2`.
+The original predeployment archive remains unchanged.
+Root lint passes after adding the test-owned Next output directory to the existing generated-output exclusions.
+
+The separate-session lock-wait attempt could not establish deterministic overlap because tool dispatch and approval timing serialized or reordered the management query and REST request.
+The final attempted late SQL write correctly failed with SQLSTATE 23514 after account erasure, complementing the passing stale-RPC regressions.
+No live lock-wait proof is claimed; a direct PostgreSQL harness with a transaction barrier is still required for that evidence.
+All temporary accounts from these attempts were removed by their exact saved fixture IDs, restoring 50 profiles, 11 Auth users, and 96 Storage objects.
+The test-owned hosted Next server stopped gracefully; unrelated native development processes remain available.
+
+The guarded Storage provider suite passed 1/1 in 3.32 seconds.
+It proves the private `media` bucket's service-only upload/read/delete lifecycle, denies direct authenticated owner and outsider reads and signed URLs, and confirms the generated object key is absent after cleanup.
+This verifies the actual server-mediated Storage architecture without assuming the owner has direct bucket access.
+All five hosted suites now pass individually: shared-group lifecycle, shared-group migration boundary, product-social flow, private Realtime, and private Storage.
+
+Final read-only verification confirms 50 profiles, 11 Auth users, 96 Storage objects, zero Pokes, zero Plans, and 179 migration entries after all hosted tests and fixture cleanup.

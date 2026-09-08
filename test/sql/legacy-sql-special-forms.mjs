@@ -3,7 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 
 const root = new URL("../..", import.meta.url);
 const migration = await readFile(
-  new URL("supabase/migrations/20260908140000_legacy_sql_special_forms.sql", root),
+  new URL("supabase/migrations/20260908113704_legacy_sql_special_forms.sql", root),
   "utf8",
 );
 const db = await PGlite.create();

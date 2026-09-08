@@ -14,6 +14,7 @@ const config = [
       ".next/**",
       ".next-e2e/**",
       ".next-hosted-verification/**",
+      ".next-hosted-integration/**",
       ".next-ci-verify/**",
       "coverage/**",
       "out/**",

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260908010000_free_social_graph_and_coarse_nearby.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260908113140_free_social_graph_and_coarse_nearby.sql"),
   "utf8",
 );
 

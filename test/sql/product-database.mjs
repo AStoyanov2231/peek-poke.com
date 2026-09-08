@@ -7,6 +7,8 @@ const ids = {
   alex: "11111111-1111-4111-8111-111111111111",
   blair: "22222222-2222-4222-8222-222222222222",
   casey: "33333333-3333-4333-8333-333333333333",
+  dana: "44444444-4444-4444-8444-444444444444",
+  erin: "55555555-5555-4555-8555-555555555555",
 };
 
 function assert(condition, message) {
@@ -33,7 +35,16 @@ try {
     create table public.coin_transactions (id uuid primary key default gen_random_uuid(), user_id uuid, amount integer, reason text, related_user_id uuid);
     create table public.idempotency_records (actor_id uuid not null, operation text not null, key text not null, request_hash text not null, response_status integer, response_body jsonb, response_retry_after_seconds integer, primary key(actor_id,operation,key));
     create table public.friendship_mutation_rate_limits (actor_id uuid not null, operation text not null, window_started_at timestamptz not null, request_count integer not null, updated_at timestamptz not null, primary key(actor_id,operation));
-    create table public.outbox_events (id uuid primary key default gen_random_uuid(), event_type text not null, aggregate_type text not null, aggregate_id text not null, payload jsonb not null, unique(event_type,aggregate_id));
+    create table public.outbox_events (id uuid primary key default gen_random_uuid(), event_type text not null, aggregate_type text not null, aggregate_id text not null, payload jsonb not null);
+    create unique index outbox_events_friendship_requested_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'friendship.requested';
+    create unique index outbox_events_friendship_responded_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'friendship.responded';
+    create unique index outbox_events_friendship_removed_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'friendship.removed';
+    create unique index outbox_events_user_blocked_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'user.blocked';
+    create unique index outbox_events_call_invite_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'call.invite';
+    create unique index outbox_events_coin_meeting_awarded_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'coin.meeting_awarded';
+    create unique index outbox_events_dm_media_cleanup_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'dm.media_cleanup';
+    create unique index outbox_events_account_cleanup_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'account.cleanup';
+    create unique index outbox_events_profile_media_moderation_aggregate_id_uidx on public.outbox_events(event_type, aggregate_id) where event_type = 'profile.media_moderation';
     create table public.friendship_refunds (friendship_id uuid primary key, requester_id uuid not null, addressee_id uuid not null, source text not null, coin_transaction_id uuid);
     create table public.dm_threads (id uuid primary key default gen_random_uuid(), participant_1_id uuid not null references public.profiles(id), participant_2_id uuid not null references public.profiles(id), last_message_at timestamptz, last_message_preview text, created_at timestamptz not null default now(), next_message_sequence bigint not null default 0, unique(participant_1_id, participant_2_id));
     create table public.dm_thread_members (thread_id uuid not null references public.dm_threads(id), user_id uuid not null references public.profiles(id), last_read_sequence bigint not null default 0, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), primary key(thread_id,user_id));
@@ -49,22 +60,161 @@ try {
     create function extensions.gen_random_bytes(integer) returns bytea language sql as $$ select public.gen_random_bytes($1) $$;
     create function extensions.digest(text, text) returns bytea language sql as $$ select public.digest($1, $2) $$;
   `);
-  await db.exec(await sql("supabase/migrations/20260908010000_free_social_graph_and_coarse_nearby.sql"));
-  await db.exec(await sql("supabase/migrations/20260908020000_product_social_intent.sql"));
-  await db.exec(await sql("supabase/migrations/20260908030000_product_plans.sql"));
-  await db.exec(await sql("supabase/migrations/20260908040000_meeting_social_eligibility.sql"));
-  await db.exec(await sql("supabase/migrations/20260908050000_mutual_meetup_acknowledgements.sql"));
-  await db.exec(await sql("supabase/migrations/20260908060000_privacy_location_retention.sql"));
-  await db.exec(await sql("supabase/migrations/20260908070000_discovery_audience_preferences.sql"));
-  await db.exec(await sql("supabase/migrations/20260908080000_plan_nearby_discovery.sql"));
-  await db.exec(await sql("supabase/migrations/20260908090000_private_product_funnel_metrics.sql"));
-  await db.exec(await sql("supabase/migrations/20260908100000_profile_social_context.sql"));
-  await db.exec(await sql("supabase/migrations/20260908110000_private_product_activity_metrics.sql"));
-  await db.exec(await sql("supabase/migrations/20260908120000_plan_meetup_attribution.sql"));
-  await db.exec(await sql("supabase/migrations/20260908130000_plan_recent_member_lifecycle.sql"));
-  await db.exec(await sql("supabase/migrations/20260908140000_legacy_sql_special_forms.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113140_free_social_graph_and_coarse_nearby.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113317_product_social_intent.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113327_product_plans.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113338_meeting_social_eligibility.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113347_mutual_meetup_acknowledgements.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113454_privacy_location_retention.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113507_discovery_audience_preferences.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113518_plan_nearby_discovery.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113529_private_product_funnel_metrics.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113540_profile_social_context.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113628_private_product_activity_metrics.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113639_plan_meetup_attribution.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113651_plan_recent_member_lifecycle.sql"));
+  await db.exec(await sql("supabase/migrations/20260908113704_legacy_sql_special_forms.sql"));
 
-  await db.query("insert into public.profiles(id,username,display_name) values ($1,'alex','Alex'),($2,'blair','Blair'),($3,'casey','Casey')", [ids.alex, ids.blair, ids.casey]);
+  await db.query("insert into public.profiles(id,username,display_name) values ($1,'alex','Alex'),($2,'blair','Blair'),($3,'casey','Casey'),($4,'dana','Dana'),($5,'erin','Erin')", [ids.alex, ids.blair, ids.casey, ids.dana, ids.erin]);
+
+  const serviceRelations = [
+    "public.user_availabilities",
+    "public.pokes",
+    "public.social_idempotency_records",
+    "public.plans",
+    "public.plan_members",
+    "public.plan_share_tokens",
+    "public.plan_join_idempotency",
+    "public.plan_create_idempotency",
+  ];
+  const servicePrivileges = ["select", "insert", "update", "delete"];
+  const missingServiceGrants = await db.query(
+    "select count(*)::int count from unnest($1::text[]) relation_name cross join unnest($2::text[]) privilege where not has_table_privilege('service_role', relation_name, privilege)",
+    [serviceRelations, servicePrivileges],
+  );
+  const missingWorkerExecute = await db.query(
+    "select has_function_privilege('service_role', 'public.authorize_poke_delivery(uuid,text,uuid,uuid,uuid)'::regprocedure, 'execute') allowed",
+  );
+  let missingPokeOutboxIndex = false;
+  try {
+    await db.query("select public.create_poke($1::uuid,$2::uuid,'coffee',null,'Requires a Poke outbox index','poke-index-repro01')", [ids.alex, ids.blair]);
+  } catch (error) {
+    missingPokeOutboxIndex = /no unique or exclusion constraint matching the ON CONFLICT specification/i.test(String(error));
+  }
+  assert(missingPokeOutboxIndex, "the hosted outbox baseline must reproduce the missing Poke partial-index error before the corrective migration");
+  assert(missingServiceGrants.rows[0].count === serviceRelations.length * servicePrivileges.length, "the pre-correction baseline must deny every service-role CRUD privilege");
+  assert(missingWorkerExecute.rows[0].allowed === false, "the pre-correction baseline must reproduce the outbox worker execute denial");
+
+  await db.exec(await sql("supabase/migrations/20260908115135_product_social_runtime_grants_and_outbox_indexes.sql"));
+  const repairedServiceGrants = await db.query(
+    "select count(*)::int count from unnest($1::text[]) relation_name cross join unnest($2::text[]) privilege where has_table_privilege('service_role', relation_name, privilege)",
+    [serviceRelations, servicePrivileges],
+  );
+  const repairedWorkerExecute = await db.query(
+    "select has_function_privilege('service_role', 'public.authorize_poke_delivery(uuid,text,uuid,uuid,uuid)'::regprocedure, 'execute') allowed",
+  );
+  const browserRelationGrants = await db.query(
+    "select count(*)::int count from unnest($1::text[]) relation_name cross join unnest($2::text[]) privilege cross join unnest(array['anon','authenticated']::text[]) role_name where has_table_privilege(role_name, relation_name, privilege)",
+    [serviceRelations, servicePrivileges],
+  );
+  const browserWorkerExecute = await db.query(
+    "select count(*)::int count from unnest(array['anon','authenticated']::text[]) role_name where has_function_privilege(role_name, 'public.authorize_poke_delivery(uuid,text,uuid,uuid,uuid)'::regprocedure, 'execute')",
+  );
+  const repairedIndexes = await db.query(
+    "select count(*)::int count from unnest($1::text[]) index_name where to_regclass(index_name) is not null",
+    [[
+      "public.outbox_events_poke_created_aggregate_id_uidx",
+      "public.outbox_events_poke_accepted_aggregate_id_uidx",
+      "public.plans_owner_id_idx",
+      "public.meetup_acknowledgements_user_b_id_idx",
+      "public.plan_meetup_acknowledgements_user_a_id_idx",
+      "public.plan_meetup_acknowledgements_user_b_id_idx",
+    ]],
+  );
+  const correctedPoke = await db.query("select public.create_poke($1::uuid,$2::uuid,'coffee',null,'Poke outbox index repaired','poke-index-fixed01') payload", [ids.alex, ids.blair]);
+  assert(repairedServiceGrants.rows[0].count === serviceRelations.length * servicePrivileges.length, "the corrective migration must grant every service-role CRUD privilege on each server-only social table");
+  assert(repairedWorkerExecute.rows[0].allowed === true, "the corrective migration must grant the outbox worker execute access");
+  assert(browserRelationGrants.rows[0].count === 0, "the corrective migration must not grant browser roles direct social-table access");
+  assert(browserWorkerExecute.rows[0].count === 0, "the corrective migration must not grant browser roles the worker-only delivery function");
+  assert(repairedIndexes.rows[0].count === 6, "the corrective migration must create both Poke outbox indexes and all four approved lookup indexes");
+  assert(correctedPoke.rows[0].payload.poke?.id, "the corrective Poke outbox index must allow create_poke to complete");
+
+  await db.exec(`
+    create function public.erase_account_data(p_user_id uuid)
+    returns jsonb language plpgsql security definer set search_path = '' as $$
+    begin
+      update public.profiles set deleted_at = now() where id = p_user_id;
+      return jsonb_build_object('success', true);
+    end;
+    $$;
+  `);
+  const staleErasurePlanId = "44444444-0000-4000-8000-000000000001";
+  await db.query("insert into public.plans(id,owner_id,activity,starts_at,place_text,visibility,participant_limit,status) values ($1::uuid,$2::uuid,'walk',now()+interval '2 hours','Stale plan','private',2,'active')", [staleErasurePlanId, ids.dana]);
+  await db.query("select public.erase_account_data($1::uuid)", [ids.dana]);
+  const stalePlanAfterErasure = await db.query("select count(*)::int count from public.plans where id=$1::uuid", [staleErasurePlanId]);
+  assert(stalePlanAfterErasure.rows[0].count === 1, "the pre-correction account erasure must reproduce an owned Plan surviving a soft tombstone");
+
+  await db.exec(await sql("supabase/migrations/20260908121358_account_erasure_product_social_records.sql"));
+  const repairedStalePlan = await db.query("select count(*)::int count from public.plans where id=$1::uuid", [staleErasurePlanId]);
+  assert(repairedStalePlan.rows[0].count === 0, "the account-erasure correction must remove Plans left by prior soft-deleted accounts");
+  let tombstonedChildRejected = false;
+  try {
+    await db.query("insert into public.user_availabilities(user_id,activity,expires_at) values ($1::uuid,'walk',now()+interval '1 hour')", [ids.dana]);
+  } catch (error) {
+    tombstonedChildRejected = error?.code === '23514';
+  }
+  let tombstonedOutboxRejected = false;
+  try {
+    await db.query("insert into public.outbox_events(event_type,aggregate_type,aggregate_id,payload) values ('poke.created','poke','deleted-account-race',jsonb_build_object('sender_id',$1::uuid,'recipient_id',$2::uuid))", [ids.dana, ids.casey]);
+  } catch (error) {
+    tombstonedOutboxRejected = error?.code === '23514';
+  }
+  assert(tombstonedChildRejected && tombstonedOutboxRejected, "post-tombstone writes must fail so a concurrent service RPC cannot recreate erased social data");
+
+  const currentErasurePlanId = "55555555-0000-4000-8000-000000000001";
+  await db.query("insert into public.plans(id,owner_id,activity,starts_at,place_text,visibility,participant_limit,status) values ($1::uuid,$2::uuid,'walk',now()+interval '2 hours','Current plan','private',2,'active')", [currentErasurePlanId, ids.erin]);
+  await db.query("insert into public.plan_members(plan_id,user_id,role) values ($1::uuid,$2::uuid,'owner')", [currentErasurePlanId, ids.erin]);
+  await db.query("insert into public.plan_share_tokens(plan_id,token_hash,created_by) values ($1::uuid,decode(repeat('a',64),'hex'),$2::uuid)", [currentErasurePlanId, ids.erin]);
+  await db.query("insert into public.plan_join_idempotency(actor_id,idempotency_key,request_hash,response_body) values ($1::uuid,'erase-plan-join-0001',repeat('a',64),'{}'::jsonb)", [ids.erin]);
+  await db.query("insert into public.plan_join_idempotency(actor_id,idempotency_key,request_hash,response_body) values ($1::uuid,'erase-peer-plan-join01',repeat('c',64),jsonb_build_object('plan',jsonb_build_object('id',$2::uuid,'owner_id',$3::uuid)))", [ids.casey, currentErasurePlanId, ids.erin]);
+  await db.query("insert into public.plan_create_idempotency(actor_id,idempotency_key,request_hash,response_body) values ($1::uuid,'erase-plan-create-001',repeat('b',64),'{}'::jsonb)", [ids.erin]);
+  await db.query("insert into public.social_idempotency_records(actor_id,operation,idempotency_key,request_fingerprint,response) values ($1::uuid,'create_poke','erase-social-poke01','erase','{}'::jsonb)", [ids.erin]);
+  await db.query("insert into public.social_idempotency_records(actor_id,operation,idempotency_key,request_fingerprint,response) values ($1::uuid,'respond_to_poke','erase-peer-social01','erase',jsonb_build_object('poke',jsonb_build_object('senderId',$2::uuid,'recipientId',$1::uuid,'note','private')))", [ids.casey, ids.erin]);
+  await db.query("insert into public.idempotency_records(actor_id,operation,key,request_hash,response_status,response_body) values ($1::uuid,'meetup:acknowledge','erase-peer-meetup01',repeat('d',64),200,jsonb_build_object('meetup',jsonb_build_object('peerId',$2::uuid)))", [ids.casey, ids.erin]);
+  await db.query("insert into public.idempotency_records(actor_id,operation,key,request_hash,response_status,response_body) values ($1::uuid,'plan:meetup:acknowledge','erase-peer-plan-meet01',repeat('e',64),200,jsonb_build_object('acknowledgements',jsonb_build_array(jsonb_build_object('peerId',$2::uuid))))", [ids.casey, ids.erin]);
+  await db.query("insert into public.user_availabilities(user_id,activity,expires_at) values ($1::uuid,'coffee',now()+interval '1 hour')", [ids.erin]);
+  const erasurePoke = (await db.query("insert into public.pokes(sender_id,recipient_id,activity,note) values ($1::uuid,$2::uuid,'coffee','Erase this Poke') returning id", [ids.erin, ids.casey])).rows[0].id;
+  await db.query("insert into public.outbox_events(event_type,aggregate_type,aggregate_id,payload) values ('poke.created','poke',$1::text,jsonb_build_object('sender_id',$2::uuid,'recipient_id',$3::uuid))", [erasurePoke, ids.erin, ids.casey]);
+  await db.query("insert into public.meetup_acknowledgements(user_a_id,user_b_id,meetup_day,user_a_confirmed_at,expires_at) values ($1::uuid,$2::uuid,current_date,now(),now()+interval '1 day')", [ids.casey, ids.erin]);
+  await db.query("insert into public.plan_meetup_acknowledgements(plan_id,user_a_id,user_b_id,user_a_confirmed_at,expires_at) values ($1::uuid,$2::uuid,$3::uuid,now(),now()+interval '1 day')", [currentErasurePlanId, ids.casey, ids.erin]);
+  await db.query("insert into public.discovery_preferences(user_id,audience) values ($1::uuid,'hidden')", [ids.erin]);
+  await db.query("insert into public.product_first_activations(user_id,source) values ($1::uuid,'poke') on conflict do nothing", [ids.erin]);
+  await db.query("insert into public.product_activity_days(user_id,activity_day,kind) values ($1::uuid,current_date,'plan') on conflict do nothing", [ids.erin]);
+  await db.query("insert into public.product_discovery_daily_activity(user_id,activity_day,opportunities_2km,opportunities_10km,opportunities_25km) values ($1::uuid,current_date,1,2,3)", [ids.erin]);
+  await db.query("select public.erase_account_data($1::uuid)", [ids.erin]);
+  const erasedProductSocialRows = await db.query(`
+    select
+      (select count(*)::int from public.plans where owner_id=$1::uuid) +
+      (select count(*)::int from public.plan_members where user_id=$1::uuid) +
+      (select count(*)::int from public.plan_share_tokens where created_by=$1::uuid) +
+      (select count(*)::int from public.plan_join_idempotency where actor_id=$1::uuid or response_body -> 'plan' ->> 'owner_id'=$1::text) +
+      (select count(*)::int from public.plan_create_idempotency where actor_id=$1::uuid) +
+      (select count(*)::int from public.social_idempotency_records where actor_id=$1::uuid or response -> 'poke' ->> 'senderId'=$1::text or response -> 'poke' ->> 'recipientId'=$1::text) +
+      (select count(*)::int from public.idempotency_records where actor_id=$1::uuid or response_body -> 'meetup' ->> 'peerId'=$1::text or response_body @> jsonb_build_object('acknowledgements',jsonb_build_array(jsonb_build_object('peerId',$1::uuid)))) +
+      (select count(*)::int from public.user_availabilities where user_id=$1::uuid) +
+      (select count(*)::int from public.pokes where sender_id=$1::uuid or recipient_id=$1::uuid) +
+      (select count(*)::int from public.outbox_events where event_type in ('poke.created','poke.accepted') and (payload->>'sender_id'=$1::text or payload->>'recipient_id'=$1::text)) +
+      (select count(*)::int from public.meetup_acknowledgements where user_a_id=$1::uuid or user_b_id=$1::uuid) +
+      (select count(*)::int from public.plan_meetup_acknowledgements where user_a_id=$1::uuid or user_b_id=$1::uuid) +
+      (select count(*)::int from public.discovery_preferences where user_id=$1::uuid) +
+      (select count(*)::int from public.product_first_activations where user_id=$1::uuid) +
+      (select count(*)::int from public.product_activity_days where user_id=$1::uuid) +
+      (select count(*)::int from public.product_discovery_daily_activity where user_id=$1::uuid) count
+  `, [ids.erin]);
+  assert(erasedProductSocialRows.rows[0].count === 0, "the account-erasure trigger must remove every scoped product-social record and peer snapshot in the same tombstone transaction");
+  const unrelatedCaseyAvailability = await db.query("insert into public.user_availabilities(user_id,activity,expires_at) values ($1::uuid,'walk',now()+interval '1 hour') returning user_id", [ids.casey]);
+  assert(unrelatedCaseyAvailability.rows[0].user_id === ids.casey, "account erasure must not remove unrelated active accounts or their records");
+
   await db.query("insert into public.user_coins(user_id,balance) values ($1,5),($2,5),($3,5)", [ids.alex, ids.blair, ids.casey]);
   await db.query("insert into public.user_locations(user_id,lat,lng) values ($1,42.6977,23.3219),($2,42.7030,23.3300),($3,42.9000,23.9000)", [ids.alex, ids.blair, ids.casey]);
   const tag = (await db.query("insert into public.interest_tags(name) values ('Coffee') returning id")).rows[0].id;
@@ -168,6 +318,8 @@ try {
   const deliveryDeleted = await db.query("select public.authorize_poke_delivery($1::uuid,'accepted',$2::uuid,$3::uuid,$4::uuid) payload", [pokeId, ids.alex, ids.blair, threadId]);
   assert(deliveryDeleted.rows[0].payload.deliver === false, "Poke delivery must suppress a deleted account before external fanout");
   await db.query("update public.profiles set deleted_at=null where id=$1::uuid", [ids.blair]);
+  await db.query("insert into public.user_availabilities(user_id,activity,expires_at) values ($1::uuid,'coffee',now()+interval '1 hour')", [ids.blair]);
+  await db.query("insert into public.pokes(sender_id,recipient_id,activity,status,responded_at,thread_id) values ($1::uuid,$2::uuid,'coffee','accepted',now(),$3::uuid)", [ids.alex, ids.blair, threadId]);
 
   const meetupWaiting = await db.query("select public.acknowledge_meetup_idempotent($1::uuid,$2::uuid,'meetup:acknowledge','meetup-ack-key-0001',repeat('f',64)) payload", [ids.alex, ids.blair]);
   const peerWaitingRead = await db.query("select public.read_meetup_acknowledgement($1::uuid,$2::uuid) payload", [ids.blair, ids.alex]);

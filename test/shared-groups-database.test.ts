@@ -239,10 +239,11 @@ describe.skipIf(!databaseTestConfigured)("shared group database boundary", { tim
       .eq("group_id", sharedGroupId)
       .order("user_id");
     expect(remainingAfterAppErasureError).toBeNull();
-    expect(remainingAfterAppErasure).toEqual([
-      { user_id: userIds[1] },
-      { user_id: userIds[3] },
-    ]);
+    expect(remainingAfterAppErasure).toEqual(
+      [userIds[1], userIds[3]]
+        .sort()
+        .map((user_id) => ({ user_id })),
+    );
 
     const deleteDifferentResponse = await appRequest(2, "/api/account/delete", {
       method: "POST",

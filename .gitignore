@@ -5,6 +5,7 @@ node_modules/
 .next/
 .next-e2e/
 .next-hosted-verification/
+.next-hosted-integration/
 .next-ci-verify/
 out/
 

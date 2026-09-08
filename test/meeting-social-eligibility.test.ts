@@ -30,7 +30,7 @@ describe("meeting social eligibility", () => {
 
   it("keeps Poke and Plan authorization server-side with the old anti-farming core", () => {
     const migration = readFileSync(
-      resolve(process.cwd(), "supabase/migrations/20260908040000_meeting_social_eligibility.sql"),
+      resolve(process.cwd(), "supabase/migrations/20260908113338_meeting_social_eligibility.sql"),
       "utf8",
     );
 
