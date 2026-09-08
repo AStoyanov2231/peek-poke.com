@@ -14,6 +14,7 @@ import {
   friendshipResponseSchema,
   inviteAcceptanceResponseSchemaForToken,
   inviteLinkResponseSchemaForOrigin,
+  profileCardSchema,
   type Bootstrap,
   type BlockUserResponse,
   type DmThreadCreateResponse,
@@ -28,6 +29,7 @@ import {
   type ProfileCard,
 } from "@peekpoke/shared";
 import { randomUUID } from "expo-crypto";
+import { z } from "zod";
 import { apiFetch, jsonBody } from "@/lib/api";
 import { env } from "@/lib/env";
 
@@ -201,6 +203,17 @@ export function fetchInviteLink(signal?: AbortSignal): Promise<InviteLinkRespons
     responseSchema: inviteLinkResponseSchemaForOrigin(env.apiBaseUrl, {
       allowDevelopmentHttp: typeof __DEV__ !== "undefined" && __DEV__,
     }),
+  });
+}
+
+export function fetchInvitePreview(token: string, signal?: AbortSignal) {
+  return apiFetch<{ profile: ProfileCard }>(`/api/invites/${encodeURIComponent(token)}`, {
+    cache: "no-store",
+    signal,
+    responseSchema: z.strictObject({ profile: profileCardSchema }).refine(
+      ({ profile }) => profile.id === token.split(".")[1],
+      "Invitation profile does not match its token",
+    ),
   });
 }
 

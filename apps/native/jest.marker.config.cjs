@@ -37,6 +37,7 @@ module.exports = {
       "<rootDir>/test/account-deletion-recovery.marker.ts",
       "<rootDir>/test/qr-scanner-lifecycle.test.tsx",
       "<rootDir>/test/discovery-visibility-settings.test.tsx",
+      "<rootDir>/test/invitation-admission.test.tsx",
     ],
   })),
 };
