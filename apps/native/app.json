@@ -39,6 +39,11 @@
               "scheme": "https",
               "host": "www.peek-poke.com",
               "pathPrefix": "/invite/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.peek-poke.com",
+              "pathPrefix": "/plan/"
             }
           ],
           "category": [

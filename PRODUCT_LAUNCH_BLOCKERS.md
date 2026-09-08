@@ -22,6 +22,8 @@
 - [x] Repair the reproduced legacy photo-bucket constraint failure, complete all 31 queued events, and verify the first recurring outbox request with an empty queue.
 - [ ] Configure worker failure, queue-age, and dead-letter alerts.
 - [ ] Configure TURN and universal/app links, and verify APNs delivery on a physical device; APNs variables already exist.
+- [ ] Verify the newly added Plan-link association with matching signed iOS/Android builds and the distributed Android signing fingerprint; [app-links.md](docs/app-links.md) records the canonical host and exact checks.
+- [ ] Before enabling optional external AI suggestions, configure the explicit server-only provider settings, complete the processor/privacy review, and verify the model and fallback with compatible released clients; [chat-suggestions-provider.md](docs/chat-suggestions-provider.md) describes the disabled-by-default adapter.
 - [ ] Configure a restricted server-only Google Places API key for each environment, enable Nearby Search (New), apply API and billing restrictions, and verify that venue cards remain unavailable when the key is absent or the provider fails.
 - [x] Schedule the bounded stale-location cleanup directly in Supabase each minute and verify a successful scheduled run.
 - [x] Schedule `purge_product_daily_activity_v1(31)` directly in Supabase daily and verify its manual execution.

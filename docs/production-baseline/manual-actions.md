@@ -7,7 +7,7 @@
 - The production `CRON_SECRET`, matching Vault secret, `pg_net` 0.19.5, and active every-minute outbox cron job 7 are configured.
   The explicitly authorized 31-event queue completed with zero pending, processing, or dead rows.
   Verify deployed function region, worker authorization, queue age, retry/dead-letter alerts, and Vercel-to-Supabase latency after future configuration changes.
-- Move Vercel Function compute from the current `iad1` deployment to single-region Hobby `dub1` and verify the subsequent deployment before treating it as active.
+- Keep Vercel Function compute in the configured single-region Hobby `dub1` region and reverify it after deployment configuration changes.
 - Enable Supabase leaked-password protection and rerun security advisors. Record the previous setting and rollback action before changing it.
 - Exact-location retention is active through cron job 5 every minute, with a successful scheduled run at 14:33 UTC.
   The product-activity metrics cron job 6 is active for 03:17 UTC daily; its manual proof passed and its first scheduled run is not yet due.
@@ -17,6 +17,7 @@
 - Create Vercel dashboard views/alerts from the structured log fields and generate real preview samples. Query-level DB/RPC, Realtime, cache, and queue metrics remain unavailable until those systems expose telemetry.
 - Keep production secret values only in Vercel, Supabase, and EAS. Rotate any credential that may have been exposed outside those stores before production use.
 - Configure and validate APNs/FCM/Expo credentials plus universal/app-link provider association. Confirm iOS and Android notification delivery and allowlisted navigation in approved internal builds.
+  Follow `../app-links.md` for canonical invitation and Plan paths, certificate requirements, and OS-level device verification.
 - Record the product owner's current outbound web-billing eligibility for each iOS/Android environment, region, and storefront. Keep the native link denied where the applicable store program or policy does not permit it.
 - Complete the outstanding release evidence in `../../PRODUCT_LAUNCH_BLOCKERS.md`, including physical-device journeys, provider failure injection, load, canary observation, store submission, and a hosted restore rehearsal.
   Existing browser, Simulator, hosted product, and Realtime evidence is recorded in `../product-verification.md`.

@@ -21,6 +21,8 @@ import {
 import { apiFetch, jsonBody } from "@/lib/api";
 
 export function fetchPlans(signal?: AbortSignal): Promise<PlansReadResponse> {
+  // `/api/plans` is viewer-scoped. The server applies fresh coarse-location
+  // eligibility for open Plans and preserves Plans the viewer may already access.
   return apiFetch<PlansReadResponse>("/api/plans", {
     signal,
     responseSchema: plansReadResponseSchema,
