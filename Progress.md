@@ -660,3 +660,6 @@ Native binary distribution and physical-device acceptance remain separate launch
 The first PR #9 browser run exposed an outdated assertion expecting a venue choice to replace the previous reply suggestion.
 Updated the actual chat journey to start with a typed draft, preserve it through both reply and venue selection, and verify zero message POST requests.
 The focused real-browser rerun passes in 9.1 seconds, with the full required CI rerun tracked in PR #9.
+
+The final discovery review also corrected a verification gap: CI previously discarded the screenshots produced by the browser journeys.
+The browser job now retains only synthetic fixture PNGs for fourteen days, allowing direct desktop/mobile inspection before release.

@@ -41,3 +41,7 @@ The browser run exposed a timezone mismatch between the UTC runner and the Europ
 The Plan journey now calculates its future local datetime inside the browser, verifies the successful creation response, and checks that the creation dialog closes.
 The earlier PR and push runs are historical evidence.
 All eight current workflow jobs passed for [PR run 34256223428](https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34256223428) and [push run 34256197273](https://github.com/AStoyanov2231/peek-poke.com/actions/runs/34256197273).
+
+The browser job retains its synthetic fixture screenshots for fourteen days as `browser-fixture-screenshots`, including the Now context cards at desktop and mobile widths.
+The upload allowlist includes only top-level PNG screenshots, excluding traces, session files, and environment configuration.
+It uses the supported [GitHub artifact action](https://github.com/actions/upload-artifact) to make visual review available after a run.
