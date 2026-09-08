@@ -228,9 +228,8 @@ test.describe("redesigned social journey", () => {
     expect(fixture.apiUrls).toContain(
       "/api/availability?limit=100&radiusKm=25&discovery_context=1",
     );
-    await page.screenshot({
+    await discoveryCards.nth(0).screenshot({
       path: "test-results/e2e/now-context-desktop.png",
-      fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
@@ -238,9 +237,8 @@ test.describe("redesigned social journey", () => {
         element.scrollWidth <= element.clientWidth,
       ),
     ).toBe(true);
-    await page.screenshot({
+    await discoveryCards.nth(0).screenshot({
       path: "test-results/e2e/now-context-mobile.png",
-      fullPage: true,
     });
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.getByRole("button", { name: "Coffee", exact: true }).click();
