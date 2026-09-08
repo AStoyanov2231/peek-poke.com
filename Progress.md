@@ -7,8 +7,9 @@ Updated: 2026-09-08.
 ## Current state
 
 The web redesign and nineteen database migrations are deployed after the user's approval.
-Master is `d41ea0b312de6eee8cf9d98b8242628dc7a978e6`, merged through PRs #7 and #8 with passing required CI.
-Vercel deployment `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` serves both public domains from `dub1`, matching Supabase's Dublin region.
+PRs #7 and #8 established the verified web release at `d41ea0b312de6eee8cf9d98b8242628dc7a978e6` with passing required CI.
+Its recovery deployment `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` passed public-domain and API verification in `dub1`, matching Supabase's Dublin region.
+The final native-flow source is committed as `949939b` and published in [PR #9](https://github.com/AStoyanov2231/peek-poke.com/pull/9), which records the current CI, merge, and deployment evidence.
 All 31 authorized queued events completed, and the recurring worker returned HTTP 200 after deployment.
 The saved migration-specific recovery package covers all nineteen changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
 The current database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 182 migration entries.
@@ -604,4 +605,5 @@ This is real local PostgreSQL evidence, not a hosted restore or full production 
 
 The consolidated local checks pass: 1,353 web tests, 505 native Vitest tests, 94 iOS/Android renderer tests, root/native lint, and native typecheck.
 Ten hosted-only web tests remain deliberately skipped outside the separately authorized runner.
-The final source still requires its new pull-request CI and merge before these native changes are considered released.
+The final source is published in [PR #9](https://github.com/AStoyanov2231/peek-poke.com/pull/9), and its review record is the source for final CI, merge, and deployment status.
+Native binary distribution and physical-device acceptance remain separate launch requirements after the source merge.
