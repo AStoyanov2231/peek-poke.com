@@ -214,27 +214,34 @@ test.describe("redesigned social journey", () => {
     await page.getByRole("button", { name: "Suggest place", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Message...", exact: true })).toHaveValue("How about Park Café?");
     await page.getByRole("button", { name: "Meet here", exact: true }).click();
-    await expect(page.getByRole("dialog").getByLabel("Place or area", { exact: true })).toHaveValue("Park Café");
-    await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+    const planDialog = page.getByRole("dialog", { name: "Make a plan" });
+    await expect(planDialog.getByLabel("Place or area", { exact: true })).toHaveValue("Park Café");
+    await planDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await page
       .getByRole("button", { name: "Turn this into a plan", exact: true })
       .click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("What are you doing?").fill("Coffee & a walk");
+    await expect(planDialog).toBeVisible();
+    await planDialog.getByLabel("What are you doing?").fill("Coffee & a walk");
     const nextHour = new Date(Date.now() + 60 * 60_000);
     const localTime = new Date(
       nextHour.getTime() - nextHour.getTimezoneOffset() * 60_000,
     )
       .toISOString()
       .slice(0, 16);
-    await dialog.getByLabel("When", { exact: true }).fill(localTime);
-    await dialog
+    await planDialog.getByLabel("When", { exact: true }).fill(localTime);
+    await planDialog
       .getByLabel("Place or area", { exact: true })
       .fill("The café by the park");
-    await dialog
+    const createResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/plans") &&
+        response.request().method() === "POST",
+    );
+    await planDialog
       .getByRole("button", { name: "Create plan", exact: true })
       .click();
-    await expect(dialog).not.toBeVisible();
+    expect((await createResponse).ok()).toBe(true);
+    await expect(planDialog).not.toBeVisible();
     await page.goto(`/plans/${planId}`);
     await expect(
       page.getByRole("heading", { name: "Coffee & a walk" }),
