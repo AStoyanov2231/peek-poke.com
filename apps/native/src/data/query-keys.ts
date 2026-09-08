@@ -41,7 +41,7 @@ export const nativeQueryKeys = {
   },
   meetups: {
     all: ["meetups"] as const,
-    peer: (peerId: string) => ["meetups", peerId] as const,
+    peer: (peerId: string, accountId: string) => ["meetups", accountId, peerId] as const,
   },
   pokes: ["pokes"] as const,
   plans: {

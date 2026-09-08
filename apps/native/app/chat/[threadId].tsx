@@ -588,7 +588,7 @@ export default function ChatScreen() {
           />
         ) : null}
 
-        {!isReadOnly && other ? <View style={styles.meetupAction}><ChatMeetupAcknowledgement peerId={other.id} threadId={threadId} onPlanAgain={() => setPlanComposerOpen(true)} /></View> : null}
+        {!isReadOnly && profile && other ? <View style={styles.meetupAction}><ChatMeetupAcknowledgement accountId={profile.id} peerId={other.id} threadId={threadId} onPlanAgain={() => setPlanComposerOpen(true)} /></View> : null}
 
         <View style={styles.messageListWrap}>
           <FlatList

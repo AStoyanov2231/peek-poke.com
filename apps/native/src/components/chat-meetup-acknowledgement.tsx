@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
@@ -13,19 +13,31 @@ import { acknowledgeMeetup, fetchMeetupAcknowledgement } from "@/data/meetups";
 import { nativeQueryKeys } from "@/data/query-keys";
 
 type ChatMeetupAcknowledgementProps = {
+  accountId: string;
   peerId: string;
   threadId: string;
   onPlanAgain: () => void;
 };
 
-export function ChatMeetupAcknowledgement({
+export function ChatMeetupAcknowledgement(props: ChatMeetupAcknowledgementProps) {
+  return <ChatMeetupAcknowledgementSession key={`${props.accountId}:${props.threadId}:${props.peerId}`} {...props} />;
+}
+
+function ChatMeetupAcknowledgementSession({
+  accountId,
   peerId,
   threadId,
   onPlanAgain,
 }: ChatMeetupAcknowledgementProps) {
   const queryClient = useQueryClient();
+  const lifetime = useRef<object | null>(null);
+  const pendingRef = useRef(false);
+  useEffect(() => {
+    lifetime.current = {};
+    return () => { lifetime.current = null; };
+  }, []);
   const meetupsQuery = useQuery({
-    queryKey: nativeQueryKeys.meetups.peer(peerId),
+    queryKey: nativeQueryKeys.meetups.peer(peerId, accountId),
     queryFn: ({ signal }) => fetchMeetupAcknowledgement(peerId, signal),
     refetchInterval: 30_000,
   });
@@ -50,35 +62,58 @@ export function ChatMeetupAcknowledgement({
       : "We met";
 
   function confirm() {
+    const owner = lifetime.current;
     Alert.alert(
       "Did you meet up?",
       "This is your own acknowledgement. It does not use location proof and gives no coins or rewards. The other person confirms separately.",
       [
         { text: "Not now", style: "cancel" },
-        { text: "Yes, we met", onPress: () => void submit() },
+        { text: "Yes, we met", onPress: () => { if (owner && lifetime.current === owner) void submit(); } },
       ],
     );
   }
   async function submit() {
+    if (pendingRef.current || !lifetime.current) return;
+    const owner = lifetime.current;
+    pendingRef.current = true;
     setPending(true);
     setMessage(null);
     try {
-      const response = await acknowledgeMeetup(peerId, `${threadId}:${peerId}`);
-      queryClient.setQueryData(nativeQueryKeys.meetups.peer(peerId), {
+      const response = await acknowledgeMeetup(peerId, `${accountId}:${threadId}:${peerId}`);
+      if (lifetime.current !== owner) return;
+      queryClient.setQueryData(nativeQueryKeys.meetups.peer(peerId, accountId), {
         meetup: response.meetup,
       });
       void queryClient.invalidateQueries({
-        queryKey: nativeQueryKeys.meetups.peer(peerId),
+        queryKey: nativeQueryKeys.meetups.peer(peerId, accountId),
       });
     } catch (error) {
+      if (lifetime.current !== owner) return;
       setMessage(
         error instanceof Error
           ? error.message
           : "Couldn’t save your acknowledgement. Try again.",
       );
     } finally {
-      setPending(false);
+      if (lifetime.current === owner) {
+        pendingRef.current = false;
+        setPending(false);
+      }
     }
+  }
+
+  if (meetupsQuery.isPending) {
+    return <Text accessibilityLiveRegion="polite" style={styles.messageText}>Loading meetup confirmation…</Text>;
+  }
+  if (meetupsQuery.isError) {
+    return (
+      <View style={styles.message}>
+        <Text accessibilityRole="alert" style={styles.messageText}>Meetup confirmation could not be loaded.</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Retry meetup confirmation" accessibilityState={{ disabled: meetupsQuery.isFetching, busy: meetupsQuery.isFetching }} disabled={meetupsQuery.isFetching} onPress={() => void meetupsQuery.refetch()} style={styles.button}>
+          <Text style={styles.buttonText}>{meetupsQuery.isFetching ? "Retrying…" : "Try again"}</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -105,7 +140,7 @@ export function ChatMeetupAcknowledgement({
             {statusMessage}
           </Text>
           {meetup?.status === "confirmed" ? (
-            <Pressable accessibilityRole="button" onPress={onPlanAgain}>
+            <Pressable accessibilityRole="button" onPress={onPlanAgain} style={styles.button}>
               <Text style={styles.planAgain}>Plan again</Text>
             </Pressable>
           ) : null}
@@ -118,7 +153,7 @@ const styles = StyleSheet.create({
   wrap: { gap: spacing[2] },
   button: {
     alignSelf: "flex-start",
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: spacing[3],
     borderRadius: radii.pill,
     alignItems: "center",

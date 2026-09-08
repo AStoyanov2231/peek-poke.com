@@ -77,7 +77,7 @@ export const webQueryKeys = {
   plans: ["web", "plans"] as const,
   plan: (planId: string) => ["web", "plans", planId] as const,
   pokes: ["web", "pokes"] as const,
-  meetup: (peerId: string) => ["web", "meetups", peerId] as const,
+  meetup: (peerId: string, accountId: string) => ["web", "meetups", accountId, peerId] as const,
   groupMessages: (groupId: string) => ["web", "groups", groupId, "messages"] as const,
   coins: ["web", "coins"] as const,
   publicProfile: (userId: string) => ["web", "profile", userId] as const,

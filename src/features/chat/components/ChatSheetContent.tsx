@@ -464,7 +464,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         />
       ) : null}
 
-      {!isReadOnly && user && other && sociallyEligible ? <MeetupAcknowledgement peerId={other.id} name={other.display_name || other.username} onPlanAgain={() => setPlanComposerOpen(true)} /> : null}
+      {!isReadOnly && user && other && sociallyEligible ? <MeetupAcknowledgement accountId={user.id} peerId={other.id} name={other.display_name || other.username} onPlanAgain={() => setPlanComposerOpen(true)} /> : null}
 
       <ChatMessageList
         messages={messages}

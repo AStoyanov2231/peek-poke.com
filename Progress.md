@@ -6,6 +6,20 @@ Updated: 2026-09-08.
 
 ## Current continuation
 
+The next recovery review reproduced chat meetup status failing to load while the UI still offered an acknowledgement with no retry.
+The actual browser regression failed before the fix, then passed through load failure, explicit retry, peer acknowledgement, separate consent, and mutual confirmation.
+Web and native chat now show loading and recoverable failure states instead of treating unavailable status as an empty acknowledgement.
+Confirmation queries and native retry attempts include the account identity, and keyed conversation sessions prevent state carrying across account or peer changes.
+A native renderer reproduction also proved that a completed request could repopulate the query cache after the conversation unmounted.
+Lifetime guards now reject those delayed writes and old native-alert callbacks, and a synchronous pending guard prevents duplicate consent submissions.
+The focused native suite passes fourteen iOS/Android cases, including unmount, account-switch, retry, and duplicate-consent checks.
+The complete local gates pass 1,371 web tests with ten intentional skips, 521 native logic tests, 108 platform renderer tests, root/native lint, and native typecheck.
+The inspected phone screenshot is saved locally as `test-results/e2e/chat-meetup-recovery-mobile.png`.
+React Doctor reports 90/100 for changed files with no errors.
+The preexisting complexity/state warnings were confirmed against committed component snapshots; its additional loading-reset warning is a false positive for an account-lifetime guard inside the existing finally block.
+No diagnostic suppression was added.
+Full browser-suite completion and release CI are still being checked for this recovery batch.
+
 The current follow-up batch connects the previously unused approximate-area hint to authorized nearby results in web and native direct chats.
 It requires a fresh acknowledged device location and a recent successful nearby response, keeps explicit meetup acknowledgement independent, and preserves dismissal across refreshes.
 The actual browser journey exposed same-account auth hydration clearing a valid location acknowledgement during navigation; the correction preserves that account's existing lease while retaining account-change and sign-out invalidation.
@@ -20,7 +34,13 @@ Native provider failures now show a short recovery message instead of the reprod
 Temporary diagnostic logging was removed, the app-specific Simulator location permission was restored to its original denied state, and the synthetic coordinate was cleared.
 The local gates pass 1,371 web tests with ten intentional skips, 521 native logic tests, 100 platform renderer tests, root/native lint, and native typecheck.
 All twelve local browser journeys pass in 52.6 seconds.
-[PR #13](https://github.com/AStoyanov2231/peek-poke.com/pull/13) tracks the required CI, master merge, and deployment checks for this batch.
+[PR #13](https://github.com/AStoyanov2231/peek-poke.com/pull/13) passed all eight required checks and merged into master as `8f7c47ad0d702893b8e571f270bd8838aae0c4c9`.
+The matching production deployment reached Ready in Dublin and serves both canonical domains.
+Read-only post-release checks returned HTTP 200 for both homepages, Terms, Privacy, and the iOS association endpoint.
+The deployment-scoped error/fatal log query returned no entries in the initial observation window; this does not establish ongoing alert coverage.
+No new database migration or provider configuration change was made in this batch.
+The twenty-migration rollback archive still matches SHA-256 `4cff473598c05a098e74f466516de81288d1a8c83e14de97bc6b68ccb3af77ab`.
+Full native binary distribution, physical-device acceptance, support/privacy operations, external monitoring, and the remaining brief items are still open.
 The long multi-navigation privacy renderer test has a ten-second timeout; its assertions are unchanged.
 Browser fixtures now support a separate loopback Auth port so those checks can run alongside the native fixture without interrupting it.
 
