@@ -20,7 +20,7 @@
 - [x] Configure a generated production-only `CRON_SECRET` and verify its matching Supabase Vault value without exporting either secret.
 - [x] Authorize processing the 31 existing queued events and verify the authenticated Supabase-to-Vercel worker request.
 - [x] Repair the reproduced legacy photo-bucket constraint failure, complete all 31 queued events, and verify the first recurring outbox request with an empty queue.
-- [ ] Configure worker failure, queue-age, and dead-letter alerts.
+- [ ] Configure an approved external monitor and notification recipient for worker failure, queue age, dead letters, and missed scheduler runs; [observability.md](docs/production-baseline/observability.md) explains the provider limits and required delivery proof.
 - [ ] Configure TURN and universal/app links, and verify APNs delivery on a physical device; APNs variables already exist.
 - [ ] Verify the newly added Plan-link association with matching signed iOS/Android builds and the distributed Android signing fingerprint; [app-links.md](docs/app-links.md) records the canonical host and exact checks.
 - [ ] Before enabling optional external AI suggestions, configure the explicit server-only provider settings, complete the processor/privacy review, and verify the model and fallback with compatible released clients; [chat-suggestions-provider.md](docs/chat-suggestions-provider.md) describes the disabled-by-default adapter.

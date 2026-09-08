@@ -37,10 +37,27 @@ import { nativeQueryKeys } from "@/data/query-keys";
 
 type SettingsView = "main" | "discovery" | "help" | "terms" | "delete";
 
+const legalPages = {
+  terms: {
+    title: "Community ground rules",
+    body: "Rules for adult eligibility, respectful contact, profiles, Pokes, conversations, Circles, and Plans.",
+    linkLabel: "Read Community ground rules",
+    url: "https://www.peek-poke.com/terms",
+  },
+  privacy: {
+    title: "Privacy controls",
+    body: "How adult eligibility, profile details, availability, and approximate nearby discovery are handled. Your precise location is not public.",
+    linkLabel: "Read Privacy controls",
+    url: "https://www.peek-poke.com/privacy",
+  },
+} as const;
+
+type LegalPage = (typeof legalPages)[keyof typeof legalPages];
+
 const faqs = [
   {
     q: "How do I find people nearby?",
-    a: "Open Map from the bottom navigation. It shows people and plans that are currently available nearby when you choose to enable location.",
+    a: "Open Now to see people who are up for something, or choose Map for an approximate view of your area. Enable location when you are ready.",
   },
   {
     q: "How do I send a friend request?",
@@ -76,6 +93,7 @@ export function SettingsSheet({
   const [view, setView] = useState<SettingsView>("main");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [legalLinkError, setLegalLinkError] = useState<LegalPage | null>(null);
   const preference = useQuery({
     queryKey: ["discovery-preferences"],
     queryFn: fetchDiscoveryPreference,
@@ -88,7 +106,17 @@ export function SettingsSheet({
     if (deleting) return;
     setView("main");
     setDeleteError(null);
+    setLegalLinkError(null);
     onClose();
+  }
+
+  async function openLegalPage(page: LegalPage) {
+    setLegalLinkError(null);
+    try {
+      await Linking.openURL(page.url);
+    } catch {
+      setLegalLinkError(page);
+    }
   }
 
   async function handleDeleteAccount() {
@@ -129,7 +157,7 @@ export function SettingsSheet({
                 <Text style={styles.eyebrow}>SUPPORT</Text>
                 <View style={styles.settingsRows}>
                   <SettingsRow icon={<CircleHelp color={colors.primary[500]} size={18} />} label="Help Center" onPress={() => setView("help")} />
-                  <SettingsRow icon={<FileText color={colors.primary[500]} size={18} />} label="Terms & Privacy" onPress={() => setView("terms")} />
+                  <SettingsRow icon={<FileText color={colors.primary[500]} size={18} />} label="Terms & Privacy" onPress={() => { setLegalLinkError(null); setView("terms"); }} />
                 </View>
                 <Pressable accessibilityRole="button" onPress={onSignOut} style={({ pressed }) => [styles.logout, pressed && styles.pressed]}>
                   <Text style={styles.logoutText}>Log Out</Text>
@@ -168,13 +196,21 @@ export function SettingsSheet({
               <>
                 <Text style={styles.subTitle}>Terms &amp; Privacy</Text>
                 <LegalCard
-                  body="By using Peek & Poke you agree to our terms of service. We may update these terms from time to time and will notify you of significant changes."
-                  title="Terms of Service"
+                  page={legalPages.terms}
+                  onPress={openLegalPage}
                 />
                 <LegalCard
-                  body="We collect only the data needed to provide the Peek & Poke service. Your location is only shared when you choose to enable it. We never sell your data."
-                  title="Privacy Policy"
+                  page={legalPages.privacy}
+                  onPress={openLegalPage}
                 />
+                {legalLinkError ? (
+                  <View style={styles.legalLinkError}>
+                    <Text accessibilityRole="alert" style={styles.legalLinkErrorText}>Couldn’t open {legalLinkError.title}. Try again.</Text>
+                    <Pressable accessibilityRole="button" onPress={() => void openLegalPage(legalLinkError)} style={({ pressed }) => [styles.legalRetry, pressed && styles.pressed]}>
+                      <Text style={styles.legalRetryText}>Try again</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </>
             ) : (
               <>
@@ -381,11 +417,14 @@ function SettingsRow({ icon, label, onPress }: { icon: ReactNode; label: string;
 }
 
 // react-doctor-disable-next-line no-multi-comp
-function LegalCard({ title, body }: { title: string; body: string }) {
+function LegalCard({ page, onPress }: { page: LegalPage; onPress: (page: LegalPage) => Promise<void> }) {
   return (
     <View style={styles.infoCard}>
-      <Text style={styles.infoHeading}>{title}</Text>
-      <Text style={styles.infoBody}>{body}</Text>
+      <Text style={styles.infoHeading}>{page.title}</Text>
+      <Text style={styles.infoBody}>{page.body}</Text>
+      <Pressable accessibilityRole="link" accessibilityLabel={page.linkLabel} onPress={() => void onPress(page)} style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
+        <Text style={styles.legalLinkText}>{page.linkLabel}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -430,6 +469,12 @@ const styles = StyleSheet.create({
   infoCard: { borderRadius: radii.sm, padding: spacing[4], gap: 6, backgroundColor: colors.background, ...shadows.e1 },
   infoHeading: { fontFamily: fontFamilies.semibold, fontSize: 14, lineHeight: 19, color: colors.ink[9] },
   infoBody: { fontFamily: fontFamilies.regular, fontSize: 13, lineHeight: 19, color: colors.ink[5] },
+  legalLink: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: spacing[2], marginLeft: -spacing[2] },
+  legalLinkText: { ...typography.caption, fontFamily: fontFamilies.semibold, color: colors.primary[500] },
+  legalLinkError: { gap: spacing[2], paddingTop: spacing[1] },
+  legalLinkErrorText: { ...typography.caption, color: colors.danger[500] },
+  legalRetry: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: spacing[4], borderRadius: radii.pill, backgroundColor: colors.ink[2] },
+  legalRetryText: { ...typography.caption, fontFamily: fontFamilies.semibold, color: colors.ink[8] },
   inviteContent: { paddingHorizontal: spacing[6], paddingBottom: spacing[4], alignItems: "center", gap: spacing[5] },
   qrCard: { padding: spacing[4], borderRadius: radii.xl, backgroundColor: "#ffffff", ...shadows.e1 },
   inviteUrl: { ...typography.caption, color: colors.ink[5], textAlign: "center", paddingHorizontal: spacing[4] },

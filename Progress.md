@@ -6,8 +6,9 @@ Updated: 2026-09-08.
 
 ## Current continuation
 
-The prior source batch merged through PR #9 and passed its live verification.
-The next brief-fidelity review found that the suggestions interface had no configurable AI implementation and the native Plan feed lacked complete refresh and recovery states.
+The Plan-link, native Plan recovery, and optional suggestion-provider batch merged through [PR #10](https://github.com/AStoyanov2231/peek-poke.com/pull/10) as `3f4be1b074dee0894433e8b5fd18cc6957abdb88`.
+All eight checks passed, the deployment reached Ready, the public iOS association served both invitation and Plan paths, and the scoped deployed social API suite passed.
+That brief-fidelity review found that the suggestions interface had no configurable AI implementation and the native Plan feed lacked complete refresh and recovery states.
 An optional external provider now uses explicit server-only configuration, minimized structured input, strict output validation, a four-second timeout, and a bounded response reader, retaining deterministic replies by default.
 No live model call or provider-environment change has been made.
 The Plan API already applies coarse nearby visibility rules; native Now now refreshes it after location updates and presents loading, retryable failure, and empty states while retaining authorized member Plans.
@@ -22,6 +23,16 @@ The Android SDK is installed, but no Android device or emulator is attached.
 The consolidated native gate passes typecheck, lint, 508 Vitest tests, and 94 iOS/Android renderer tests.
 The web gate passes lint and 1,361 tests; ten explicitly configured integration tests skip in the local fixture-free run.
 Direct Simulator privacy selection still cannot be automated through the available actionable element references.
+A direct user check of selection, save, close, and reopen is pending because the available Simulator automation cannot activate the radio controls.
+
+The native Settings policy cards were reproduced as a navigation dead end in both platform renderers.
+They now link to the actual public community rules and privacy-control pages, recover from a failed browser launch, and use 44-point link targets.
+The Help text now describes the implemented Now and Map behavior without claiming that Map renders nearby Plans.
+Focused iOS/Android navigation and retry checks, native lint, and typecheck pass.
+
+Read-only monitoring review found that available runtime logs do not establish active worker alerts.
+The deployment's Hobby plan does not support built-in Vercel Alerts, and those function metrics would not directly evaluate queue-age and dead-letter log fields anyway.
+An approved external monitor and notification recipient remain required, with the evidence contract recorded in [observability.md](docs/production-baseline/observability.md).
 
 ## Current state
 
@@ -30,6 +41,7 @@ PRs #7 and #8 established the verified web release at `d41ea0b312de6eee8cf9d98b8
 Its recovery deployment `dpl_AFPvN11NF3cPp5w6uLSQYDTPrViJ` passed public-domain and API verification in `dub1`, matching Supabase's Dublin region.
 The native-flow source and browser correction merged through [PR #9](https://github.com/AStoyanov2231/peek-poke.com/pull/9) as `7a2c37141e81c94e3cc65af730f6579d713c819b` after all required checks passed.
 That release passed the deployed age-admission and social API suites and public desktop/mobile rendering checks.
+PR #10 subsequently shipped the Plan association and optional provider code with its full CI and scoped live verification described above.
 All 31 authorized queued events completed, and the recurring worker returned HTTP 200 after deployment.
 The saved migration-specific recovery package covers all nineteen changes, original application data and Storage files, and guarded scheduler reversal; it is not a complete Auth/Vault disaster-recovery backup.
 The current database baseline has 50 profiles, 11 Auth users, 96 Storage objects, and 182 migration entries.
