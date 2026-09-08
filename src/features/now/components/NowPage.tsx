@@ -598,7 +598,7 @@ function PersonCard({
         </p>
       ) : null}
       {discoveryLabels.length ? (
-        <p className="text-xs font-medium text-ink-6">
+        <p className="my-4 text-xs font-medium text-ink-6">
           {discoveryLabels.join(" · ")}
         </p>
       ) : null}
