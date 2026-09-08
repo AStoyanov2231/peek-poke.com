@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   onAuthStateChange: vi.fn(),
   resetFriendMutationAttempts: vi.fn(),
   setAuth: vi.fn(),
+  locationFreshForUserId: null as string | null,
   unsubscribe: vi.fn(),
 }));
 
@@ -43,6 +44,7 @@ vi.mock("@/stores/appStore", () => ({
   useAppStore: {
     getState: () => ({
       clearStore: mocks.clearStore,
+      locationFreshForUserId: mocks.locationFreshForUserId,
       markLocationStale: mocks.markLocationStale,
     }),
   },
@@ -116,6 +118,7 @@ function emitAuth(sessionValue: AuthSession | null) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.authCallback = null;
+  mocks.locationFreshForUserId = null;
   mocks.fetchContract.mockResolvedValue({ profile: { id: "profile" } });
   mocks.setAuth.mockResolvedValue(undefined);
   mocks.onAuthStateChange.mockImplementation((callback: AuthCallback) => {
@@ -132,6 +135,33 @@ afterEach(async () => {
 });
 
 describe("web auth generation fence", () => {
+  it("preserves a same-account acknowledged location during initial-session hydration", async () => {
+    mocks.locationFreshForUserId = ACCOUNT_A;
+    mocks.getSession.mockResolvedValue({
+      data: { session: session(ACCOUNT_A, "token-a") },
+    });
+    await mountAuth();
+
+    await act(async () => emitAuth(session(ACCOUNT_A, "token-a")));
+    await flushAuth();
+
+    expect(mocks.markLocationStale).not.toHaveBeenCalled();
+    expect(authState().userId).toBe(ACCOUNT_A);
+  });
+
+  it("invalidates location on an actual account change even if the store matches the next user", async () => {
+    mocks.locationFreshForUserId = ACCOUNT_A;
+    mocks.getSession.mockResolvedValue({ data: { session: null } });
+    await mountAuth();
+
+    await act(async () => emitAuth(session(ACCOUNT_A, "token-a")));
+    mocks.locationFreshForUserId = ACCOUNT_B;
+    await act(async () => emitAuth(session(ACCOUNT_B, "token-b")));
+
+    expect(mocks.markLocationStale).toHaveBeenCalledOnce();
+    expect(authState().userId).toBe(ACCOUNT_B);
+  });
+
   it("honors an auth event delivered synchronously during subscription setup", async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: session(ACCOUNT_A, "token-a") },

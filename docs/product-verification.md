@@ -88,6 +88,9 @@ The current browser fixture evidence covers eleven journeys.
 
 `test/e2e/fixture-supabase-server.mjs` is a loopback-only, test-only Supabase transport fixture for this browser harness.
 It supplies a deterministic authenticated user and minimal REST/RPC results without using application bypass code, a hosted project, or production credentials.
+When the native fixture already owns port 54321, use `E2E_FIXTURE=1 E2E_SUPABASE_PORT=54322 npm run test:e2e`.
+The browser launcher, control requests, and WebSocket interception use the selected loopback port together; the default remains 54321.
+The fixture's Next server binds to 127.0.0.1 and stops when its own Auth fixture exits.
 
 ## Native verification
 
@@ -154,7 +157,10 @@ E2E_FIXTURE=1 npm run test:e2e
 
 ## Current local verification evidence
 
-The PR 12 root web/server evidence records 1,368 passing tests and 10 intentional skips.
+The current local root web/server evidence records 1,371 passing tests and 10 intentional skips.
+The approximate-chat-area flow passed direct iPhone 16 Simulator verification after repairing location acknowledgement cancellation on coordinate updates.
+Opening and cancelling the Plan composer, then dismissing the hint, preserved the independent meetup action.
+The local fixture excludes external map credentials, so this check does not validate provider map rendering.
 The earlier 1,314-test run in `/tmp/peek-product-final-web-tests-rerun.log` deliberately skipped three hosted suites because its approved target environment was not supplied.
 The new hosted Realtime and Storage suites also require explicit credentials and are excluded from ordinary fixture-only CI.
 Root lint and the production build passed in `/tmp/peek-product-final-web-lint.log` and `/tmp/peek-product-final-web-build.log`.

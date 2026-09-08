@@ -6,6 +6,23 @@ Updated: 2026-09-08.
 
 ## Current continuation
 
+The current follow-up batch connects the previously unused approximate-area hint to authorized nearby results in web and native direct chats.
+It requires a fresh acknowledged device location and a recent successful nearby response, keeps explicit meetup acknowledgement independent, and preserves dismissal across refreshes.
+The actual browser journey exposed same-account auth hydration clearing a valid location acknowledgement during navigation; the correction preserves that account's existing lease while retaining account-change and sign-out invalidation.
+The focused browser journey now passes in 8.6 seconds, including independent acknowledgement, no reward or meetup POST, Plan-composer opening without submission, dismissal, and mobile overflow checks.
+Desktop and mobile screenshots were inspected directly and show readable, untruncated hint text with separate actions.
+Actual Simulator work also reproduced React Native's missing AbortSignal.throwIfAborted method during location refresh, prompting a portable cancellation check with regression coverage.
+The Simulator subsequently reproduced a location-sync effect restarting on every new coordinate object and cancelling its own acknowledgement request.
+The callback now reads current retained coordinates only when handling failure, keeping the active sync stable.
+Direct iPhone 16 Simulator interaction confirmed the approximate-area hint, Plan-form opening and cancellation, and dismissal with the separate We met action preserved.
+The inspected capture is saved locally as `test-results/native/chat-approximate-area.jpg`.
+Native provider failures now show a short recovery message instead of the reproduced Expo Swift stack.
+Temporary diagnostic logging was removed, the app-specific Simulator location permission was restored to its original denied state, and the synthetic coordinate was cleared.
+The local gates pass 1,371 web tests with ten intentional skips, 521 native logic tests, 100 platform renderer tests, root/native lint, and native typecheck.
+The full browser suite and required release CI remain in progress.
+The long multi-navigation privacy renderer test has a ten-second timeout; its assertions are unchanged.
+Browser fixtures now support a separate loopback Auth port so those checks can run alongside the native fixture without interrupting it.
+
 The direct native discovery-privacy check now passes in the installed iPhone 16 Simulator app.
 A standalone XCUITest runner selected a different audience, saved, closed Settings, reopened Discovery visibility, and confirmed the selection persisted.
 Review corrected a checked-state assertion that could also match unchecked, and the repeatable test then passed in 21.9 seconds with Friends selected.

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/useAuth";
 import { useProximityToThread } from "@/features/chat/useProximityToThread";
+import { ChatProximityBanner } from "@/features/chat/components/ChatProximityBanner";
 import { useAppStore } from "@/stores/appStore";
 import { type DMMessage } from "@/types/database";
 import {
@@ -119,7 +120,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, user?.id);
 
   const isOtherOnline = other?.is_online === true && !isReadOnly;
-  const { sociallyEligible } = useProximityToThread(threadId, other?.id);
+  const { isNearby, sociallyEligible } = useProximityToThread(threadId, other?.id);
 
   const lifecycleOwnerIdentity = JSON.stringify([threadId, user?.id ?? null]);
   useClientLayoutEffect(() => {
@@ -452,6 +453,15 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
 
       {readReceipt.error ? (
         <ReadReceiptRecovery pending={readReceipt.isPending} onRetry={readReceipt.retry} />
+      ) : null}
+
+      {!isReadOnly && other ? (
+        <ChatProximityBanner
+          key={other.id}
+          name={other.display_name || other.username}
+          onPlanAnother={() => setPlanComposerOpen(true)}
+          visible={isNearby}
+        />
       ) : null}
 
       {!isReadOnly && user && other && sociallyEligible ? <MeetupAcknowledgement peerId={other.id} name={other.display_name || other.username} onPlanAgain={() => setPlanComposerOpen(true)} /> : null}

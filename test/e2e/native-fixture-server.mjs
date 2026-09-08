@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 
 const port = Number(process.env.NATIVE_FIXTURE_PORT ?? 3002);
+const includeNearbyPeer = process.env.NATIVE_FIXTURE_NEARBY_PEER === "1";
 const ownerId = "11111111-1111-4111-8111-111111111111";
 const peerId = "22222222-2222-4222-8222-222222222222";
 const threadId = "33333333-3333-4333-8333-333333333333";
@@ -292,7 +293,18 @@ createServer(async (req, res) => {
   }
   if (url.pathname === "/api/groups") return json(res, { groups: [], total_unread: 0, pagination: page });
   if (url.pathname === "/api/location") return json(res, { ok: true });
-  if (url.pathname === "/api/nearby") return json(res, { users: [] });
+  if (url.pathname === "/api/nearby") return json(res, {
+    users: includeNearbyPeer ? [{
+      userId: peerId,
+      username: peer.username,
+      display_name: peer.display_name,
+      avatar_url: peer.avatar_url,
+      is_online: peer.is_online,
+      last_seen_at: peer.last_seen_at,
+      lat: 42.70,
+      lng: 23.32,
+    }] : [],
+  });
   if (url.pathname === "/api/bots") return json(res, { bots: [] });
 
   if (url.pathname === "/api/availability") {
@@ -354,7 +366,7 @@ createServer(async (req, res) => {
       });
     }
     return json(res, {
-      received: incomingPokeAccepted ? [] : [{ ...incomingPoke(), sender: peer }],
+      received: [{ ...incomingPoke(), sender: peer }],
       sent: [],
     });
   }

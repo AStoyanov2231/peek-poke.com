@@ -28,6 +28,7 @@ module.exports = {
       "<rootDir>/test/chat-meeting-action-capability.test.tsx",
       "<rootDir>/test/chat-momentum-actions.test.tsx",
       "<rootDir>/test/chat-meetup-acknowledgement.test.tsx",
+      "<rootDir>/test/chat-approximate-proximity-hint.test.tsx",
       "<rootDir>/test/owner-display-name-editor-pressability.test.tsx",
       "<rootDir>/test/admin-report-actions-pressability.test.tsx",
       "<rootDir>/test/profile-convergence-platform.marker.ts",

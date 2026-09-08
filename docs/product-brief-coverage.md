@@ -1,7 +1,7 @@
 # Product brief coverage
 
 Reviewed against all 34 top-level sections of [PRODUCT-REDESIG.md](../PRODUCT-REDESIG.md) on 2026-09-08.
-The current deployed source is the PR 12 merge recorded in [Progress.md](../Progress.md).
+Release identifiers and verification status are recorded in [Progress.md](../Progress.md).
 This assessment preserves the brief's intended product scope and distinguishes working features from pending implementation, product decisions, and provider or device evidence.
 Illustrative examples and explicitly long-term ideas are identified as such instead of silently becoming launch requirements.
 

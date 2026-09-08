@@ -64,12 +64,14 @@ import { useTypingIndicator } from "@/hooks/use-typing-indicator";
 import { useAppStore } from "@/state/app-store";
 import { useCallStore } from "@/state/call-store";
 import { ChatMeetupAcknowledgement } from "@/components/chat-meetup-acknowledgement";
+import { ChatApproximateProximityHint } from "@/components/chat-approximate-proximity-hint";
 import { useReadReceipt } from "@/hooks/use-read-receipt";
 import { ReadReceiptRecovery } from "@/components/read-receipt-recovery";
 import { PlanComposer } from "@/components/plan-composer";
 import { ChatMomentumActions } from "@/components/chat-momentum-actions";
 import { fetchChatSuggestions } from "@/data/chat-suggestions";
 import { apiFetch } from "@/lib/api";
+import { useChatApproximateProximity } from "@/hooks/use-chat-approximate-proximity";
 
 const EMPTY_MESSAGES: DMMessage[] = [];
 
@@ -174,6 +176,7 @@ export default function ChatScreen() {
     if (!thread || !profile) return null;
     return thread.participant_1_id === profile.id ? thread.participant_2 : thread.participant_1;
   }, [profile, thread]);
+  const isInSameApproximateArea = useChatApproximateProximity(profile?.id, other?.id);
   const isReadOnly = other?.account_deleted === true;
   const suggestionsQuery = useQuery<ChatSuggestionsResponse>({
     queryKey: nativeQueryKeys.chat.suggestions(threadId),
@@ -576,6 +579,15 @@ export default function ChatScreen() {
           <ReadReceiptRecovery pending={readReceipt.isPending} onRetry={readReceipt.retry} />
         ) : null}
 
+        {!isReadOnly && other ? (
+          <ChatApproximateProximityHint
+            key={other.id}
+            name={displayName(other)}
+            onPlanAgain={() => setPlanComposerOpen(true)}
+            visible={isInSameApproximateArea}
+          />
+        ) : null}
+
         {!isReadOnly && other ? <View style={styles.meetupAction}><ChatMeetupAcknowledgement peerId={other.id} threadId={threadId} onPlanAgain={() => setPlanComposerOpen(true)} /></View> : null}
 
         <View style={styles.messageListWrap}>
@@ -956,21 +968,6 @@ const styles = StyleSheet.create({
   headerNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   headerName: { ...typography.bodyBold, color: colors.ink[9], flexShrink: 1 },
   headerOnline: { color: colors.success[600] },
-  proximityBanner: {
-    minHeight: 42,
-    marginHorizontal: spacing[4],
-    marginTop: spacing[3],
-    borderRadius: radii.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.primary[100],
-    paddingHorizontal: spacing[3],
-    paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: colors.primary[50],
-  },
-  proximityText: { flex: 1, color: colors.primary[600] },
   messageListWrap: { flex: 1, position: "relative" },
   messages: { flexGrow: 1, paddingHorizontal: spacing[4], paddingTop: spacing[3], paddingBottom: spacing[4] },
   emptyConversation: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: spacing[5], paddingVertical: spacing[6], gap: spacing[2] },

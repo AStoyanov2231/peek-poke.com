@@ -1,46 +1,73 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useLocationFreshness,
   useFriends,
   useThreads,
-  useNearbyUsers,
   useUserLocation,
 } from "@/stores/selectors";
 import { useAuth } from "@/features/auth/useAuth";
-import { meetingEligiblePeerIds, meetingProximityEligible } from "@peekpoke/shared";
-import { plansQueryOptions, pokesQueryOptions } from "@/data/web-query";
+import { meetingEligiblePeerIds } from "@peekpoke/shared";
+import {
+  nearbyQueryOptions,
+  plansQueryOptions,
+  pokesQueryOptions,
+} from "@/data/web-query";
 import { useQuery } from "@tanstack/react-query";
-
-function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+import {
+  APPROXIMATE_CHAT_NEARBY_MAX_AGE_MS,
+  hasCurrentApproximateNearbyResult,
+  shouldShowApproximateChatHint,
+} from "@/features/chat/approximate-proximity";
 
 export function useProximityToThread(threadId: string | null, openedPeerId?: string): {
-  distanceMeters: number | null;
   isNearby: boolean;
-  meetingEligible: boolean;
   sociallyEligible: boolean;
 } {
   const { user } = useAuth();
   const threads = useThreads();
   const friends = useFriends();
-  const nearbyUsers = useNearbyUsers();
   const userLocation = useUserLocation();
   const locationFresh = useLocationFreshness(user?.id);
   const pokesQuery = useQuery(pokesQueryOptions);
   const plansQuery = useQuery(plansQueryOptions);
+  const nearbyQuery = useQuery({
+    ...nearbyQueryOptions(userLocation, user?.id),
+    enabled: Boolean(locationFresh && userLocation && user?.id),
+    refetchInterval: APPROXIMATE_CHAT_NEARBY_MAX_AGE_MS,
+  });
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    if (!locationFresh || !nearbyQuery.dataUpdatedAt) return;
+
+    // Let the query's success render commit before advancing the clock. This
+    // also gives a cached result a current timestamp when chat mounts.
+    const currentClockTimer = window.setTimeout(() => setNow(Date.now()), 0);
+    const remainingMs = nearbyQuery.dataUpdatedAt + APPROXIMATE_CHAT_NEARBY_MAX_AGE_MS - Date.now();
+    if (remainingMs <= 0) {
+      return () => window.clearTimeout(currentClockTimer);
+    }
+
+    const expiryTimer = window.setTimeout(() => setNow(Date.now()), remainingMs);
+    return () => {
+      window.clearTimeout(currentClockTimer);
+      window.clearTimeout(expiryTimer);
+    };
+  }, [locationFresh, nearbyQuery.dataUpdatedAt]);
+
+  const nearbyResultIsCurrent = hasCurrentApproximateNearbyResult({
+    locationFresh,
+    querySucceeded: Boolean(nearbyQuery.data),
+    queryErrored: nearbyQuery.isError,
+    dataUpdatedAt: nearbyQuery.dataUpdatedAt,
+    now,
+  });
 
   return useMemo(() => {
     if (!threadId || !user) {
-      return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible: false };
+      return { isNearby: false, sociallyEligible: false };
     }
 
     const thread = threads.find((t) => t.id === threadId);
@@ -49,7 +76,7 @@ export function useProximityToThread(threadId: string | null, openedPeerId?: str
     const otherUserId = openedPeerId ?? (thread
       ? thread.participant_1_id === user.id ? thread.participant_2_id : thread.participant_1_id
       : null);
-    if (!otherUserId) return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible: false };
+    if (!otherUserId) return { isNearby: false, sociallyEligible: false };
     const eligiblePeerIds = meetingEligiblePeerIds(
       user.id,
       friends.map((friend) => friend.id),
@@ -62,19 +89,32 @@ export function useProximityToThread(threadId: string | null, openedPeerId?: str
     const sociallyEligible = eligiblePeerIds.has(otherUserId) || hasCurrentPlanForThread;
 
     if (!locationFresh || !userLocation) {
-      return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible };
+      return { isNearby: false, sociallyEligible };
     }
 
-    const nearbyUser = nearbyUsers.find((u) => u.userId === otherUserId);
-    if (!nearbyUser) return { distanceMeters: null, isNearby: false, meetingEligible: false, sociallyEligible };
+    const nearbyUser = nearbyResultIsCurrent
+      ? nearbyQuery.data?.find((u) => u.userId === otherUserId)
+      : null;
+    if (!nearbyUser) return { isNearby: false, sociallyEligible };
 
-    const d = haversineMeters(userLocation.lat, userLocation.lng, nearbyUser.lat, nearbyUser.lng);
-    const distanceMeters = Math.round(d);
     return {
-      distanceMeters,
-      isNearby: d < 500,
-      meetingEligible: sociallyEligible && meetingProximityEligible(distanceMeters),
+      // The nearby response is already a fresh, server-authorized coarse
+      // discovery result. Do not turn an availability record or a client
+      // radius guess into an in-chat presence claim.
+      isNearby: shouldShowApproximateChatHint(sociallyEligible, true),
       sociallyEligible,
     };
-  }, [threadId, openedPeerId, user, threads, friends, nearbyUsers, userLocation, locationFresh, pokesQuery.data, plansQuery.data]);
+  }, [
+    threadId,
+    openedPeerId,
+    user,
+    threads,
+    friends,
+    userLocation,
+    locationFresh,
+    nearbyQuery.data,
+    nearbyResultIsCurrent,
+    pokesQuery.data,
+    plansQuery.data,
+  ]);
 }

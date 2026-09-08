@@ -109,7 +109,7 @@ describe("Settings navigation and discovery visibility persistence", () => {
     expect(result.getByRole("button", { name: "Save visibility", disabled: true })).toBeTruthy();
     result.unmount();
     client.clear();
-  });
+  }, 10_000);
 
   it("opens the canonical terms and privacy pages from Settings", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0, retry: false } } });

@@ -40,6 +40,14 @@ function invalidateLocationFreshnessTimer() {
   locationFreshnessTimer = null;
 }
 
+function throwIfSignalAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) throw signal.reason;
+  const error = new Error("Location request aborted.");
+  error.name = "AbortError";
+  throw error;
+}
+
 function monotonicNow() {
   return typeof performance !== "undefined" && Number.isFinite(performance.now())
     ? performance.now()
@@ -198,6 +206,7 @@ async function getAndroidEmulatorLocation() {
 }
 
 export async function refreshDeviceLocation(signal?: AbortSignal) {
+  throwIfSignalAborted(signal);
   if (!deviceLocationState.coords) {
     setDeviceLocationState({ ...deviceLocationState, status: "prompting", error: null });
   }
@@ -207,7 +216,7 @@ export async function refreshDeviceLocation(signal?: AbortSignal) {
     const permission = existingPermission.canAskAgain && existingPermission.status !== "granted"
       ? await Location.requestForegroundPermissionsAsync()
       : existingPermission;
-    signal?.throwIfAborted();
+    throwIfSignalAborted(signal);
 
     if (permission.status !== "granted") {
       const error = new Error("Location permission is required to show nearby people.");
@@ -244,7 +253,7 @@ export async function refreshDeviceLocation(signal?: AbortSignal) {
         timestamp: Date.now(),
       };
     }
-    signal?.throwIfAborted();
+    throwIfSignalAborted(signal);
 
     const coords = { lat: current.coords.latitude, lng: current.coords.longitude };
     invalidateLocationFreshnessTimer();
@@ -258,10 +267,10 @@ export async function refreshDeviceLocation(signal?: AbortSignal) {
     });
     return coords;
   } catch (error) {
-    if (isAbortError(error)) throw error;
+    if (signal?.aborted || isAbortError(error)) throw error;
     if (deviceLocationState.status === "denied") throw error;
 
-    const message = error instanceof Error ? error.message : "Could not load your location.";
+    const message = "Couldn’t get a current location. Try again in a moment.";
     invalidateLocationFreshnessTimer();
     setDeviceLocationState({
       ...deviceLocationState,
@@ -270,6 +279,6 @@ export async function refreshDeviceLocation(signal?: AbortSignal) {
       freshForUserId: null,
       acknowledgedAt: null,
     });
-    throw error;
+    throw new Error(message, { cause: error });
   }
 }
