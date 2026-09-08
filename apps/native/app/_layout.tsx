@@ -11,6 +11,7 @@ import {
 } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import type { AgeAdmission } from "@peekpoke/shared";
 import {
   clearNativeRealtimeAuthSession,
   supabase,
@@ -50,21 +51,46 @@ import {
   type AuthBootstrapKey,
 } from "@/lib/auth-bootstrap";
 import { loadBootstrapForCurrentSession } from "@/lib/profile-bootstrap";
+import { nativeAuthenticatedHomeRoute } from "@/lib/navigation-policy";
+import { AgeAdmissionProvider } from "@/components/age-admission-context";
+import {
+  ageAdmissionReturnIntent,
+  canRefreshAdultRealtimeSession,
+  canStartAgeRestrictedServices,
+  requiresAgeAdmissionRoute,
+} from "@/lib/age-admission-navigation";
 
 export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} />;
 }
 
-function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, pendingInvite?: string) {
+function routeAfterBootstrap(data: Awaited<ReturnType<typeof fetchBootstrap>>, pendingInvite?: string, pendingPlanToken?: string) {
+  if (data.age_admission.status !== "adult") {
+    router.replace({
+      pathname: "/age-admission",
+      params: ageAdmissionReturnIntent(pendingInvite, pendingPlanToken),
+    });
+    return;
+  }
   if (!data.onboarding_completed) {
-    router.replace({ pathname: "/onboarding", params: pendingInvite ? { invite: pendingInvite } : {} });
+    router.replace({
+      pathname: "/onboarding",
+      params: {
+        ...(pendingInvite ? { invite: pendingInvite } : {}),
+        ...(pendingPlanToken ? { plan_token: pendingPlanToken } : {}),
+      },
+    });
     return;
   }
   if (pendingInvite) {
     router.replace(`/invite/${pendingInvite}` as never);
     return;
   }
-  router.replace("/(app)/map");
+  if (pendingPlanToken) {
+    router.replace(`/plan/${pendingPlanToken}` as never);
+    return;
+  }
+  router.replace(nativeAuthenticatedHomeRoute);
 }
 
 function authBootstrapKey(session: Session): AuthBootstrapKey {
@@ -110,16 +136,28 @@ export default function RootLayout() {
 // react-doctor-disable-next-line no-giant-component
 function RootLayoutContent() {
   const pathname = usePathname();
-  const routeParams = useGlobalSearchParams<{ inviterId?: string | string[]; invite?: string | string[] }>();
+  const routeParams = useGlobalSearchParams<{ inviterId?: string | string[]; invite?: string | string[]; plan_token?: string | string[]; token?: string | string[] }>();
   const routeInviter = Array.isArray(routeParams.inviterId) ? routeParams.inviterId[0] : routeParams.inviterId;
   const queryInviter = Array.isArray(routeParams.invite) ? routeParams.invite[0] : routeParams.invite;
-  const pendingInvite = pathname.startsWith("/invite/") ? routeInviter : queryInviter;
+  const queryPlanToken = Array.isArray(routeParams.plan_token) ? routeParams.plan_token[0] : routeParams.plan_token;
+  const routePlanToken = Array.isArray(routeParams.token) ? routeParams.token[0] : routeParams.token;
+  const rawPendingInvite = pathname.startsWith("/invite/") ? routeInviter : queryInviter;
+  const rawPlanToken = pathname.startsWith("/plan/") ? routePlanToken : queryPlanToken;
+  const pendingInvite = typeof rawPendingInvite === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPendingInvite)
+    ? rawPendingInvite
+    : undefined;
+  const pendingPlanToken = typeof rawPlanToken === "string" && /^[A-Za-z0-9_-]{43}$/.test(rawPlanToken) ? rawPlanToken : undefined;
   const pendingInviteRef = useRef(pendingInvite);
+  const pendingPlanTokenRef = useRef(pendingPlanToken);
   const isAuthCallback = pathname === "/auth/callback";
   const isPasswordRecovery = pathname === "/auth/reset-password";
   useEffect(() => {
     pendingInviteRef.current = pendingInvite;
   }, [pendingInvite]);
+  useEffect(() => {
+    pendingPlanTokenRef.current = pendingPlanToken;
+  }, [pendingPlanToken]);
   const [fontsLoaded, fontError] = useFonts({
     "Geist-Regular": require("../assets/fonts/Geist-Regular.ttf"),
     "Geist-Medium": require("../assets/fonts/Geist-Medium.ttf"),
@@ -129,11 +167,19 @@ function RootLayoutContent() {
   const [ready, setReady] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<unknown>(null);
   const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
+  const [ageAdmission, setAgeAdmission] = useState<AgeAdmission | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [sessionResolved, setSessionResolved] = useState(false);
   const [bootstrapCoordinator] = useState(createAuthBootstrapCoordinator);
   const reset = useAppStore((state) => state.reset);
   const authGenerationRef = useRef(0);
   const bootstrapUserIdRef = useRef<string | null>(null);
   const bootstrapAttemptIdRef = useRef(0);
+  const ageAdmissionRef = useRef<AgeAdmission | null>(null);
+  const updateAgeAdmission = useCallback((next: AgeAdmission | null) => {
+    ageAdmissionRef.current = next;
+    setAgeAdmission(next);
+  }, []);
   useRealtimeUserSync(authenticatedUserId ?? undefined);
   const callAccountReady = useCallAccountSessionOwner(authenticatedUserId);
   useIncomingCall(callAccountReady ? authenticatedUserId ?? undefined : undefined);
@@ -146,22 +192,22 @@ function RootLayoutContent() {
     bootstrapUserIdRef.current = null;
     useCallStore.getState().observeAccount(null);
     setAuthenticatedUserId(null);
+    setSessionUserId(null);
+    setSessionResolved(true);
+    updateAgeAdmission(null);
     await recoverUnauthorizedSession();
     setBootstrapError(null);
     setReady(true);
-  }, [bootstrapCoordinator]);
+  }, [bootstrapCoordinator, updateAgeAdmission]);
 
   const bootstrapSignedInUser = useCallback(
     (session: Session) => {
       const key = authBootstrapKey(session);
       observeMeetingAuthOwner(key.userId);
       observeReadReceiptAuthOwner(key.userId);
-      nativePushRegistration.observeAuth(key, session.access_token);
-      if (!nativePushRegistration.isLatest(key)) {
-        void nativePushRegistration.invalidate();
-      }
       if (bootstrapUserIdRef.current && bootstrapUserIdRef.current !== key.userId) {
         setAuthenticatedUserId(null);
+        updateAgeAdmission(null);
         resetFriendMutationAttempts();
         clearNativeServerState();
         reset();
@@ -171,9 +217,6 @@ function RootLayoutContent() {
       const promise = bootstrapCoordinator.start<BootstrapLoadResult>({
         key,
         load: async (signal) => {
-          await syncNativeRealtimeAuthSession(session);
-          if (signal.aborted) throw signal.reason;
-
           const attemptId = ++bootstrapAttemptIdRef.current;
           const attemptQueryKey = [...nativeQueryKeys.bootstrap, "auth", key.userId, attemptId] as const;
           try {
@@ -209,10 +252,11 @@ function RootLayoutContent() {
             bootstrapUserIdRef.current = null;
             useCallStore.getState().observeAccount(null);
             setAuthenticatedUserId(null);
+            updateAgeAdmission(null);
             resetFriendMutationAttempts();
             clearNativeServerState();
             reset();
-            await clearNativeRealtimeAuthSession();
+            await recoverUnauthorizedSession();
             return;
           }
           if (result.status === "unauthorized") {
@@ -221,7 +265,20 @@ function RootLayoutContent() {
           }
 
           nativeQueryClient.setQueryData(nativeQueryKeys.bootstrap, result.data);
-          routeAfterBootstrap(result.data, pendingInviteRef.current);
+          updateAgeAdmission(result.data.age_admission);
+          routeAfterBootstrap(result.data, pendingInviteRef.current, pendingPlanTokenRef.current);
+          if (result.data.age_admission.status !== "adult") return;
+          await syncNativeRealtimeAuthSession(session);
+          if (!canStartAgeRestrictedServices({
+            admission: result.data.age_admission,
+            candidateUserId: key.userId,
+            currentBootstrapUserId: bootstrapUserIdRef.current,
+            latestBootstrap: bootstrapCoordinator.isLatest(key),
+          })) return;
+          nativePushRegistration.observeAuth(key, session.access_token);
+          if (!nativePushRegistration.isLatest(key)) {
+            void nativePushRegistration.invalidate();
+          }
           setAuthenticatedUserId(key.userId);
           void nativePushRegistration.start({
             key,
@@ -249,8 +306,31 @@ function RootLayoutContent() {
 
       return { key, promise };
     },
-    [bootstrapCoordinator, handleUnauthorizedSession, reset]
+    [bootstrapCoordinator, handleUnauthorizedSession, reset, updateAgeAdmission]
   );
+
+  const refreshAdmission = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.user) return;
+    bootstrapCoordinator.invalidate();
+    setBootstrapError(null);
+    setReady(false);
+    try {
+      await bootstrapSignedInUser(data.session).promise;
+    } catch (error) {
+      setBootstrapError(error);
+    } finally {
+      setReady(true);
+    }
+  }, [bootstrapCoordinator, bootstrapSignedInUser]);
+
+  useEffect(() => {
+    if (!ready || !requiresAgeAdmissionRoute(pathname, ageAdmission, Boolean(pendingPlanToken))) return;
+    router.replace({
+      pathname: "/age-admission",
+      params: ageAdmissionReturnIntent(pendingInviteRef.current, pendingPlanTokenRef.current),
+    });
+  }, [ageAdmission, pathname, pendingPlanToken, ready]);
 
   const retryBootstrap = useCallback(async () => {
     setBootstrapError(null);
@@ -261,14 +341,20 @@ function RootLayoutContent() {
       const { data } = await supabase.auth.getSession();
       if (authGenerationRef.current !== authGeneration) return;
       if (data.session?.user) {
+        observeMeetingAuthOwner(data.session.user.id);
+        observeReadReceiptAuthOwner(data.session.user.id);
+        setSessionUserId(data.session.user.id);
+        setSessionResolved(false);
         const attempt = bootstrapSignedInUser(data.session);
         key = attempt.key;
         await attempt.promise;
       } else {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
+        setSessionUserId(null);
+        setSessionResolved(true);
         const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: invite ? { invite } : {} });
+        router.replace({ pathname: "/(auth)/login", params: { ...(invite ? { invite } : {}), ...(pendingPlanTokenRef.current ? { plan_token: pendingPlanTokenRef.current } : {}) } });
       }
     } catch (error) {
       if (
@@ -282,6 +368,7 @@ function RootLayoutContent() {
         authGenerationRef.current === authGeneration
         && ((!key && bootstrapUserIdRef.current === null) || (key && bootstrapCoordinator.isLatest(key)))
       ) {
+        setSessionResolved(true);
         setReady(true);
       }
     }
@@ -297,13 +384,10 @@ function RootLayoutContent() {
       if (isDisposed() || authGenerationRef.current !== authGeneration) return;
 
       if (data.session?.user) {
-        nativePushRegistration.observeAuth(
-          authBootstrapKey(data.session),
-          data.session.access_token,
-        );
-        if (isPasswordRecovery) {
-          await syncNativeRealtimeAuthSession(data.session);
-        } else {
+        observeMeetingAuthOwner(data.session.user.id);
+        observeReadReceiptAuthOwner(data.session.user.id);
+        setSessionUserId(data.session.user.id);
+        if (!isPasswordRecovery) {
           const attempt = bootstrapSignedInUser(data.session);
           key = attempt.key;
           await attempt.promise;
@@ -312,7 +396,7 @@ function RootLayoutContent() {
         nativePushRegistration.clearAuth();
         useCallStore.getState().observeAccount(null);
         const invite = pendingInviteRef.current;
-        router.replace({ pathname: "/(auth)/login", params: invite ? { invite } : {} });
+        router.replace({ pathname: "/(auth)/login", params: { ...(invite ? { invite } : {}), ...(pendingPlanTokenRef.current ? { plan_token: pendingPlanTokenRef.current } : {}) } });
       }
     } catch (error) {
       if (
@@ -331,6 +415,7 @@ function RootLayoutContent() {
           || (key && bootstrapCoordinator.isLatest(key))
         )
       ) {
+        setSessionResolved(true);
         setReady(true);
       }
     }
@@ -356,6 +441,9 @@ function RootLayoutContent() {
       bootstrapUserIdRef.current = null;
       useCallStore.getState().observeAccount(null);
       setAuthenticatedUserId(null);
+      setSessionUserId(null);
+      setSessionResolved(true);
+      updateAgeAdmission(null);
     });
     let disposed = false;
     const initialAuthGeneration = authGenerationRef.current;
@@ -384,6 +472,9 @@ function RootLayoutContent() {
         bootstrapUserIdRef.current = null;
         useCallStore.getState().observeAccount(null);
         setAuthenticatedUserId(null);
+        setSessionUserId(null);
+        setSessionResolved(true);
+        updateAgeAdmission(null);
         setBootstrapError(null);
         setReady(true);
         resetFriendMutationAttempts();
@@ -400,15 +491,14 @@ function RootLayoutContent() {
         const eventKey = authBootstrapKey(session);
         observeMeetingAuthOwner(eventKey.userId);
         observeReadReceiptAuthOwner(eventKey.userId);
-        nativePushRegistration.observeAuth(eventKey, session.access_token);
+        setSessionUserId(eventKey.userId);
+        setSessionResolved(false);
         if (isPasswordRecovery) return;
-        if (!nativePushRegistration.isLatest(eventKey)) {
-          void nativePushRegistration.invalidate();
-        }
         if (!bootstrapCoordinator.isLatest(eventKey)) {
           bootstrapCoordinator.invalidate();
           if (bootstrapUserIdRef.current && bootstrapUserIdRef.current !== eventKey.userId) {
             setAuthenticatedUserId(null);
+            updateAgeAdmission(null);
             resetFriendMutationAttempts();
             clearNativeServerState();
             reset();
@@ -437,6 +527,7 @@ function RootLayoutContent() {
         });
       }
       if (event === "TOKEN_REFRESHED" && session?.user) {
+        if (!canRefreshAdultRealtimeSession(ageAdmissionRef.current)) return;
         nativePushRegistration.observeAuth(
           authBootstrapKey(session),
           session.access_token,
@@ -470,17 +561,42 @@ function RootLayoutContent() {
     initializeSession,
     isPasswordRecovery,
     reset,
+    updateAgeAdmission,
   ]);
 
   if (fontError) throw fontError;
 
   const showBootstrap = !ready || !fontsLoaded || Boolean(bootstrapError);
+  const canMountAuthenticatedRoutes = ageAdmission?.status === "adult";
+  const canMountPublicPlan = sessionResolved;
+  const canMountAgeAdmission = sessionResolved && Boolean(sessionUserId) && !canMountAuthenticatedRoutes;
 
   return (
     <View style={styles.root}>
       <StatusBar animated style="dark" />
-      <Stack screenOptions={{ headerShown: false }} />
-      <CallProvider />
+      <AgeAdmissionProvider value={{ admission: ageAdmission, refreshAdmission }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="auth/callback" />
+          <Stack.Screen name="auth/reset-password" />
+          <Stack.Protected guard={canMountAgeAdmission}>
+            <Stack.Screen name="age-admission" />
+          </Stack.Protected>
+          <Stack.Protected guard={canMountAuthenticatedRoutes}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="chat/[threadId]" />
+            <Stack.Screen name="group/[groupId]" />
+            <Stack.Screen name="invite/[inviterId]" />
+            <Stack.Screen name="plans/[planId]" />
+          </Stack.Protected>
+          <Stack.Protected guard={canMountPublicPlan}>
+            <Stack.Screen name="plan/[token]" />
+          </Stack.Protected>
+        </Stack>
+        <CallProvider />
+      </AgeAdmissionProvider>
       {showBootstrap ? (
         <View pointerEvents="auto" style={styles.bootstrapOverlay}>
           <BootstrapSplash error={bootstrapError} onRetry={retryBootstrap} />

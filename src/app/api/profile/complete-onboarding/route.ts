@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth";
 import { MIN_INTERESTS_REQUIRED } from "@/lib/constants";
-import { isTemporaryUsername } from "@/lib/auth-profile";
+import { isTemporaryUsername } from "@peekpoke/shared";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/server";
 import { apiError } from "@/lib/api-error";
@@ -30,7 +30,7 @@ export const POST = withAuth(async (_request, { user }) => {
     return apiError("Please set your username first", 400, "USERNAME_REQUIRED");
   }
 
-  // Check user has at least 5 interests
+  // Require only the shared minimum before showing the first opportunity.
   const { count: interestCount, error: interestError } = await serviceClient
     .from("profile_interests")
     .select("id", { count: "exact", head: true })

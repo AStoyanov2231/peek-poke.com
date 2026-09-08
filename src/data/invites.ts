@@ -4,9 +4,16 @@ import {
   type InviteAcceptanceResponse,
   type InviteLinkResponse,
 } from "@peekpoke/shared";
+import { profileCardSchema } from "@peekpoke/shared";
+import { z } from "zod";
 import { fetchContract } from "@/lib/typed-api";
 
 const inFlightAccepts = new Map<string, Promise<InviteAcceptanceResponse>>();
+const invitePreviewSchema = z.strictObject({ profile: profileCardSchema });
+
+export function fetchInvitePreview(token: string, signal?: AbortSignal) {
+  return fetchContract(`/api/invites/${encodeURIComponent(token)}`, invitePreviewSchema, { cache: "no-store", signal });
+}
 
 export function fetchInviteLink(signal?: AbortSignal): Promise<InviteLinkResponse> {
   if (typeof window === "undefined") {

@@ -19,13 +19,11 @@ import { PhotoViewer, SettingsSheet, ShareSheet } from "@/components/profile-ove
 import { PhotoActionsDialog } from "@/components/photo-actions-dialog";
 import {
   Avatar,
-  Badge,
   Body,
   BodyBold,
   Button,
   Card,
   Caption,
-  Divider,
   IconButton,
   IconGlyph,
   Muted,
@@ -90,12 +88,6 @@ const categoryEmoji: Record<string, string> = {
   Lifestyle: "✨",
   Professional: "💼",
 };
-
-const premiumFeatures = [
-  { icon: "users", label: "Unlimited friends" },
-  { icon: "image", label: "See other people's photos" },
-  { icon: "eye", label: "See who viewed your profile" },
-] as const;
 
 // This route coordinates profile state, overlays, and navigation for the screen.
 // react-doctor-disable-next-line no-giant-component
@@ -770,77 +762,23 @@ function StatCard({ value, label }: { value: string | number; label: string }) {
 }
 
 function PremiumPanel({ active }: { active: boolean }) {
-  if (active) {
-    return (
-      <LinearGradient
-        colors={["#4a2874", "#21142f"]}
-        end={{ x: 1, y: 1 }}
-        start={{ x: 0, y: 0 }}
-        style={styles.premiumActive}
-      >
-        <IconGlyph name="premium" color="#d8c8ff" size={20} />
-        <View style={{ flex: 1 }}>
-          <BodyBold style={styles.premiumTitle}>Peek Premium</BodyBold>
-          <Caption style={styles.premiumMuted}>Active subscription</Caption>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.navigate("/(app)/premium" as never)}
-          style={({ pressed }) => [styles.manageSubscription, pressed && styles.pressed]}
-        >
-          <IconGlyph name="settings" color="#d8c8ff" size={16} />
-          <Caption style={styles.premiumLink}>Manage</Caption>
-        </Pressable>
-      </LinearGradient>
-    );
-  }
-
   return (
-    <LinearGradient
-      colors={["#3b1778", "#201431"]}
-      end={{ x: 0.05, y: 1 }}
-      start={{ x: 0.95, y: 0 }}
-      style={styles.premiumPanel}
-    >
-      <View style={styles.premiumHeader}>
-        <IconGlyph name="premium" color="#d8c8ff" size={18} />
-        <BodyBold style={styles.premiumTitle}>Peek Premium</BodyBold>
-        <Badge tone="primary" style={styles.unlockBadge}>
-          Unlock everything
-        </Badge>
+    <View style={[styles.peekPlusPanel, active && styles.peekPlusPanelActive]}>
+      <IconGlyph name="premium" color={colors.primary[500]} size={20} />
+      <View style={styles.peekPlusContent}>
+        <BodyBold style={styles.peekPlusTitle}>Peek+</BodyBold>
+        <Caption style={styles.peekPlusCopy}>{active ? "Active subscription" : "Pokes, messages, plans, and meeting up stay free."}</Caption>
       </View>
       <Pressable
-        accessibilityLabel="Upgrade to Premium"
+        accessibilityLabel={active ? "Manage Peek+ billing" : "Open Peek+ preview"}
         accessibilityRole="button"
         onPress={() => router.navigate("/(app)/premium" as never)}
-        style={({ pressed }) => [styles.premiumCta, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.peekPlusAction, pressed && styles.pressed]}
       >
-        <LinearGradient
-          colors={["#fbbf24", "#f59e0b"]}
-          end={{ x: 1, y: 0 }}
-          pointerEvents="none"
-          start={{ x: 0, y: 0 }}
-          style={styles.premiumCtaGradient}
-        >
-          <IconGlyph name="crown" color={colors.surface} size={16} />
-          <Text style={styles.premiumCtaText}>Upgrade to Premium</Text>
-        </LinearGradient>
+        <IconGlyph name={active ? "settings" : "arrow-right"} color={colors.primary[600]} size={16} />
+        <Caption style={styles.peekPlusActionText}>{active ? "Manage billing" : "Preview"}</Caption>
       </Pressable>
-      <View>
-        <Caption style={styles.premiumMuted}>From</Caption>
-        <Text style={styles.price}>View current price</Text>
-      </View>
-      <Divider />
-      {premiumFeatures.map(({ icon, label }) => (
-        <View key={label} style={styles.featureRow}>
-          <View style={styles.checkCircle}>
-            <IconGlyph name="check" color={colors.success[500]} size={11} />
-          </View>
-          <IconGlyph name={icon} color="#c8aef5" size={14} />
-          <Caption style={styles.featureText}>{label}</Caption>
-        </View>
-      ))}
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -1094,39 +1032,30 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-  premiumPanel: {
+  peekPlusPanel: {
     borderRadius: radii.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(154,104,245,0.45)",
-    padding: spacing[5],
-    gap: spacing[4],
-  },
-  premiumActive: {
-    borderRadius: radii.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(154,104,245,0.45)",
+    borderColor: colors.primary[200],
+    backgroundColor: colors.ink[1],
     padding: spacing[4],
     flexDirection: "row",
     alignItems: "center",
     gap: spacing[3],
   },
-  manageSubscription: {
-    minHeight: 32,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+  peekPlusPanelActive: {
+    backgroundColor: colors.primary[50],
   },
-  premiumHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
+  peekPlusContent: {
+    flex: 1,
+    gap: 2,
   },
-  premiumCta: {
-    width: "100%",
-    borderRadius: radii.pill,
-    ...shadows.e1,
+  peekPlusTitle: {
+    color: colors.ink[9],
   },
-  premiumCtaGradient: {
+  peekPlusCopy: {
+    color: colors.ink[6],
+  },
+  peekPlusAction: {
     minHeight: 36,
     borderRadius: radii.pill,
     paddingHorizontal: spacing[4],
@@ -1134,57 +1063,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
+    backgroundColor: colors.primary[100],
   },
-  premiumCtaText: {
-    color: colors.surface,
+  peekPlusActionText: {
+    color: colors.primary[700],
     fontFamily: fontFamilies.semibold,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "600",
-  },
-  premiumTitle: {
-    color: colors.surface,
-  },
-  premiumMuted: {
-    color: "rgba(255,255,255,0.58)",
-  },
-  premiumLink: {
-    color: "#d8c8ff",
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  unlockBadge: {
-    marginLeft: "auto",
-    backgroundColor: colors.primary[100],
-  },
-  price: {
-    color: colors.surface,
-    fontFamily: fontFamilies.bold,
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: "800",
-  },
-  priceUnit: {
-    color: "rgba(255,255,255,0.55)",
-    fontFamily: fontFamilies.regular,
-    fontSize: 14,
-    fontWeight: "400",
-  },
-  featureRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
-  },
-  checkCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#d7f5e7",
-  },
-  featureText: {
-    color: "rgba(255,255,255,0.86)",
   },
   photoEmpty: {
     minHeight: 150,

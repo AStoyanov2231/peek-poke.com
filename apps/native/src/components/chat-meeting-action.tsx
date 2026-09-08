@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { colors, fontFamilies, spacing, typography } from "@peekpoke/design";
-import { ApiTransportError } from "@peekpoke/shared";
+import { ApiTransportError, canAttemptMeetingReward } from "@peekpoke/shared";
 import {
   discardMeetingAttempt,
   recordMeeting,
@@ -39,7 +39,7 @@ export function ChatMeetingAction({
     };
   }, [accountId, consumerId, friendId, ownerIdentity]);
 
-  if (!meetingEligible) return null;
+  if (!meetingEligible || !canAttemptMeetingReward()) return null;
 
   const record = () => {
     if (state === "pending") return;

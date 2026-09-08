@@ -6,6 +6,14 @@ vi.mock("@/features/auth/actions", () => ({ signOut: vi.fn() }));
 vi.mock("@/stores/callStore", () => ({
   useCallStore: { getState: () => ({ observeAccount: vi.fn() }) },
 }));
+vi.mock("@/components/ui/dialog", async () => {
+  const React = await import("react");
+  return {
+    Dialog: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    DialogContent: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+    DialogTitle: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 {...props}>{children}</h2>,
+  };
+});
 
 import { SettingsSheet } from "@/features/profile/components/SettingsSheet";
 

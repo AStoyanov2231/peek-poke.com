@@ -26,6 +26,7 @@ function bootstrap(userId = USER_A): Bootstrap {
     version: "v1",
     identity: { id: userId, email: null },
     onboarding_completed: false,
+    age_admission: { status: "pending", decided_at: null },
     roles: ["user"],
     feature_config_version: "v1",
     unread_summary: { threads: 0 },

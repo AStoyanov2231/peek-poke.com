@@ -4,13 +4,14 @@ import React, { useState, useMemo, useRef, memo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search } from "lucide-react";
-import { useNearbyUsers, useFriends, useUserLocation, useHighlightedUserId } from "@/stores/selectors";
+import { useNearbyUsers, useFriends, useHighlightedUserId } from "@/stores/selectors";
 import { useAppStore } from "@/stores/appStore";
-import { formatDistance } from "@/lib/geo";
 import { avatarColor } from "@/lib/avatar-color";
 import { SearchAutocomplete } from "@/features/search/components/SearchAutocomplete";
-import { AddFriendButton } from "@/components/ui/AddFriendButton";
+import { PokeDialog } from "@/features/social/components/PokeDialog";
 import type { NearbyUser } from "@/types/database";
+import { useAvailablePeople } from "@/features/map/useAvailablePeople";
+import { activityLabel } from "@/data/pokes";
 
 type Filter = "all" | "friends" | "online";
 
@@ -20,11 +21,12 @@ interface NearbyRailRowProps {
   user: NearbyUser;
   isOnline: boolean;
   isSelected: boolean;
-  distance: string | null;
   onSelect: (userId: string) => void;
+  onPoke: (user: NearbyUser) => void;
+  activity: string | null;
 }
 
-const NearbyRailRow = memo(function NearbyRailRow({ user, isOnline, isSelected, distance, onSelect }: NearbyRailRowProps) {
+const NearbyRailRow = memo(function NearbyRailRow({ user, isOnline, isSelected, onSelect, onPoke, activity }: NearbyRailRowProps) {
   const name = user.display_name || user.username || "?";
   const color = avatarColor(name);
 
@@ -63,12 +65,12 @@ const NearbyRailRow = memo(function NearbyRailRow({ user, isOnline, isSelected, 
         <div className="flex-1 min-w-0">
           <div className="t-body-b text-ink-9 truncate">{name}</div>
           <div className="t-caption muted">
-            {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
+            {activity ? `Up for ${activity} · ` : "In your area · "}{isOnline ? "Online" : "Offline"}
           </div>
         </div>
       </button>
 
-      <AddFriendButton userId={user.userId} />
+      <div className="flex shrink-0 items-center gap-1.5"><button type="button" className="btn btn-accent btn-sm" onClick={() => onPoke(user)}>Poke</button></div>
     </div>
   );
 });
@@ -82,9 +84,10 @@ export function DesktopNearbyRail() {
 
   const nearbyUsers = useNearbyUsers();
   const friends = useFriends();
-  const userLocation = useUserLocation();
   const highlightedUserId = useHighlightedUserId();
   const selectUser = useAppStore((s) => s.selectUser);
+  const [pokeUser, setPokeUser] = useState<NearbyUser | null>(null);
+  const availablePeople = useAvailablePeople();
 
   const nearbyIds = useMemo(() => nearbyUsers.map((u) => u.userId), [nearbyUsers]);
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
@@ -124,7 +127,7 @@ export function DesktopNearbyRail() {
       {/* Header */}
       <div className="flex-shrink-0 px-5 pt-5 pb-3.5">
         <h1 className="t-title-1 text-ink-9" style={{ margin: 0 }}>Nearby</h1>
-        <p className="t-callout muted mt-0.5">{nearbyUsers.length} people within 2 km</p>
+        <p className="t-callout muted mt-0.5">{nearbyUsers.length} {nearbyUsers.length === 1 ? "person" : "people"} within 2 km</p>
 
         {/* Search */}
         <div
@@ -180,17 +183,20 @@ export function DesktopNearbyRail() {
             user={user}
             isOnline={user.is_online === true}
             isSelected={user.userId === highlightedUserId}
-            distance={userLocation ? formatDistance(userLocation.lat, userLocation.lng, user.lat, user.lng) : null}
+            activity={availablePeople.get(user.userId) ? activityLabel(availablePeople.get(user.userId)!) : null}
             onSelect={selectUser}
+            onPoke={setPokeUser}
           />
         ))}
 
         {filtered.length === 0 && (
-          <div className="flex items-center justify-center h-24">
-            <span className="t-body muted">No one nearby</span>
+          <div className="flex h-32 flex-col items-center justify-center gap-2 px-5 text-center">
+            <span className="t-body muted">{filter !== "all" || query.trim() ? "No one matches these filters" : "No one nearby yet"}</span>
+            {filter !== "all" || query.trim() ? <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setFilter("all"); setQuery(""); }}>Clear filters</button> : <button type="button" className="btn btn-secondary btn-sm" onClick={() => router.push("/now")}>Set what you&apos;re up for</button>}
           </div>
         )}
       </div>
+      {pokeUser ? <PokeDialog recipient={{ id: pokeUser.userId, username: pokeUser.username, display_name: pokeUser.display_name }} defaultActivity={availablePeople.get(pokeUser.userId)?.activity} defaultCustomLabel={availablePeople.get(pokeUser.userId)?.customLabel} onClose={() => setPokeUser(null)} onSent={() => setPokeUser(null)} /> : null}
     </div>
   );
 }

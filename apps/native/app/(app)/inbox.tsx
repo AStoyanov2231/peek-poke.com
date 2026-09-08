@@ -18,7 +18,7 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ProfileCard, SharedGroupSummary, ThreadSummary } from "@peekpoke/shared";
+import type { PokeInboxItem, PokeInboxResponse, ProfileCard, SharedGroupSummary, ThreadSummary } from "@peekpoke/shared";
 import { isPremium } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import {
@@ -33,12 +33,14 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { displayName } from "@/components/ui-helpers";
-import { isFriendLimitError } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
+import { pokeActivityLabel, pokeExpiryLabel, pokeStateLabel } from "@/lib/poke-presentation";
 import { ErrorRecovery, RouteErrorRecovery } from "@/components/error-recovery";
 import { InboxDataRecovery } from "@/components/inbox-data-recovery";
-import { UpgradeDialog } from "@/components/friend-action-dialogs";
 import { nativeQueryKeys } from "@/data/query-keys";
+import { fetchPokes, respondToPoke } from "@/data/pokes";
+import { usePendingPokes } from "@/hooks/use-pending-received-pokes";
+import { fetchPlans } from "@/data/plans";
 import {
   createOrFindThread,
   discardFriendshipRemoval,
@@ -63,7 +65,7 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RouteErrorRecovery {...props} title="Couldn't load inbox" />;
 }
 
-type Tab = "chats" | "friends" | "requests";
+type Tab = "chats" | "pokes" | "plans" | "friends" | "requests";
 type FriendRowData = SocialFriend & { profile: SocialProfileCard };
 type IncomingRequest = SocialFriend & { requester: SocialProfileCard };
 type SentRequest = SocialFriend & { addressee: SocialProfileCard };
@@ -76,7 +78,7 @@ type InboxConversation =
 
 function normalizeTab(value: string | string[] | undefined): Tab {
   const tab = Array.isArray(value) ? value[0] : value;
-  return tab === "friends" || tab === "requests" ? tab : "chats";
+  return tab === "friends" || tab === "requests" || tab === "pokes" || tab === "plans" ? tab : "chats";
 }
 
 function friendRows(data: SocialData | undefined, viewerId: string | undefined): FriendRowData[] {
@@ -108,13 +110,57 @@ export default function InboxScreen() {
   const tab = normalizeTab(params.tab);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
-  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
+  const [pokeResponseError, setPokeResponseError] = useState<{
+    poke: PokeInboxItem;
+    action: "accept" | "later" | "decline";
+    message: string;
+  } | null>(null);
   const queryClient = useQueryClient();
 
   const identityQuery = useQuery(bootstrapIdentityQuery());
   const threadsQuery = useQuery(inboxQuery());
   const groupsQuery = useQuery(sharedGroupsQuery());
   const socialDataQuery = useQuery(socialQuery());
+  const pokesQuery = useQuery({ queryKey: nativeQueryKeys.pokes, queryFn: ({ signal }) => fetchPokes(signal) });
+  const plansQuery = useQuery({ queryKey: nativeQueryKeys.plans.all, queryFn: ({ signal }) => fetchPlans(signal) });
+  const cachedPokes = useMemo(
+    () => [...(pokesQuery.data?.received ?? []), ...(pokesQuery.data?.sent ?? [])],
+    [pokesQuery.data?.received, pokesQuery.data?.sent],
+  );
+  const pendingPokes = usePendingPokes(cachedPokes);
+  const pendingReceivedPokes = useMemo(
+    () => pendingPokes.filter((poke) => pokesQuery.data?.received.some((received) => received.id === poke.id)),
+    [pendingPokes, pokesQuery.data?.received],
+  );
+  const pendingReceivedPokeIds = useMemo(() => new Set(pendingReceivedPokes.map((poke) => poke.id)), [pendingReceivedPokes]);
+  const pokeResponseMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "accept" | "later" | "decline" }) =>
+      respondToPoke(id, { action }),
+    onSuccess: (response) => {
+      setPokeResponseError(null);
+      queryClient.setQueryData<PokeInboxResponse>(nativeQueryKeys.pokes, (current) => {
+        if (!current) return current;
+        const update = (items: PokeInboxItem[]) => items.map((item) =>
+          item.id === response.poke.id ? { ...item, ...response.poke } : item,
+        );
+        return { received: update(current.received), sent: update(current.sent) };
+      });
+      void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.pokes });
+      if (response.threadId) {
+        void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.inbox.threads });
+        router.push(`/chat/${response.threadId}` as never);
+      }
+    },
+    onError: (error, variables) => {
+      const poke = pokesQuery.data?.received.find((item) => item.id === variables.id);
+      if (!poke) return;
+      setPokeResponseError({
+        poke,
+        action: variables.action,
+        message: error instanceof Error ? error.message : "Could not respond to this Poke.",
+      });
+    },
+  });
   const threads = useMemo(() => threadsQuery.data?.threads ?? [], [threadsQuery.data?.threads]);
   const groups = useMemo(() => groupsQuery.data?.groups ?? [], [groupsQuery.data?.groups]);
   const conversations = useMemo<InboxConversation[]>(() => [
@@ -228,11 +274,7 @@ export default function InboxScreen() {
     try {
       await friendResponseMutation.mutateAsync({ requestId: request.id, status });
     } catch (error) {
-      if (isFriendLimitError(error)) {
-        setUpgradeMessage(error.message);
-      } else {
-        Alert.alert("Request failed", error instanceof Error ? error.message : "Try again.");
-      }
+      Alert.alert("Request failed", error instanceof Error ? error.message : "Try again.");
     } finally {
       setProcessing(request.id, false);
     }
@@ -318,6 +360,8 @@ export default function InboxScreen() {
           onChange={(nextTab) => router.setParams({ tab: nextTab })}
           options={[
             { value: "chats", label: "Chats", badge: unread },
+            { value: "pokes", label: "Pokes", badge: pendingReceivedPokes.length },
+            { value: "plans", label: "Plans" },
             { value: "friends", label: "Friends" },
             { value: "requests", label: "Requests", badge: requests.length },
           ]}
@@ -343,7 +387,7 @@ export default function InboxScreen() {
               title="Couldn't load inbox"
             />
           ) : conversations.length === 0 ? (
-            <InboxEmpty title="No conversations yet" description="Find friends on the map or scan a QR code to start chatting" />
+            <InboxEmpty title="No conversations yet" description="Send a Poke from Now, or scan a QR code to start chatting." />
           ) : (
             conversations.map((conversation) => conversation.kind === "group" ? (
               <GroupChatRow key={conversation.item.id} group={conversation.item} />
@@ -362,6 +406,129 @@ export default function InboxScreen() {
               );
             })())
           )}
+        </View>
+      ) : null}
+
+      {tab === "pokes" ? (
+        <View style={styles.list}>
+          <Text style={styles.pokeIntro}>Short-lived invitations to do something together.</Text>
+          {pokeResponseError ? (
+            <View accessibilityRole="alert" style={styles.pokeError}>
+              <Caption style={styles.pokeErrorText}>{pokeResponseError.message}</Caption>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={pokeResponseMutation.isPending}
+                onPress={() => pokeResponseMutation.mutate({
+                  id: pokeResponseError.poke.id,
+                  action: pokeResponseError.action,
+                })}
+              >
+                Retry
+              </Button>
+            </View>
+          ) : null}
+          {pokesQuery.isPending ? <InboxSkeleton /> : pokesQuery.isError ? (
+            <ErrorRecovery error={new Error("Pokes couldn't load")} fill={false} onRetry={() => pokesQuery.refetch()} title="Couldn't load Pokes" />
+          ) : (
+            <>
+              {pokesQuery.data?.received.length ? (
+                <View style={styles.pokeSection}>
+                  <Text style={styles.sectionLabel}>Received</Text>
+                  {pokesQuery.data.received.map((poke) => {
+                    const sender = poke.sender;
+                    const name = displayName(sender);
+                    const actionable = pendingReceivedPokeIds.has(poke.id);
+                    return (
+                      <View key={poke.id} style={[styles.row, styles.pokeRow]}>
+                        <Pressable
+                          accessibilityLabel={`View ${name}'s profile`}
+                          accessibilityRole="button"
+                          disabled={!sender?.id}
+                          onPress={() => sender?.id && router.push(`/(app)/profile/${sender.id}` as never)}
+                        >
+                          <Avatar name={name} uri={sender?.avatar_url} size={46} />
+                        </Pressable>
+                        <View style={styles.rowMain}>
+                          <Pressable
+                            accessibilityLabel={`View ${name}'s profile`}
+                            accessibilityRole="button"
+                            disabled={!sender?.id}
+                            onPress={() => sender?.id && router.push(`/(app)/profile/${sender.id}` as never)}
+                          >
+                            <BodyBold>{name} wants to make a plan</BodyBold>
+                          </Pressable>
+                          <Text style={styles.pokeActivity}>{pokeActivityLabel(poke)}?</Text>
+                          {poke.note ? <Caption style={styles.pokeNote}>“{poke.note}”</Caption> : null}
+                          <Caption style={actionable ? styles.pokeExpiry : undefined}>
+                            {actionable ? pokeExpiryLabel(poke.expiresAt) : pokeStateLabel(poke)}
+                          </Caption>
+                          {actionable ? (
+                            <View style={styles.pokeActions}>
+                              <Button
+                                size="sm"
+                                disabled={pokeResponseMutation.isPending}
+                                loading={pokeResponseMutation.isPending && pokeResponseMutation.variables?.id === poke.id && pokeResponseMutation.variables.action === "accept"}
+                                onPress={() => pokeResponseMutation.mutate({ id: poke.id, action: "accept" })}
+                              >
+                                I&apos;m in
+                              </Button>
+                              <Button size="sm" variant="secondary" disabled={pokeResponseMutation.isPending} onPress={() => pokeResponseMutation.mutate({ id: poke.id, action: "later" })}>Later</Button>
+                              <Button size="sm" variant="secondary" disabled={pokeResponseMutation.isPending} onPress={() => pokeResponseMutation.mutate({ id: poke.id, action: "decline" })}>Not today</Button>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : <InboxEmpty title="No Pokes yet" description="When someone nearby is up for the same thing, send a Poke from Now." />}
+              {pokesQuery.data?.sent.length ? (
+                <View style={styles.pokeSection}>
+                  <Text style={styles.sectionLabel}>Sent</Text>
+                  {pokesQuery.data.sent.map((poke) => {
+                    const recipient = poke.recipient;
+                    const name = displayName(recipient);
+                    return (
+                      <View key={poke.id} style={[styles.row, styles.pokeRow]}>
+                        <Pressable
+                          accessibilityLabel={`View ${name}'s profile`}
+                          accessibilityRole="button"
+                          disabled={!recipient?.id}
+                          onPress={() => recipient?.id && router.push(`/(app)/profile/${recipient.id}` as never)}
+                        >
+                          <Avatar name={name} uri={recipient?.avatar_url} size={46} />
+                        </Pressable>
+                        <View style={styles.rowMain}>
+                          <BodyBold>{pokeActivityLabel(poke)} with {name}</BodyBold>
+                          {poke.note ? <Caption style={styles.pokeNote}>“{poke.note}”</Caption> : null}
+                          <Caption>{pokeStateLabel(poke)}</Caption>
+                          {poke.status === "pending" && Date.parse(poke.expiresAt) > Date.now() ? (
+                            <Caption style={styles.pokeExpiry}>{pokeExpiryLabel(poke.expiresAt)}</Caption>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </>
+          )}
+        </View>
+      ) : null}
+
+      {tab === "plans" ? (
+        <View style={styles.list}>
+          {plansQuery.isPending ? <InboxSkeleton /> : plansQuery.isError ? (
+            <ErrorRecovery error={new Error("Plans couldn't load")} fill={false} onRetry={() => plansQuery.refetch()} title="Couldn't load Plans" />
+          ) : plansQuery.data?.plans.length ? plansQuery.data.plans.map((plan) => (
+            <Pressable key={plan.id} accessibilityRole="button" onPress={() => router.push(`/plans/${plan.id}` as never)} style={styles.row}>
+              <View style={styles.rowMain}>
+                <BodyBold>{plan.title ?? plan.activity}</BodyBold>
+                <Caption>{plan.place_text} · {plan.member_count}/{plan.participant_limit} going</Caption>
+              </View>
+            </Pressable>
+          )) : <InboxEmpty title="No plans yet" description="Create a plan from Now to turn a chat into something real." />}
         </View>
       ) : null}
 
@@ -465,11 +632,6 @@ export default function InboxScreen() {
           if (confirmation?.kind === "unfriend") void unfriend(confirmation.friend);
           if (confirmation?.kind === "cancel") void cancelSentRequest(confirmation.request);
         }}
-      />
-      <UpgradeDialog
-        message={upgradeMessage}
-        onClose={() => setUpgradeMessage(null)}
-        onUpgrade={() => router.navigate("/(app)/premium" as never)}
       />
     </Screen>
   );
@@ -804,6 +966,54 @@ const styles = StyleSheet.create({
   rowMain: {
     flex: 1,
     minWidth: 0,
+  },
+  pokeActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  pokeActivity: {
+    ...typography.bodyBold,
+    color: colors.ink[9],
+    marginTop: 2,
+  },
+  pokeNote: {
+    color: colors.ink[7],
+    marginTop: 2,
+  },
+  pokeExpiry: {
+    color: colors.primary[600],
+    marginTop: 2,
+  },
+  pokeRow: {
+    alignItems: "flex-start",
+    backgroundColor: colors.background,
+  },
+  pokeSection: {
+    gap: spacing[2],
+    paddingBottom: spacing[3],
+  },
+  pokeIntro: {
+    ...typography.caption,
+    color: colors.ink[7],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+  },
+  pokeError: {
+    alignItems: "center",
+    backgroundColor: "rgba(229,72,63,0.12)",
+    borderRadius: radii.md,
+    flexDirection: "row",
+    gap: spacing[2],
+    justifyContent: "space-between",
+    marginHorizontal: spacing[3],
+    padding: spacing[2],
+  },
+  pokeErrorText: {
+    color: colors.danger[500],
+    flex: 1,
   },
   rowTop: {
     flexDirection: "row",

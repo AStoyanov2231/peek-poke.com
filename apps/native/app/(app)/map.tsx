@@ -35,7 +35,7 @@ import type {
   SearchTagResult,
   SearchUserResult,
 } from "@peekpoke/shared";
-import { parseQuery, safeQueryRetryDelay, shouldRetrySafeQuery } from "@peekpoke/shared";
+import { inviteTokenSchema, parseQuery, safeQueryRetryDelay, shouldRetrySafeQuery } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import {
   Avatar,
@@ -59,7 +59,6 @@ import {
   visibleHighlightedUser,
   type MapFilter,
 } from "@/features/map/filters";
-import { NoCoinsDialog, UpgradeDialog } from "@/components/friend-action-dialogs";
 import { fetchCoins, fetchCurrentProfile } from "@/data/api";
 import { nativeQueryClient } from "@/data/query-client";
 import { nativeQueryKeys } from "@/data/query-keys";
@@ -96,13 +95,15 @@ import {
 } from "@/data/discovery/queries";
 import { socialQuery } from "@/data/social/queries";
 import { joinSharedGroup } from "@/data/shared-groups";
+import { fetchAvailability } from "@/data/availability";
+import { PokeComposer } from "@/components/poke-composer";
+import { planShareTokenFromQrContent } from "@/lib/plan-share-link";
 import { commitFriendshipBalance } from "@/data/social/cache";
 import {
   createOrFindThread,
   sendFriendRequest as createFriendRequest,
   type SocialData,
 } from "@/data/social/api";
-import { isFriendLimitError } from "@/lib/api";
 import { env } from "@/lib/env";
 import { formatDistanceKm, haversineKm } from "@/lib/format";
 import {
@@ -231,9 +232,9 @@ export default function MapScreen() {
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
   const [selectedClusterUserIds, setSelectedClusterUserIds] = useState<string[] | null>(null);
+  const [pokeUser, setPokeUser] = useState<NearbyUser | null>(null);
+  const availabilityQuery = useQuery({ queryKey: nativeQueryKeys.availability, queryFn: ({ signal }) => fetchAvailability(signal), staleTime: 30_000, refetchInterval: 30_000 });
   const [friendLoadingId, setFriendLoadingId] = useState<string | null>(null);
-  const [noCoinsOpen, setNoCoinsOpen] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [locationSyncFailure, setLocationSyncFailure] = useState<{
     accountScope: typeof locationAccountScope;
@@ -561,6 +562,24 @@ export default function MapScreen() {
   }, []);
 
   const joinQrGroup = useCallback(async (content: string) => {
+    const planToken = planShareTokenFromQrContent(content);
+    if (planToken) {
+      closeQrScanner();
+      clearSelection();
+      router.push(`/plan/${planToken}` as never);
+      return;
+    }
+    try {
+      const url = new URL(content);
+      const trusted = url.origin === "https://www.peek-poke.com" || url.origin === "https://peek-poke.com";
+      const match = /^\/invite\/([^/]+)$/.exec(url.pathname);
+      if (trusted && match && inviteTokenSchema.safeParse(match[1]).success) {
+        closeQrScanner();
+        clearSelection();
+        router.push(`/invite/${match[1]}` as never);
+        return;
+      }
+    } catch { /* Non-URL Circle QR payloads remain supported. */ }
     const session = qrScannerSessionRef.current;
     const response = await joinSharedGroup(content);
     await Promise.all([
@@ -619,15 +638,9 @@ export default function MapScreen() {
   const sendFriendRequest = useCallback(async (userId: string, event?: GestureResponderEvent) => {
     event?.stopPropagation();
     if (friendLoadingId || sentRequestIds.has(userId)) return;
-    if (coins < 1) {
-      setNoCoinsOpen(true);
-      return;
-    }
-
     setFriendLoadingId(userId);
     try {
       await createFriendRequest(userId, (response) => {
-        setCoins(response.balance);
         queryClient.setQueryData<SocialData>(nativeQueryKeys.social.friends, (current) => current
           ? {
               ...current,
@@ -639,12 +652,11 @@ export default function MapScreen() {
         void queryClient.invalidateQueries({ queryKey: nativeQueryKeys.social.friends });
       });
     } catch (error) {
-      if (isFriendLimitError(error)) setUpgradeMessage(error.message);
-      else showNotice(error instanceof Error ? error.message : "Could not send friend request");
+      showNotice(error instanceof Error ? error.message : "Could not send friend request");
     } finally {
       setFriendLoadingId(null);
     }
-  }, [coins, friendLoadingId, queryClient, sentRequestIds, setCoins, showNotice]);
+  }, [friendLoadingId, queryClient, sentRequestIds, showNotice]);
 
   async function openChat(userId: string) {
     try {
@@ -1084,8 +1096,11 @@ export default function MapScreen() {
             router.push({ pathname: "/(app)/profile/[userId]", params: { userId: highlightedUser.userId } } as never)
           }
           onSayHi={() => openChat(highlightedUser.userId)}
+          availability={availabilityQuery.data?.people.find((person) => person.profile.id === highlightedUser.userId)?.availability ?? null}
+          onPoke={() => setPokeUser(highlightedUser)}
         />
       ) : null}
+      {pokeUser ? <PokeComposer recipientId={pokeUser.userId} name={displayName(pokeUser)} onClose={() => setPokeUser(null)} /> : null}
 
       {activeLocationSyncFailure ? (
         <LocationSyncRecovery
@@ -1100,12 +1115,6 @@ export default function MapScreen() {
           <Text style={styles.noticeText}>{notice}</Text>
         </View>
       ) : null}
-      <NoCoinsDialog open={noCoinsOpen} onClose={() => setNoCoinsOpen(false)} />
-      <UpgradeDialog
-        message={upgradeMessage}
-        onClose={() => setUpgradeMessage(null)}
-        onUpgrade={() => router.navigate("/(app)/premium" as never)}
-      />
       {qrScannerOpen ? (
         <QrScanner
           open
@@ -1502,6 +1511,8 @@ function HighlightedUserCard({
   onClose,
   onProfile,
   onSayHi,
+  availability,
+  onPoke,
 }: {
   data: PublicProfileData;
   insetsBottom: number;
@@ -1512,6 +1523,8 @@ function HighlightedUserCard({
   onClose: () => void;
   onProfile: () => void;
   onSayHi: () => void;
+  availability: { activity: string; customLabel: string | null; expiresAt: string } | null;
+  onPoke: () => void;
 }) {
   const name = displayName(user);
   const interests = data.interests
@@ -1542,15 +1555,16 @@ function HighlightedUserCard({
           ))}
         </View>
       ) : null}
+      {availability ? <Text style={styles.onlineNow}>Up for {availability.activity === "custom" ? availability.customLabel : availability.activity}</Text> : null}
 
       <View style={styles.highlightedActions}>
         <Pressable
           accessibilityRole="button"
-          onPress={onSayHi}
+          onPress={onPoke}
           style={({ pressed }) => [styles.highlightedButton, styles.sayHiButton, pressed && styles.highlightedButtonPressed]}
         >
-          <Text style={styles.wave}>👋</Text>
-          <Text style={styles.sayHiText}>Say hi</Text>
+          <Text style={styles.wave}>✦</Text>
+          <Text style={styles.sayHiText}>Poke</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -1561,11 +1575,6 @@ function HighlightedUserCard({
         </Pressable>
       </View>
 
-      {!isFriend ? (
-        <Text style={styles.coinCost}>
-          Costs <Text style={styles.coinCostStrong}>1 coin</Text> to open a chat with a non-friend
-        </Text>
-      ) : null}
     </View>
   );
 }

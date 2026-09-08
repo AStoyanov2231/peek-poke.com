@@ -16,6 +16,7 @@ export const contractFixtureBootstrap: Bootstrap = {
   version: API_VERSION,
   identity: { id: contractFixtureProfile.id, email: "alex@example.test" },
   onboarding_completed: true,
+  age_admission: { status: "adult", decided_at: "2026-01-01T00:00:00.000Z" },
   roles: ["user"],
   feature_config_version: "v1",
   unread_summary: { threads: 1 },

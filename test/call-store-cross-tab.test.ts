@@ -461,7 +461,9 @@ describe("web terminal-fence cross-tab persistence", () => {
   it("lets a one-time overflow barrier expire after fallback ownership recovers", async () => {
     vi.stubGlobal("navigator", {});
     let elapsedNowMs = 1_000;
+    const wallClockAnchorMs = 1_700_000_000_000;
     vi.spyOn(performance, "now").mockImplementation(() => elapsedNowMs);
+    vi.spyOn(Date, "now").mockImplementation(() => wallClockAnchorMs + elapsedNowMs);
     const tab = await createTab();
     const generation = await hydrate(tab);
     rejectWrites = (key) => key === LEASE_KEY;
@@ -475,6 +477,7 @@ describe("web terminal-fence cross-tab persistence", () => {
     elapsedNowMs += 60_001;
     await expect(tab.getState().synchronizeTerminalCallFences(ACCOUNT, generation))
       .resolves.toBe(true);
+    expect(tab.getState().isTerminalCallFenced(UNSEEN_CALL, generation)).toBe(false);
     expect(tab.getState().setIncomingInvite({
       accountId: ACCOUNT,
       generation,

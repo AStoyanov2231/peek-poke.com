@@ -10,7 +10,8 @@ import FileText from "lucide-react-native/icons/file-text";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import Share2 from "lucide-react-native/icons/share-2";
 import X from "lucide-react-native/icons/x";
-import { useQuery } from "@tanstack/react-query";
+import MapPin from "lucide-react-native/icons/map-pin";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -27,16 +28,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
 import QRCode from "react-native-qrcode-svg";
 import type { OwnerProfilePhoto } from "@peekpoke/shared";
+import { DiscoveryVisibilitySettings } from "@/components/discovery-visibility-settings";
+import { fetchDiscoveryPreference, saveDiscoveryPreference } from "@/data/discovery-preferences";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import { IconGlyph } from "@/components/ui";
 import { fetchInviteLink } from "@/data/social/api";
+import { nativeQueryKeys } from "@/data/query-keys";
 
-type SettingsView = "main" | "help" | "terms" | "delete";
+type SettingsView = "main" | "discovery" | "help" | "terms" | "delete";
 
 const faqs = [
   {
     q: "How do I find people nearby?",
-    a: "Open the map on the home screen. Pins show users who are currently sharing their location near you.",
+    a: "Open Map from the bottom navigation. It shows people and plans that are currently available nearby when you choose to enable location.",
   },
   {
     q: "How do I send a friend request?",
@@ -44,7 +48,7 @@ const faqs = [
   },
   {
     q: "What is Premium?",
-    a: "Premium unlocks private photo access and other exclusive features. Upgrade from your profile page.",
+    a: "Peek+ is planned for optional extras. New subscriptions are not available yet, and profile photos remain free.",
   },
   {
     q: "How do I change my avatar?",
@@ -68,9 +72,17 @@ export function SettingsSheet({
   onDeleteAccount: () => Promise<void>;
 }) {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [view, setView] = useState<SettingsView>("main");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const preference = useQuery({
+    queryKey: ["discovery-preferences"],
+    queryFn: fetchDiscoveryPreference,
+    enabled: open && view === "discovery",
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
 
   function handleClose() {
     if (deleting) return;
@@ -112,6 +124,8 @@ export function SettingsSheet({
           <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
             {view === "main" ? (
               <>
+                <Text style={styles.eyebrow}>PRIVACY</Text>
+                <View style={styles.settingsRows}><SettingsRow icon={<MapPin color={colors.primary[500]} size={18} />} label="Discovery visibility" onPress={() => setView("discovery")} /></View>
                 <Text style={styles.eyebrow}>SUPPORT</Text>
                 <View style={styles.settingsRows}>
                   <SettingsRow icon={<CircleHelp color={colors.primary[500]} size={18} />} label="Help Center" onPress={() => setView("help")} />
@@ -126,7 +140,21 @@ export function SettingsSheet({
                 </Pressable>
                 <Text style={styles.version}>Peek &amp; Poke v{Constants.expoConfig?.version ?? "0.1.0"}</Text>
               </>
-            ) : view === "help" ? (
+            ) : view === "discovery" ? preference.data ? <DiscoveryVisibilitySettings audience={preference.data.audience} onSave={async (audience) => {
+              const savedPreference = await saveDiscoveryPreference({ audience });
+              queryClient.setQueryData(["discovery-preferences"], savedPreference);
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: nativeQueryKeys.availability }),
+                queryClient.invalidateQueries({ queryKey: ["discovery", "nearby"] }),
+              ]);
+            }} /> : preference.isError ? (
+              <View style={styles.discoveryError}>
+                <Text accessibilityRole="alert">Couldn’t load visibility.</Text>
+                <Pressable accessibilityRole="button" onPress={() => void preference.refetch()} style={({ pressed }) => [styles.discoveryRetry, pressed && styles.pressed]}>
+                  <Text style={styles.discoveryRetryText}>Try again</Text>
+                </Pressable>
+              </View>
+            ) : <Text>Loading visibility…</Text> : view === "help" ? (
               <>
                 <Text style={styles.subTitle}>Help Center</Text>
                 {faqs.map(({ q, a }) => (
@@ -395,6 +423,9 @@ const styles = StyleSheet.create({
   logout: { height: 48, borderRadius: radii.sm, marginTop: spacing[2], alignItems: "center", justifyContent: "center", backgroundColor: colors.background, ...shadows.e2 },
   logoutText: { ...typography.body, fontFamily: fontFamilies.semibold, color: colors.ink[5] },
   version: { ...typography.caption, color: colors.ink[5], textAlign: "center", paddingTop: spacing[1] },
+  discoveryError: { gap: spacing[2] },
+  discoveryRetry: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: spacing[4], borderRadius: radii.pill, backgroundColor: colors.ink[2] },
+  discoveryRetryText: { ...typography.bodyBold, color: colors.ink[8] },
   subTitle: { ...typography.title2, color: colors.ink[9] },
   infoCard: { borderRadius: radii.sm, padding: spacing[4], gap: 6, backgroundColor: colors.background, ...shadows.e1 },
   infoHeading: { fontFamily: fontFamilies.semibold, fontSize: 14, lineHeight: 19, color: colors.ink[9] },

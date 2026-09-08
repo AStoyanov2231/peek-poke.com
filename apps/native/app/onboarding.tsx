@@ -6,7 +6,6 @@ import {
   // react-doctor-disable-next-line rn-prefer-reanimated
   Animated,
   Easing,
-  Image,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -19,11 +18,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+  MAX_ONBOARDING_INTERESTS,
+  MIN_INTERESTS_REQUIRED,
+  isTemporaryUsername,
   completeOnboardingFlow,
   onboardingLoadState,
   onboardingRecoveryPolicy,
   type InterestTag,
 } from "@peekpoke/shared";
+import { AvailabilityEditor } from "@/components/availability-editor";
+import { saveAvailability } from "@/data/availability";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import { IconGlyph } from "@/components/ui";
 import {
@@ -33,15 +37,17 @@ import {
   fetchCurrentProfile,
   fetchInterestTags,
   fetchProfileInterests,
+  updateProfile,
   updateUsername,
 } from "@/data/profile/api";
 import { removeInterest } from "@/data/profile/cache";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { onboardingKeyboardBehavior } from "@/lib/onboarding-platform";
+import { refreshDeviceLocation } from "@/lib/location";
 
 const MIN_USERNAME_LENGTH = 3;
-const MIN_INTERESTS = 5;
-const logoSource = require("../../../public/images/logo.png");
+const MIN_INTERESTS = MIN_INTERESTS_REQUIRED;
+const MAX_INTERESTS = MAX_ONBOARDING_INTERESTS;
 
 const categoryEmojis: Record<string, string> = {
   "Food & Drink": "🍽️",
@@ -57,40 +63,27 @@ const categoryEmojis: Record<string, string> = {
 };
 
 function InlineError({ message, style }: { message: string; style?: StyleProp<ViewStyle> }) {
-  const [shake] = useState(() => new Animated.Value(0));
-
-  useEffect(() => {
-    if (!message) return;
-    shake.setValue(0);
-    Animated.sequence(
-      [-10, 8, -6, 4, 0].map((toValue) =>
-        Animated.timing(shake, {
-          toValue,
-          duration: 80,
-          useNativeDriver: true,
-        })
-      )
-    ).start();
-  }, [message, shake]);
-
   if (!message) return null;
 
   return (
-    <Animated.View
+    <View
       accessibilityLiveRegion="polite"
       accessibilityRole="alert"
-      style={[styles.errorBox, style, { transform: [{ translateX: shake }] }]}
+      style={[styles.errorBox, style]}
     >
       <IconGlyph name="alert" color={colors.danger[500]} size={16} />
       <Text style={styles.errorText}>{message}</Text>
-    </Animated.View>
+    </View>
   );
 }
 
 // This route coordinates onboarding state, animations, and navigation for the screen.
 // react-doctor-disable-next-line no-giant-component
 export default function OnboardingScreen() {
-  const { invite } = useLocalSearchParams<{ invite?: string }>();
+  const { invite, plan_token: planToken } = useLocalSearchParams<{
+    invite?: string;
+    plan_token?: string;
+  }>();
   const queryClient = useQueryClient();
   const profileQuery = useQuery({
     queryKey: nativeQueryKeys.profile.current,
@@ -113,8 +106,9 @@ export default function OnboardingScreen() {
   const allTags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data]);
   const initializedFromProfile = useRef(false);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [usernameSaved, setUsernameSaved] = useState(false);
@@ -122,21 +116,23 @@ export default function OnboardingScreen() {
   const [interestLoading, setInterestLoading] = useState<string | null>(null);
   const [interestError, setInterestError] = useState("");
   const [completing, setCompleting] = useState(false);
+  const [locationRequesting, setLocationRequesting] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
 
   const [stepOpacity] = useState(() => new Animated.Value(0));
   const [stepScale] = useState(() => new Animated.Value(0.97));
   const [heroScale] = useState(() => new Animated.Value(0));
   const [savedScale] = useState(() => new Animated.Value(0));
   const [counterScale] = useState(() => new Animated.Value(1));
-  const [splashLogo] = useState(() => new Animated.Value(0));
-  const [splashTitle] = useState(() => new Animated.Value(0));
-  const [splashBody] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (!profile || initializedFromProfile.current) return;
     initializedFromProfile.current = true;
-    setUsername(profile.username ?? "");
-    setStep(profile.username ? 2 : 1);
+    setUsername(isTemporaryUsername(profile.username) ? "" : profile.username ?? "");
+    setDisplayName(profile.display_name ?? "");
+    setStep(profile.username && !isTemporaryUsername(profile.username) && profile.display_name ? 2 : 1);
   }, [profile]);
 
   useEffect(() => {
@@ -200,42 +196,6 @@ export default function OnboardingScreen() {
     }).start();
   }, [counterScale, selectedIds.size]);
 
-  useEffect(() => {
-    if (step !== 3) return;
-    splashLogo.setValue(0);
-    splashTitle.setValue(0);
-    splashBody.setValue(0);
-    Animated.sequence([
-      Animated.delay(200),
-      Animated.spring(splashLogo, {
-        toValue: 1,
-        damping: 12,
-        stiffness: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(splashTitle, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(splashBody, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [splashBody, splashLogo, splashTitle, step]);
-
-  useEffect(() => {
-    if (step !== 3) return;
-    const timeout = setTimeout(
-      () => router.replace(invite ? (`/invite/${invite}` as never) : ("/(app)/map" as never)),
-      1500
-    );
-    return () => clearTimeout(timeout);
-  }, [invite, step]);
-
   const groupedTags = useMemo(() => {
     return allTags.reduce<Record<string, InterestTag[]>>((acc, tag) => {
       acc[tag.category] = acc[tag.category] ?? [];
@@ -244,7 +204,7 @@ export default function OnboardingScreen() {
     }, {});
   }, [allTags]);
 
-  const canSubmitUsername = username.length >= MIN_USERNAME_LENGTH && !savingUsername;
+  const canSubmitUsername = username.length >= MIN_USERNAME_LENGTH && displayName.trim().length > 0 && !savingUsername;
   const canFinish = selectedIds.size >= MIN_INTERESTS && !completing;
   const initialLoadState = onboardingLoadState({
     pending: profileQuery.isPending || interestsQuery.isPending,
@@ -263,9 +223,11 @@ export default function OnboardingScreen() {
     setUsernameError("");
     try {
       const updatedProfile = await updateUsername(username);
+      const namedProfile = await updateProfile({ display_name: displayName.trim() });
       queryClient.setQueryData(nativeQueryKeys.profile.current, {
         ...profile!,
         ...updatedProfile,
+        ...namedProfile,
         roles: profile?.roles ?? [],
       });
       setUsernameSaved(true);
@@ -279,7 +241,7 @@ export default function OnboardingScreen() {
   async function toggleInterest(tag: InterestTag) {
     if (interestLoading) return;
     const existing = storeInterests.find((interest) => interest.tag_id === tag.id);
-    if (!existing && selectedIds.size >= MIN_INTERESTS) return;
+    if (!existing && selectedIds.size >= MAX_INTERESTS) return;
 
     setInterestLoading(tag.id);
     setInterestError("");
@@ -301,14 +263,18 @@ export default function OnboardingScreen() {
     }
   }
 
-  async function complete() {
+  function continueToNearby() {
     if (!canFinish) {
       setInterestError(`Please select at least ${MIN_INTERESTS} interests`);
       return;
     }
+    setLocationError("");
+    setStep(4);
+  }
 
+  async function finishOnboarding() {
     setCompleting(true);
-    setInterestError("");
+    setLocationError("");
     try {
       await completeOnboardingFlow({
         request: completeOnboarding,
@@ -320,12 +286,45 @@ export default function OnboardingScreen() {
             });
           }
           await queryClient.invalidateQueries({ queryKey: nativeQueryKeys.bootstrap });
-          setStep(3);
+          router.replace(
+            invite
+              ? (`/invite/${invite}` as never)
+              : planToken && /^[A-Za-z0-9_-]{43}$/.test(planToken)
+                ? (`/plan/${planToken}` as never)
+                : ("/(app)/now" as never),
+          );
         },
       });
     } catch (error) {
-      setInterestError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+      setLocationError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
       setCompleting(false);
+    }
+  }
+
+  async function requestNearbyOpportunities() {
+    setLocationRequesting(true);
+    setLocationError("");
+    try {
+      await refreshDeviceLocation();
+      await finishOnboarding();
+    } catch (error) {
+      setLocationError(error instanceof Error ? error.message : "Could not load your location. Try again or continue without it.");
+    } finally {
+      setLocationRequesting(false);
+    }
+  }
+
+  async function saveInitialAvailability(request: Parameters<typeof saveAvailability>[0]) {
+    if (availabilitySaving) return;
+    setAvailabilitySaving(true);
+    setAvailabilityError("");
+    try {
+      await saveAvailability(request);
+      setStep(3);
+    } catch (error) {
+      setAvailabilityError(error instanceof Error ? error.message : "Couldn’t save your availability. Try again.");
+    } finally {
+      setAvailabilitySaving(false);
     }
   }
 
@@ -375,15 +374,15 @@ export default function OnboardingScreen() {
             <View style={styles.interestHeader}>
               <View style={styles.maxWidth}>
                 <Text style={styles.interestTitle}>Pick your interests</Text>
-                <Text style={styles.interestDescription}>Select at least {MIN_INTERESTS} things you love</Text>
+                <Text style={styles.interestDescription}>Select {MIN_INTERESTS} to {MAX_INTERESTS} things you love</Text>
                 <View style={styles.counterRow}>
                   <Animated.Text style={[styles.counter, { transform: [{ scale: counterScale }] }]}>
                     {selectedIds.size}
                   </Animated.Text>
                   <Text style={styles.counterMuted}>/</Text>
-                  <Text style={styles.counterMuted}>{MIN_INTERESTS}</Text>
+                  <Text style={styles.counterMuted}>{MAX_INTERESTS}</Text>
                   <View style={styles.dots}>
-                    {Array.from({ length: MIN_INTERESTS }).map((_, index) => (
+                    {Array.from({ length: MAX_INTERESTS }).map((_, index) => (
                       <View key={index} style={[styles.dot, index < selectedIds.size && styles.dotActive]} />
                     ))}
                   </View>
@@ -418,7 +417,7 @@ export default function OnboardingScreen() {
                       {tags.map((tag) => {
                         const selected = selectedIds.has(tag.id);
                         const loading = interestLoading === tag.id;
-                        const disabled = !selected && selectedIds.size >= MIN_INTERESTS;
+                        const disabled = !selected && selectedIds.size >= MAX_INTERESTS;
                         return (
                           <Pressable
                             accessibilityRole="button"
@@ -469,7 +468,7 @@ export default function OnboardingScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !canFinish }}
                   disabled={!canFinish}
-                  onPress={complete}
+                  onPress={continueToNearby}
                   style={({ pressed }) => [
                     styles.actionButton,
                     canFinish ? styles.finishButton : styles.buttonDisabled,
@@ -479,7 +478,7 @@ export default function OnboardingScreen() {
                   {completing ? (
                     <ActivityIndicator color={colors.surface} />
                   ) : (
-                    <Text style={[styles.finishButtonText, !canFinish && styles.buttonDisabledText]}>Finish</Text>
+                    <Text style={[styles.finishButtonText, !canFinish && styles.buttonDisabledText]}>Continue</Text>
                   )}
                 </Pressable>
               </View>
@@ -490,36 +489,35 @@ export default function OnboardingScreen() {
     );
   }
 
+  if (step === 4) {
+    return <SafeAreaView style={styles.safeArea}><ScrollView contentContainerStyle={styles.locationContent}><Text style={styles.locationTitle}>Start with a little intention</Text><Text style={styles.locationDescription}>Share what you are up for when you are ready. You can change this anytime.</Text><AvailabilityEditor pending={availabilitySaving} error={availabilityError} onSave={(request) => void saveInitialAvailability(request)} /><Pressable accessibilityRole="button" disabled={availabilitySaving} onPress={() => setStep(3)} style={styles.notNowButton}><Text style={styles.notNowText}>Not now</Text></Pressable></ScrollView></SafeAreaView>;
+  }
+
   if (step === 3) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <Animated.View style={[styles.splash, { opacity: stepOpacity, transform: [{ scale: stepScale }] }]}>
-          <Animated.View style={{ transform: [{ scale: splashLogo }] }}>
-            <Image
-              accessibilityIgnoresInvertColors
-              source={logoSource}
-              style={styles.logo}
-            />
-          </Animated.View>
-          <Animated.Text
-            style={[
-              styles.splashTitle,
-              {
-                opacity: splashTitle,
-                transform: [
-                  {
-                    translateY: splashTitle.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
-                  },
-                ],
-              },
-            ]}
+        <Animated.View style={[styles.locationContent, { opacity: stepOpacity, transform: [{ scale: stepScale }] }]}>
+          <View style={styles.locationIcon}><IconGlyph name="map" color={colors.primary[500]} size={32} /></View>
+          <Text style={styles.locationTitle}>{"See what's happening nearby"}</Text>
+          <Text style={styles.locationDescription}>Use your location to find people and plans around you who are up for the same thing.</Text>
+          <View style={styles.locationPrivacy}>
+            <IconGlyph name="lock" color={colors.primary[500]} size={20} />
+            <Text style={styles.locationPrivacyText}>Your exact location is never shown to strangers. People see approximate distance, not an address or a pin.</Text>
+          </View>
+          <InlineError message={locationError} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: locationRequesting || completing }}
+            disabled={locationRequesting || completing}
+            onPress={() => void requestNearbyOpportunities()}
+            style={({ pressed }) => [styles.finishButton, styles.locationButton, (locationRequesting || completing) && styles.buttonDisabled, pressed && !(locationRequesting || completing) && styles.actionPressed]}
           >
-            You{`'`}re all set, @{username}
-          </Animated.Text>
-          <Animated.View style={[styles.splashBody, { opacity: splashBody }]}>
-            <Text style={styles.splashDescription}>Taking you to the map...</Text>
-            <ActivityIndicator color={colors.primary[500]} size={24} />
-          </Animated.View>
+            {locationRequesting || completing ? <ActivityIndicator color={colors.surface} /> : <Text style={styles.finishButtonText}>See nearby opportunities</Text>}
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => void finishOnboarding()} style={styles.notNowButton}>
+            <Text style={styles.notNowText}>Not now</Text>
+          </Pressable>
+          <Text style={styles.adultNote}>{"Peek & Poke is for adults 18+. Meet in public and look out for each other."}</Text>
         </Animated.View>
       </SafeAreaView>
     );
@@ -534,11 +532,12 @@ export default function OnboardingScreen() {
         <View style={styles.usernameContent}>
           <View style={styles.progressWrap}>
             <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
+              <View style={[styles.progressFill, { width: step === 1 ? "33%" : step === 2 ? "66%" : "100%" }]} />
             </View>
             <View style={styles.progressLabels}>
               <Text style={styles.progressLabel}>Username</Text>
               <Text style={styles.progressLabel}>Interests</Text>
+              <Text style={styles.progressLabel}>Nearby</Text>
             </View>
           </View>
 
@@ -548,10 +547,14 @@ export default function OnboardingScreen() {
                 <IconGlyph name="at-sign" color={colors.primary[500]} size={32} />
               </Animated.View>
               <Text style={styles.usernameTitle}>Welcome to Peek &amp; Poke!</Text>
-              <Text style={styles.usernameDescription}>Choose a username to get started</Text>
+              <Text style={styles.usernameDescription}>Add your name and choose a username to get started</Text>
             </View>
 
             <View style={styles.form}>
+              <View style={[styles.inputWrap, usernameFocused && styles.inputFocused]}>
+                <IconGlyph name="users" color={colors.ink[5]} size={20} />
+                <TextInput accessibilityLabel="Display name" value={displayName} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={colors.ink[4]} maxLength={50} style={styles.input} />
+              </View>
               <View style={[styles.inputWrap, usernameFocused && styles.inputFocused]}>
                 <IconGlyph name="at-sign" color={colors.ink[5]} size={20} />
                 <TextInput
@@ -656,7 +659,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink[2],
   },
   progressFill: {
-    width: 0,
     height: 4,
     borderRadius: radii.pill,
     backgroundColor: colors.ink[9],
@@ -968,18 +970,22 @@ const styles = StyleSheet.create({
     opacity: 0.82,
     transform: [{ scale: 0.97 }],
   },
-  splash: {
+  locationContent: {
     flex: 1,
     paddingHorizontal: spacing[4],
     alignItems: "center",
     justifyContent: "center",
   },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: spacing[6],
+  locationIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginBottom: spacing[5],
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.ink[2],
   },
-  splashTitle: {
+  locationTitle: {
     color: colors.ink[9],
     fontFamily: fontFamilies.bold,
     fontSize: 30,
@@ -988,13 +994,58 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing[3],
   },
-  splashBody: {
-    alignItems: "center",
-    gap: spacing[8],
-  },
-  splashDescription: {
+  locationDescription: {
     ...typography.body,
     color: colors.ink[5],
+    textAlign: "center",
+    maxWidth: 340,
+  },
+  locationPrivacy: {
+    marginTop: spacing[6],
+    marginBottom: spacing[4],
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: radii.lg,
+    padding: spacing[4],
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing[3],
+    backgroundColor: colors.ink[2],
+  },
+  locationPrivacyText: {
+    flex: 1,
+    color: colors.ink[6],
+    fontFamily: fontFamilies.regular,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  locationButton: {
+    width: "100%",
+    maxWidth: 400,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notNowButton: {
+    minHeight: 44,
+    marginTop: spacing[2],
+    paddingHorizontal: spacing[4],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notNowText: {
+    color: colors.ink[6],
+    fontFamily: fontFamilies.medium,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  adultNote: {
+    marginTop: spacing[6],
+    maxWidth: 340,
+    color: colors.ink[5],
+    fontFamily: fontFamilies.regular,
+    fontSize: 12,
+    lineHeight: 16,
     textAlign: "center",
   },
 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   createChatMessageAttemptCoordinator,
@@ -21,6 +21,7 @@ import {
 } from "@/data/web-query";
 import { markSharedGroupRead, sendSharedGroupMessage } from "@/data/shared-groups";
 import { useAppStore } from "@/stores/appStore";
+import { PlanComposerDialog } from "@/features/plans/components/PlanComposerDialog";
 
 export function SharedGroupChatContent({ groupId }: { groupId: string }) {
   const router = useRouter();
@@ -31,6 +32,7 @@ export function SharedGroupChatContent({ groupId }: { groupId: string }) {
   const [readError, setReadError] = useState<string | null>(null);
   const [readPending, setReadPending] = useState(false);
   const [readAttempt, setReadAttempt] = useState(0);
+  const [planComposerOpen, setPlanComposerOpen] = useState(false);
   const [sendAttempts] = useState(() => createChatMessageAttemptCoordinator(() => crypto.randomUUID()));
   const conversationQuery = useInfiniteQuery(sharedGroupQueryOptions(groupId));
   const group = conversationQuery.data?.pages[0]?.group ?? null;
@@ -128,7 +130,7 @@ export function SharedGroupChatContent({ groupId }: { groupId: string }) {
   if (conversationQuery.isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="t-body text-ink-9">This shared group could not be loaded.</p>
+        <p className="t-body text-ink-9">This Circle could not be loaded.</p>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => void conversationQuery.refetch()}>Try again</button>
       </div>
     );
@@ -155,8 +157,11 @@ export function SharedGroupChatContent({ groupId }: { groupId: string }) {
         <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700"><Users aria-hidden="true" size={20} /></span>
         <div className="min-w-0 flex-1">
           <p className="t-body-b truncate text-ink-9">{group.name}</p>
-          <p className="t-caption muted">{group.member_count} {group.member_count === 1 ? "member" : "members"} · anyone with the same code can join</p>
+          <p className="t-caption muted">Circle · {group.member_count} {group.member_count === 1 ? "member" : "members"} · share its QR to invite people</p>
         </div>
+        <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={() => setPlanComposerOpen(true)}>
+          <CalendarPlus size={15} aria-hidden="true" />Plan
+        </button>
       </div>
 
       {readError ? (
@@ -192,6 +197,7 @@ export function SharedGroupChatContent({ groupId }: { groupId: string }) {
         editError={null}
         onCancelEdit={() => undefined}
       />
+      <PlanComposerDialog open={planComposerOpen} onOpenChange={setPlanComposerOpen} defaultCircleId={group.id} />
     </div>
   );
 }

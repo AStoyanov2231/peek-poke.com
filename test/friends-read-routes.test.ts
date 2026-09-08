@@ -57,6 +57,9 @@ const database = vi.hoisted(() => ({
   results: [] as Array<{ data: unknown; error: unknown }>,
   from: vi.fn(),
 }));
+const eligibility = vi.hoisted(() => ({
+  filter: vi.fn(),
+}));
 
 vi.mock("@/lib/auth", () => ({
   withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
@@ -65,6 +68,9 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/supabase/server", () => ({
   createServiceClient: () => ({ rpc: database.rpc, from: database.from }),
+}));
+vi.mock("@/lib/social-peer-eligibility", () => ({
+  filterEligibleSocialPeerIds: eligibility.filter,
 }));
 
 vi.mock("@/lib/realtime-broadcast", () => ({
@@ -78,6 +84,7 @@ describe("friendship read routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     database.results = [];
+    eligibility.filter.mockImplementation(async (_viewerId: string, ids: string[]) => ({ ids: new Set(ids) }));
     database.from.mockImplementation(() => {
       const result = database.results.shift();
       const chain: Record<string, unknown> = {};
@@ -119,6 +126,25 @@ describe("friendship read routes", () => {
 
     expect(response.status).toBe(200);
     expect(friendRequestsReadResponseSchema.parse(await response.json()).viewer_id).toBe(VIEWER_ID);
+  });
+
+  it("omits non-admitted peers from both friendship list shapes", async () => {
+    database.rpc.mockResolvedValue({ data: { friends: [{ id: PEER_ID, roles: ["user"] }] }, error: null });
+    database.results = [
+      { data: [accepted], error: null },
+      { data: [incoming], error: null },
+      { data: [sent], error: null },
+    ];
+    eligibility.filter.mockResolvedValue({ ids: new Set([REQUESTER_ID]) });
+
+    const response = await getFriends(new Request("https://example.test/api/friends?limit=100"), {} as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      friends: [],
+      requests: [expect.objectContaining({ requester_id: REQUESTER_ID })],
+      sentRequests: [],
+    });
   });
 
   it("fails the requests-only route closed on a missing requester profile", async () => {

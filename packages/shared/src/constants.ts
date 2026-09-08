@@ -1,9 +1,16 @@
+export const MIN_INTERESTS_REQUIRED = 3;
+export const MAX_ONBOARDING_INTERESTS = 5;
+
+/** Generated account handles are placeholders and must be replaced in onboarding. */
+export function isTemporaryUsername(username: string | null | undefined) {
+  return typeof username === "string" && /^user_(?:[a-f0-9]{8}|[a-f0-9]{15})$/i.test(username);
+}
 export const APP_NAME = "Peek & Poke";
 export const DEFAULT_NEARBY_RADIUS_KM = 2;
-// Nearby coordinates are quantized to 0.001 degrees. This conservative client
-// prefilter includes the 50 m server meeting radius plus worst-case rounding
-// error; the server remains authoritative before recording a meeting.
-export const MEETING_CANDIDATE_RADIUS_KM = 0.13;
+// Nearby coordinates are approximate 0.01-degree presentation cells. A 1 km
+// client candidate radius covers cell-rounding error without changing the
+// server's authoritative exact 50 m meeting threshold.
+export const MEETING_CANDIDATE_RADIUS_KM = 1;
 export function meetingProximityEligible(distanceMeters: number | null | undefined) {
   return distanceMeters !== null
     && distanceMeters !== undefined

@@ -22,6 +22,7 @@ import {
   messageHintSchema,
   pageSchema,
   bootstrapSchema,
+  ageAdmissionSchema,
   profileCardSchema,
   threadSummarySchema,
   paginateCursor,
@@ -46,6 +47,30 @@ describe("shared API contract", () => {
     expect(messageSchema.parse(contractFixtureMessage)).toEqual(contractFixtureMessage);
     expect(pageSchema(threadSummarySchema).parse(contractFixturePage)).toEqual(contractFixturePage);
     expect(contractFixtureError).toMatchObject({ version: API_VERSION, code: "INVALID_CURSOR" });
+  });
+
+  it("requires a complete, internally consistent age admission in bootstrap responses", () => {
+    const withoutAdmission = { ...contractFixtureBootstrap };
+    delete (withoutAdmission as Partial<typeof contractFixtureBootstrap>).age_admission;
+    expect(bootstrapSchema.safeParse(withoutAdmission).success).toBe(false);
+
+    expect(ageAdmissionSchema.safeParse({ status: "pending", decided_at: null }).success).toBe(true);
+    expect(ageAdmissionSchema.safeParse({
+      status: "adult",
+      decided_at: "2026-09-08T00:00:00.000Z",
+    }).success).toBe(true);
+    expect(ageAdmissionSchema.safeParse({
+      status: "blocked",
+      decided_at: "2026-09-08T00:00:00.000Z",
+    }).success).toBe(true);
+
+    expect(ageAdmissionSchema.safeParse({ status: "pending", decided_at: "2026-09-08T00:00:00.000Z" }).success).toBe(false);
+    expect(ageAdmissionSchema.safeParse({ status: "adult", decided_at: null }).success).toBe(false);
+    expect(ageAdmissionSchema.safeParse({
+      status: "adult",
+      decided_at: "2026-09-08T00:00:00.000Z",
+      birth_date: "2000-01-01",
+    }).success).toBe(false);
   });
 
   it("uses opaque versioned cursors with stable tuple ordering", () => {

@@ -1,6 +1,6 @@
 import nextConfig from "eslint-config-next";
 
-export default [
+const config = [
   ...nextConfig,
   {
     rules: {
@@ -12,11 +12,20 @@ export default [
   {
     ignores: [
       ".next/**",
+      ".next-e2e/**",
+      ".next-hosted-verification/**",
+      ".next-hosted-integration/**",
+      ".next-ci-verify/**",
+      "coverage/**",
       "out/**",
       "build/**",
       "next-env.d.ts",
       "apps/native/**",
       "packages/*/dist/**",
+      "playwright-report/**",
+      "test-results/**",
     ],
   },
 ];
+
+export default config;

@@ -22,9 +22,9 @@ export function RecenterButton() {
     if (hasCards === prevCards.current) return;
     prevCards.current = hasCards;
     if (hasCards) {
-      setShow(false);
-      const t = setTimeout(() => setShow(true), 320);
-      return () => clearTimeout(t);
+      const hide = setTimeout(() => setShow(false), 0);
+      const show = setTimeout(() => setShow(true), 320);
+      return () => { clearTimeout(hide); clearTimeout(show); };
     }
   }, [hasCards]);
 

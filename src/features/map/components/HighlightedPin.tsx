@@ -1,34 +1,31 @@
 "use client";
 
-import { memo, useCallback, useState, useTransition, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { memo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Marker } from "react-map-gl/mapbox";
 import { useTransitionRouter } from "@/hooks/useTransitionRouter";
-import { X } from "lucide-react";
+import { Clock3, X } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { UserPinContent } from "@/features/map/components/UserPin";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { PremiumBadge } from "@/components/ui/premium-badge";
-import type { ProfileInterestDto, PublicProfilePhoto } from "@peekpoke/shared";
+import type { Availability, ProfileInterestDto, PublicProfilePhoto } from "@peekpoke/shared";
 import type { NearbyUser } from "@/types/database";
 import { cn } from "@/lib/utils";
-import { webQueryKeys } from "@/data/web-query";
-import { createOrFindThread } from "@/data/thread-mutations";
+import { PokeDialog } from "@/features/social/components/PokeDialog";
+import { activityInfo, remainingAvailability } from "@/features/now/activities";
 
 interface HighlightedPinProps {
   user: NearbyUser;
   isFriend: boolean;
-  isPremium: boolean;
+  availability?: Availability;
   initialData: { photos: PublicProfilePhoto[]; interests: ProfileInterestDto[]; bio?: string | null };
 }
 
-export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isPremium, initialData }: HighlightedPinProps) {
-  const queryClient = useQueryClient();
+export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, availability, initialData }: HighlightedPinProps) {
   const router = useTransitionRouter();
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [, startTransition] = useTransition();
+  const [pokeOpen, setPokeOpen] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -40,18 +37,9 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
 
   const isOnline = user.is_online === true;
   const name = user.display_name || user.username || "";
-
-  const handleSendMessage = useCallback(() => {
-    startTransition(async () => {
-      try {
-        const response = await createOrFindThread(user.userId);
-        queryClient.setQueryData(webQueryKeys.coins, { balance: response.balance });
-        await queryClient.invalidateQueries({ queryKey: webQueryKeys.threads });
-        setHighlightedUserId(null);
-        router.push(`/inbox?tab=chats&thread=${response.id}`);
-      } catch (err) { console.error("Failed to start DM:", err); }
-    });
-  }, [queryClient, router, user.userId, setHighlightedUserId, startTransition]);
+  const activity = availability ? activityInfo(availability.activity) : null;
+  const ActivityIcon = activity?.Icon;
+  const activityLabel = availability?.activity === "custom" ? availability.customLabel : activity?.label.toLowerCase();
 
   const interests = initialData.interests
     .filter((i) => i.tag?.name)
@@ -66,7 +54,10 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
       )}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Header */}
+      {availability && ActivityIcon ? <div className="map-activity-card mb-4 flex items-start gap-3 rounded-xl p-3">
+        <ActivityIcon size={22} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <div className="min-w-0"><p className="text-base font-semibold">Up for {activityLabel}</p><p className="mt-1 flex items-center gap-1.5 text-xs"><Clock3 size={13} aria-hidden="true" />{remainingAvailability(availability.expiresAt, Date.now())}</p></div>
+      </div> : null}
       <div className="flex gap-3 items-center">
         <Avatar className="w-14 h-14 flex-shrink-0">
           {user.avatar_url && <AvatarImage src={user.avatar_url} alt={name} />}
@@ -75,13 +66,13 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="t-title-3 text-ink-9">{name}</span>
-            {isPremium && <PremiumBadge size="sm" showText />}
           </div>
           {isOnline && (
             <span className="t-caption font-semibold mt-0.5 block" style={{ color: "var(--success-600)" }}>
               ● Online now
             </span>
           )}
+          <span className="mt-1 block text-xs text-ink-6">Approximate area{isFriend ? " · Your friend" : ""}</span>
         </div>
         <button type="button"
           aria-label="Close"
@@ -111,9 +102,9 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
       <div className="flex gap-2 mt-3.5">
         <button type="button"
           className="btn btn-accent btn-md flex-1 rounded-xl"
-          onClick={handleSendMessage}
+          onClick={() => setPokeOpen(true)}
         >
-          <span className="text-base leading-none">👋</span> Say hi
+          Poke
         </button>
         <button type="button"
           className="btn btn-secondary btn-md flex-1 rounded-xl"
@@ -123,11 +114,6 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
         </button>
       </div>
 
-      {!isFriend && (
-        <p className="t-caption text-center mt-2.5" style={{ color: "var(--ink-5)" }}>
-          Costs <b style={{ color: "var(--ink-7)" }}>1 coin</b> to open a chat with a non-friend
-        </p>
-      )}
     </div>
   );
 
@@ -137,7 +123,7 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
     <>
       <Marker longitude={user.lng} latitude={user.lat} anchor="center" style={{ zIndex: 10 }}>
         <div className="pin-pop-in">
-          <UserPinContent user={user} isFriend={isFriend} isHighlighted />
+          <UserPinContent user={user} isFriend={isFriend} isHighlighted availability={availability} />
         </div>
       </Marker>
 
@@ -161,6 +147,7 @@ export const HighlightedPin = memo(function HighlightedPin({ user, isFriend, isP
         </>,
         portalEl
       )}
+      {pokeOpen ? <PokeDialog recipient={{ id: user.userId, username: user.username, display_name: user.display_name }} defaultActivity={availability?.activity} defaultCustomLabel={availability?.customLabel} onClose={() => setPokeOpen(false)} onSent={() => setPokeOpen(false)} /> : null}
     </>
   );
 });

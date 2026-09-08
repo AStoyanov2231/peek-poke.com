@@ -40,8 +40,8 @@ function statusForState(state: ScannerState) {
   switch (state) {
     case "starting": return "Starting camera";
     case "scanning": return "Align a QR code inside the frame";
-    case "submitting": return "Joining shared group";
-    case "success": return "Shared group joined";
+    case "submitting": return "Joining Circle";
+    case "success": return "Circle joined";
     case "insecure": return "Secure connection required";
     case "unsupported": return "Camera unavailable in this browser";
     case "denied": return "Camera access is blocked";
@@ -150,7 +150,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
         stopStream();
         submittingRef.current = false;
         setState("error");
-        setError(failure instanceof Error ? failure.message : "Could not join this shared group. Try again.");
+        setError(failure instanceof Error ? failure.message : "Could not join this Circle. Try again.");
       }
     };
 
@@ -380,7 +380,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
             <ScanQrCode aria-hidden="true" className="shrink-0 text-white" size={22} />
             <div className="min-w-0">
               <h2 className="t-title-3 truncate text-white" id="qr-scanner-title">Scan to join</h2>
-              <p className="t-caption text-white/70">Join the group linked to this QR code</p>
+              <p className="t-caption text-white/70">Join the Circle linked to this QR code</p>
             </div>
           </div>
           <button
@@ -413,7 +413,7 @@ export function QrScannerDialog({ open, onClose, onDecoded }: QrScannerDialogPro
             <div className="absolute inset-0 flex items-center justify-center bg-black/45">
               <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-3 text-sm font-semibold text-white">
                 <Loader2 aria-hidden="true" className="animate-spin" size={20} />
-                <span>Joining shared group</span>
+                <span>Joining Circle</span>
               </div>
             </div>
           ) : null}

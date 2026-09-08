@@ -9,6 +9,7 @@ import {
   utcTimestampSchema,
 } from "@peekpoke/shared";
 import { z } from "zod";
+import { filterEligibleSocialPeerIds } from "@/lib/social-peer-eligibility";
 
 const friendshipProfileRowSchema = z.strictObject({
   id: z.uuid(),
@@ -98,8 +99,26 @@ export const GET = withAuth(async (request, { user }) => {
     return apiError("Internal server error", 500, "FRIEND_REQUESTS_FETCH_FAILED");
   }
 
-  const requests = cursorPage(request, incoming.data, (item) => item.id, (item) => item.requested_at);
-  const sentRequests = cursorPage(request, sent.data, (item) => item.id, (item) => item.requested_at);
+  const peerEligibility = await filterEligibleSocialPeerIds(user.id, [
+    ...incoming.data.map((row) => row.requester_id),
+    ...sent.data.map((row) => row.addressee_id),
+  ]);
+  if (peerEligibility.unavailable) {
+    console.error("friends/requests: peer eligibility unavailable");
+    return apiError("Friend requests are temporarily unavailable", 503, "FRIEND_REQUESTS_FETCH_FAILED");
+  }
+  const requests = cursorPage(
+    request,
+    incoming.data.filter((row) => peerEligibility.ids.has(row.requester_id)),
+    (item) => item.id,
+    (item) => item.requested_at,
+  );
+  const sentRequests = cursorPage(
+    request,
+    sent.data.filter((row) => peerEligibility.ids.has(row.addressee_id)),
+    (item) => item.id,
+    (item) => item.requested_at,
+  );
   if (requests.error) return requests.error;
   if (sentRequests.error) return sentRequests.error;
   const response = friendRequestsReadResponseSchema.safeParse({

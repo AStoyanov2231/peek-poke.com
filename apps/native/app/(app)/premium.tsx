@@ -1,6 +1,5 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { isPremium } from "@peekpoke/shared";
 import { useQuery } from "@tanstack/react-query";
 import { colors, fontFamilies, radii, spacing } from "@peekpoke/design";
@@ -14,19 +13,14 @@ import {
   Title,
   type IconName,
 } from "@/components/ui";
-import {
-  getPremiumPrice,
-  managePremium,
-  purchasePremium,
-  refreshEntitlements,
-} from "@/lib/billing";
+import { managePremium, refreshEntitlements } from "@/lib/billing";
 import { fetchCurrentProfile } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 
-const FEATURES: { icon: IconName; label: string }[] = [
-  { icon: "users", label: "Unlimited friends" },
-  { icon: "image", label: "See other people's photos" },
-  { icon: "eye", label: "See who viewed your profile" },
+const FUTURE_EXTRAS: { icon: IconName; label: string }[] = [
+  { icon: "search", label: "A little more control over discovery" },
+  { icon: "profile", label: "A few thoughtful profile touches" },
+  { icon: "now", label: "Optional ways to highlight a plan" },
 ];
 
 export default function PremiumScreen() {
@@ -34,14 +28,9 @@ export default function PremiumScreen() {
     queryKey: nativeQueryKeys.profile.current,
     queryFn: fetchCurrentProfile,
   });
-  const priceQuery = useQuery({
-    queryKey: ["billing", "price"],
-    queryFn: getPremiumPrice,
-    staleTime: 60 * 60_000,
-  });
   const profile = profileQuery.data;
   const premium = isPremium(profile);
-  const [loading, setLoading] = useState<"purchase" | "manage" | null>(null);
+  const [loading, setLoading] = useState<"manage" | null>(null);
   const [status, setStatus] = useState<{ tone: "error" | "success"; message: string } | null>(null);
   useQuery({
     queryKey: nativeQueryKeys.entitlements,
@@ -49,25 +38,18 @@ export default function PremiumScreen() {
     staleTime: 30_000,
   });
 
-  async function run(action: "purchase" | "manage") {
+  async function run(action: "manage") {
     setLoading(action);
     setStatus(null);
     try {
-      if (action === "manage") {
-        const outcome = await managePremium();
-        if (outcome === "opened") {
-          setStatus({ tone: "success", message: "Premium management opened in your browser." });
-        }
-      } else {
-        const outcome = await purchasePremium();
-        if (outcome === "opened") {
-          setStatus({ tone: "success", message: "Premium opened in your browser." });
-        }
+      const outcome = await managePremium();
+      if (outcome === "opened") {
+        setStatus({ tone: "success", message: "Billing management opened in your browser." });
       }
     } catch (error) {
       setStatus({
         tone: "error",
-        message: error instanceof Error ? error.message : "Premium is unavailable. Try again.",
+        message: error instanceof Error ? error.message : "Billing management is unavailable. Try again.",
       });
     } finally {
       setLoading(null);
@@ -77,26 +59,22 @@ export default function PremiumScreen() {
   return (
     <Screen scroll>
       <View style={styles.header}>
-        <Title>Peek Premium</Title>
-        <Caption>
-          {premium
-            ? "Your premium subscription is active."
-            : "Unlock all Premium features."}
-        </Caption>
+        <Title>Peek+</Title>
+        <Caption>{premium ? "Your Peek+ subscription is active." : "Optional extras, when they are ready."}</Caption>
       </View>
 
-      <LinearGradient
-        colors={premium ? ["#4a2874", "#21142f"] : ["#3b1778", "#201431"]}
-        end={{ x: premium ? 1 : 0.05, y: 1 }}
-        start={{ x: premium ? 0 : 0.95, y: 0 }}
-        style={styles.card}
-      >
+      <View style={[styles.card, premium && styles.activeCard]}>
         <View style={styles.cardHeader}>
-          <IconGlyph name="premium" color="#d8c8ff" size={22} />
-          <BodyBold style={styles.cardTitle}>Peek Premium</BodyBold>
-          <View style={styles.unlockBadge}>
-            <Caption style={styles.unlockText}>{premium ? "Active" : "Unlock everything"}</Caption>
+          <IconGlyph name="premium" color={colors.primary[500]} size={22} />
+          <BodyBold style={styles.cardTitle}>Peek+</BodyBold>
+          <View style={styles.badge}>
+            <Caption style={styles.badgeText}>{premium ? "Active" : "Preview"}</Caption>
           </View>
+        </View>
+
+        <View style={styles.essentials}>
+          <BodyBold style={styles.essentialsTitle}>The social essentials stay free.</BodyBold>
+          <Caption style={styles.essentialsCopy}>Pokes, messages, plans, and meeting up are available to everyone.</Caption>
         </View>
 
         {premium ? (
@@ -108,66 +86,27 @@ export default function PremiumScreen() {
             disabled={loading !== null}
             onPress={() => run("manage")}
           >
-            Manage Subscription
+            Manage billing
           </Button>
-        ) : (
-          <Pressable
-            accessibilityLabel="Upgrade to Premium"
-            accessibilityRole="button"
-            accessibilityState={{ busy: loading === "purchase", disabled: loading !== null }}
-            disabled={loading !== null}
-            onPress={() => run("purchase")}
-            style={({ pressed }) => [styles.purchaseButton, pressed && styles.pressed]}
-          >
-            <LinearGradient
-              colors={["#fbbf24", "#f59e0b"]}
-              end={{ x: 1, y: 0 }}
-              pointerEvents="none"
-              start={{ x: 0, y: 0 }}
-              style={styles.purchaseGradient}
-            >
-              {loading === "purchase" ? (
-                <ActivityIndicator color={colors.surface} size="small" />
-              ) : (
-                <IconGlyph name="crown" color={colors.surface} size={16} />
-              )}
-              <Text style={styles.purchaseText}>Upgrade to Premium</Text>
-            </LinearGradient>
-          </Pressable>
-        )}
+        ) : null}
 
         {status ? (
-          <Caption
-            accessibilityLiveRegion="polite"
-            style={status.tone === "error" ? styles.errorStatus : styles.successStatus}
-          >
+          <Caption accessibilityLiveRegion="polite" style={status.tone === "error" ? styles.errorStatus : styles.successStatus}>
             {status.message}
           </Caption>
         ) : null}
 
-        <View>
-          <Caption style={styles.muted}>From</Caption>
-          <Text style={styles.price}>
-            {priceQuery.data ?? "Current price"} <Text style={styles.priceUnit}>/ month</Text>
-          </Text>
-        </View>
-
         <Divider />
-
-        {FEATURES.map(({ icon, label }) => (
+        <Caption style={styles.considering}>What we are considering</Caption>
+        {FUTURE_EXTRAS.map(({ icon, label }) => (
           <View key={label} style={styles.featureRow}>
-            <View style={styles.checkCircle}>
-              <IconGlyph name="check" color={colors.success[500]} size={11} />
-            </View>
-            <IconGlyph name={icon} color="#c8aef5" size={14} />
+            <IconGlyph name={icon} color={colors.primary[500]} size={15} />
             <Caption style={styles.featureText}>{label}</Caption>
           </View>
         ))}
-      </LinearGradient>
+      </View>
 
-      {!premium ? (
-        <Caption style={styles.renewal}>Your subscription renews automatically until canceled.</Caption>
-      ) : null}
+      {!premium ? <Caption style={styles.renewal}>New subscriptions are not available yet, and no payment details are collected here.</Caption> : null}
     </Screen>
   );
 }
@@ -179,10 +118,13 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radii.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(154,104,245,0.45)",
+    borderColor: colors.primary[200],
+    backgroundColor: colors.ink[1],
     padding: spacing[5],
     gap: spacing[4],
-    overflow: "hidden",
+  },
+  activeCard: {
+    backgroundColor: colors.primary[50],
   },
   cardHeader: {
     flexDirection: "row",
@@ -190,82 +132,48 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   cardTitle: {
-    color: colors.surface,
+    color: colors.ink[9],
   },
-  unlockBadge: {
+  badge: {
     marginLeft: "auto",
     borderRadius: radii.pill,
     paddingHorizontal: spacing[2],
     paddingVertical: 3,
     backgroundColor: colors.primary[100],
   },
-  unlockText: {
-    color: "#d8c8ff",
+  badgeText: {
+    color: colors.primary[700],
     fontFamily: fontFamilies.bold,
     fontWeight: "700",
   },
-  purchaseButton: {
-    height: 48,
-    borderRadius: radii.pill,
-    overflow: "hidden",
+  essentials: {
+    gap: spacing[1],
   },
-  purchaseGradient: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing[2],
-    paddingHorizontal: spacing[4],
+  essentialsTitle: {
+    color: colors.ink[9],
   },
-  purchaseText: {
-    color: colors.surface,
+  essentialsCopy: {
+    color: colors.ink[6],
+  },
+  considering: {
+    color: colors.ink[7],
     fontFamily: fontFamilies.semibold,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: "600",
-  },
-  pressed: {
-    opacity: 0.82,
   },
   successStatus: {
-    color: "#8be4ba",
+    color: colors.success[600],
     textAlign: "center",
   },
   errorStatus: {
-    color: "#fecaca",
+    color: colors.danger[500],
     textAlign: "center",
-  },
-  muted: {
-    color: "rgba(255,255,255,0.58)",
-  },
-  price: {
-    color: colors.surface,
-    fontFamily: fontFamilies.bold,
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: "800",
-  },
-  priceUnit: {
-    color: "rgba(255,255,255,0.55)",
-    fontFamily: fontFamilies.regular,
-    fontSize: 14,
-    fontWeight: "400",
   },
   featureRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing[2],
   },
-  checkCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#d7f5e7",
-  },
   featureText: {
-    color: "rgba(255,255,255,0.86)",
+    color: colors.ink[7],
   },
   renewal: {
     textAlign: "center",

@@ -17,8 +17,8 @@ const user = {
   avatar_url: null,
   is_online: true,
   last_seen_at: "2026-08-07T12:00:00.000Z",
-  lat: 42.698,
-  lng: 23.322,
+  lat: 42.7,
+  lng: 23.32,
 };
 
 vi.mock("@/lib/supabase", () => ({
@@ -42,7 +42,7 @@ describe("iOS and Android nearby/location transport barrier", () => {
     ["android", "missing", { users: [{ ...user, is_online: undefined }] }],
     ["ios", "duplicate", { users: [user, user] }],
     ["android", "self", { users: [{ ...user, userId: VIEWER_ID }] }],
-    ["ios", "unquantized", { users: [{ ...user, lng: 23.32194 }] }],
+    ["ios", "unquantized", { users: [{ ...user, lng: 23.321 }] }],
     ["android", "foreign avatar", { users: [{
       ...user,
       avatar_url: `https://project.supabase.co/storage/v1/object/public/profile-photos/${VIEWER_ID}/avatar.jpg`,

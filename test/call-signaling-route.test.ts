@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
   profileSingle: vi.fn(),
 }));
+const eligibility = vi.hoisted(() => ({ canInteract: vi.fn() }));
 
 vi.mock("@/lib/auth", () => ({
   withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
@@ -45,6 +46,9 @@ vi.mock("@/lib/realtime-broadcast", () => ({
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createServiceClient: () => ({ rpc: mocks.rpc }),
+}));
+vi.mock("@/lib/social-peer-eligibility", () => ({
+  canInteractWithSocialPeer: eligibility.canInteract,
 }));
 
 import { POST } from "@/app/api/dm/[threadId]/call/route";
@@ -92,6 +96,7 @@ describe("POST /api/dm/[threadId]/call", () => {
     mocks.rpc.mockImplementation(async (name: string) => name === "authorize_call_invite_delivery"
       ? { data: true, error: null }
       : { data: rpcResult(), error: null });
+    eligibility.canInteract.mockResolvedValue({ eligible: true });
   });
 
   it("derives ownership server-side, commits the strict invite, and broadcasts the canonical event", async () => {
@@ -133,6 +138,35 @@ describe("POST /api/dm/[threadId]/call", () => {
         capability: CAPABILITY,
       }),
     );
+  });
+
+  it("does not create or signal a call to a non-admitted peer", async () => {
+    eligibility.canInteract.mockResolvedValue({ eligible: false });
+
+    const response = await request({ version: 1, type: "invite", commandId: COMMAND, callId: CALL });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: "THREAD_NOT_FOUND" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.broadcast).not.toHaveBeenCalled();
+  });
+
+  it("preserves terminal call cleanup for an existing thread when the peer becomes ineligible", async () => {
+    eligibility.canInteract.mockResolvedValue({ eligible: false });
+    mocks.rpc.mockResolvedValue({ data: rpcResult({ sequence: 2 }), error: null });
+
+    const response = await request({
+      version: 1,
+      type: "end",
+      commandId: COMMAND,
+      callId: CALL,
+      capability: CAPABILITY,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("advance_call_session", expect.objectContaining({
+      p_event_type: "end",
+    }));
   });
 
   it("enforces the recipient invite rate bound before committing or broadcasting", async () => {

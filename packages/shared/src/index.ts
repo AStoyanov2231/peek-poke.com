@@ -21,8 +21,18 @@ export * from "./friend-response-attempt";
 export * from "./friend-removal-attempt";
 export * from "./block-user-attempt";
 export * from "./meeting-attempt";
+export * from "./meeting-eligibility";
+export * from "./meeting-reward-capability";
 export * from "./profile-update-attempt";
 export * from "./read-receipt";
 export * from "./call-signaling";
 export * from "./call-command-queue";
 export * from "./dm-message-mutation";
+
+export * from "./social";
+export * from "./plans";
+
+export * from "./chat-suggestions";
+export * from "./chat-assistance";
+
+export * from "./availability-duration";

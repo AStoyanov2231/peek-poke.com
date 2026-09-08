@@ -1,3 +1,6 @@
+import { onboardingRedirect } from "@/lib/onboarding-redirect";
+import { ageAdmissionRedirect } from "@/lib/age-admission-redirect";
+import { readAccountAgeAdmission } from "@/features/age-admission/server/age-admission";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { isSafeInternalRedirect } from "@/lib/internal-redirect";
@@ -52,12 +55,19 @@ export async function GET(request: Request) {
       return NextResponse.redirect(redirectUrl);
     }
 
+    // Password recovery is an account control that remains available before
+    // admission and onboarding. The route still requires the exchanged session.
+    if (next === "/reset-password") {
+      return NextResponse.redirect(new URL("/reset-password", origin));
+    }
+
+    const admission = await readAccountAgeAdmission(user.id);
+    if (admission.unavailable || admission.data.status !== "adult") {
+      return NextResponse.redirect(new URL(ageAdmissionRedirect(next), origin));
+    }
+
     if (!profile.profile.onboarding_completed) {
-      const inviteMatch = next.match(/^\/invite\/([a-zA-Z0-9-]+)$/);
-      const onboardingUrl = inviteMatch
-        ? `${origin}/onboarding?invite=${inviteMatch[1]}`
-        : `${origin}/onboarding`;
-      return NextResponse.redirect(onboardingUrl);
+      return NextResponse.redirect(new URL(onboardingRedirect(next), origin));
     }
   }
 

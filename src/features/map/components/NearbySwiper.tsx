@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useNearbyUsers, useVisibleUsers, useSelectedClusterUserIds, useHighlightedUserId, useUserLocation, usePendingUserId } from "@/stores/selectors";
+import { useNearbyUsers, useVisibleUsers, useSelectedClusterUserIds, useHighlightedUserId, usePendingUserId } from "@/stores/selectors";
 import { useAppStore } from "@/stores/appStore";
-import { formatDistance } from "@/lib/geo";
 import { avatarColor } from "@/lib/avatar-color";
-import { AddFriendButton } from "@/components/ui/AddFriendButton";
+import { PokeDialog } from "@/features/social/components/PokeDialog";
+import type { NearbyUser } from "@/types/database";
+import { useAvailablePeople } from "@/features/map/useAvailablePeople";
+import { activityLabel } from "@/data/pokes";
 
 
 const MAX_VISIBLE = 10;
@@ -18,8 +20,9 @@ export function NearbySwiper() {
   const highlightedUserId = useHighlightedUserId();
   const pendingUserId = usePendingUserId();
   const selectUser = useAppStore((s) => s.selectUser);
-  const userLocation = useUserLocation();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [pokeUser, setPokeUser] = useState<NearbyUser | null>(null);
+  const availablePeople = useAvailablePeople();
   const clusterIdSet = useMemo(() => clusterIds ? new Set(clusterIds) : null, [clusterIds]);
 
   const displayed = useMemo(() => {
@@ -44,9 +47,7 @@ export function NearbySwiper() {
           const pending = user.userId === pendingUserId;
           const isOnline = user.is_online === true;
           const color = avatarColor(name || "?");
-          const distance = userLocation
-            ? formatDistance(userLocation.lat, userLocation.lng, user.lat, user.lng)
-            : null;
+          const availability = availablePeople.get(user.userId);
 
           return (
             <div
@@ -96,16 +97,19 @@ export function NearbySwiper() {
                 <div className="flex-1 min-w-0">
                   <div className="t-body-b text-ink-9 truncate">{name}</div>
                   <div className="t-caption mt-0.5" style={{ color: "var(--ink-5)" }}>
-                    {distance && `${distance} · `}{isOnline ? "Online" : "Offline"}
+                    {availability ? `Up for ${activityLabel(availability)} · ` : "In your area · "}{isOnline ? "Online" : "Offline"}
                   </div>
                 </div>
               </button>
 
-              <AddFriendButton userId={user.userId} />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button type="button" className="btn btn-accent btn-sm" onClick={() => setPokeUser(user)}>Poke</button>
+              </div>
             </div>
           );
         })}
       </div>
+      {pokeUser ? <PokeDialog recipient={{ id: pokeUser.userId, username: pokeUser.username, display_name: pokeUser.display_name }} defaultActivity={availablePeople.get(pokeUser.userId)?.activity} defaultCustomLabel={availablePeople.get(pokeUser.userId)?.customLabel} onClose={() => setPokeUser(null)} onSent={() => setPokeUser(null)} /> : null}
     </div>
   );
 }

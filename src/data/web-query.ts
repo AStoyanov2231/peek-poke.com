@@ -34,12 +34,16 @@ import {
   type ProfileCard,
   type ProfileInterestDto,
   type PublicProfileResponse,
+  type ProfileSocialContextResponse,
+  profileSocialContextResponseSchema,
   type MessagesResponse,
   type SharedGroupMessagesResponse,
   type SharedGroupSummary,
   type LocationUpdateResponse,
   type MeetingResponse,
 } from "@peekpoke/shared";
+import { fetchPlan, fetchPlans } from "@/data/plans";
+import { fetchPokes } from "@/data/pokes";
 import type {
   FriendWithFriendshipId,
   FriendshipWithAddressee,
@@ -70,9 +74,14 @@ export const webQueryKeys = {
   threads: ["web", "threads"] as const,
   messages: (threadId: string) => ["web", "threads", threadId, "messages"] as const,
   groups: ["web", "groups"] as const,
+  plans: ["web", "plans"] as const,
+  plan: (planId: string) => ["web", "plans", planId] as const,
+  pokes: ["web", "pokes"] as const,
+  meetup: (peerId: string) => ["web", "meetups", peerId] as const,
   groupMessages: (groupId: string) => ["web", "groups", groupId, "messages"] as const,
   coins: ["web", "coins"] as const,
   publicProfile: (userId: string) => ["web", "profile", userId] as const,
+  profileSocialContext: (userId: string) => ["web", "profile", userId, "social-context"] as const,
   nearby: (viewerId: string, lat: number, lng: number) =>
     ["web", "nearby", viewerId, lat.toFixed(3), lng.toFixed(3)] as const,
   bots: (viewerId: string, lat: number, lng: number) =>
@@ -121,6 +130,7 @@ export type SharedGroupsQueryData = {
 };
 
 export type PublicProfileData = PublicProfileResponse;
+export type PublicProfileSocialContextData = ProfileSocialContextResponse;
 
 const meetingAttempts = createMeetingAttemptCoordinator(() => crypto.randomUUID());
 const meetingCompletions = createMeetingCompletionRegistry();
@@ -302,6 +312,28 @@ export const sharedGroupsQueryOptions = queryOptions({
   staleTime: WEB_QUERY_STALE_TIME.inbox,
 });
 
+export const plansQueryOptions = queryOptions({
+  queryKey: webQueryKeys.plans,
+  queryFn: ({ signal }) => fetchPlans(signal),
+  staleTime: WEB_QUERY_STALE_TIME.inbox,
+});
+
+export const pokesQueryOptions = queryOptions({
+  queryKey: webQueryKeys.pokes,
+  queryFn: ({ signal }) => fetchPokes(signal),
+  staleTime: WEB_QUERY_STALE_TIME.inbox,
+  refetchInterval: 30_000,
+});
+
+export function planQueryOptions(planId: string) {
+  return queryOptions({
+    queryKey: webQueryKeys.plan(planId),
+    queryFn: ({ signal }) => fetchPlan(planId, signal),
+    enabled: Boolean(planId),
+    staleTime: WEB_QUERY_STALE_TIME.inbox,
+  });
+}
+
 export function sharedGroupQueryOptions(groupId: string) {
   return infiniteQueryOptions({
     queryKey: webQueryKeys.groupMessages(groupId),
@@ -450,6 +482,23 @@ export function publicProfileQueryOptions(userId: string) {
     ),
     enabled: Boolean(userId),
     staleTime: WEB_QUERY_STALE_TIME.profile,
+  });
+}
+
+/** Server sends no-store; React Query also discards this context after unmount. */
+export function profileSocialContextQueryOptions(userId: string) {
+  return queryOptions({
+    queryKey: webQueryKeys.profileSocialContext(userId),
+    queryFn: ({ signal }): Promise<ProfileSocialContextResponse> => fetchContract(
+      `/api/profile/${encodeURIComponent(userId)}/social-context`,
+      profileSocialContextResponseSchema,
+      { signal },
+    ),
+    enabled: Boolean(userId),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    retry: false,
   });
 }
 

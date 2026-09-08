@@ -24,6 +24,8 @@ module.exports = {
       "<rootDir>/test/location-sync-recovery-pressability.test.tsx",
       "<rootDir>/test/error-recovery-pressability.test.tsx",
       "<rootDir>/test/chat-meeting-action-pressability.test.tsx",
+      "<rootDir>/test/chat-meeting-action-capability.test.tsx",
+      "<rootDir>/test/chat-meetup-acknowledgement.test.tsx",
       "<rootDir>/test/owner-display-name-editor-pressability.test.tsx",
       "<rootDir>/test/admin-report-actions-pressability.test.tsx",
       "<rootDir>/test/profile-convergence-platform.marker.ts",
@@ -31,6 +33,7 @@ module.exports = {
       "<rootDir>/test/inbox-data-recovery-pressability.test.tsx",
       "<rootDir>/test/account-deletion-recovery.marker.ts",
       "<rootDir>/test/qr-scanner-lifecycle.test.tsx",
+      "<rootDir>/test/discovery-visibility-settings.test.tsx",
     ],
   })),
 };

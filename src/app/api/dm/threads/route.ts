@@ -8,6 +8,10 @@ import { filterBlockedThreads, totalUnreadForThreads } from "@/lib/blocked-data"
 import { cursorPage, idempotencyKey, mapThreadSummary } from "@/lib/api-contract";
 import { dmInboxResponseSchemaFor, dmThreadCreateResponseSchema, utcTimestampSchema } from "@peekpoke/shared";
 import { z } from "zod";
+import {
+  canInteractWithSocialPeer,
+  filterEligibleSocialPeerIds,
+} from "@/lib/social-peer-eligibility";
 
 const threadCreateRpcSuccessSchema = z.strictObject({
   id: z.uuid(),
@@ -26,7 +30,6 @@ const threadCreateRpcErrorSchema = z.strictObject({
     "USER_NOT_FOUND",
     "BLOCKED",
     "ACCOUNT_DELETED",
-    "INSUFFICIENT_COINS",
   ]),
   message: z.string(),
   status: z.number().int(),
@@ -113,7 +116,6 @@ const threadCreateErrors = {
   USER_NOT_FOUND: { rpcStatuses: [404], status: 404, message: "User not found", code: "USER_NOT_FOUND" },
   BLOCKED: { rpcStatuses: [404], status: 404, message: "User not found", code: "USER_NOT_FOUND" },
   ACCOUNT_DELETED: { rpcStatuses: [404, 410], status: 404, message: "User not found", code: "USER_NOT_FOUND" },
-  INSUFFICIENT_COINS: { rpcStatuses: [403], status: 403, message: "Insufficient coins", code: "INSUFFICIENT_COINS" },
 } as const;
 
 function threadCreateFailure() {
@@ -145,10 +147,27 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     return apiError("Internal server error", 500, "THREADS_FETCH_FAILED");
   }
 
+  const boundedThreads = raw.data.threads.slice(0, 101);
+  const peerEligibility = await filterEligibleSocialPeerIds(
+    user.id,
+    boundedThreads.map((thread) =>
+      thread.participant_1_id === user.id
+        ? thread.participant_2_id
+        : thread.participant_1_id),
+  );
+  if (peerEligibility.unavailable) {
+    console.error("dm/threads: peer eligibility unavailable");
+    return apiError("Inbox temporarily unavailable", 503, "THREADS_FETCH_FAILED");
+  }
+
   let threads = filterBlockedThreads(
-    raw.data.threads.slice(0, 101),
+    boundedThreads,
     blockedPeerIds
-  ).map((thread) => mapThreadSummary({ ...thread, unread_count: 0 }));
+  ).filter((thread) => peerEligibility.ids.has(
+    thread.participant_1_id === user.id
+      ? thread.participant_2_id
+      : thread.participant_1_id,
+  )).map((thread) => mapThreadSummary({ ...thread, unread_count: 0 }));
 
   const service = createServiceClient();
   const cursorBaseQuery = service
@@ -219,6 +238,11 @@ export const POST = withAuth(async (request, { user, supabase }) => {
   if (err) return err;
   if (body.user_id === user.id) {
     return apiError("Cannot message yourself", 400, "THREAD_CREATE_FAILED");
+  }
+  const eligibility = await canInteractWithSocialPeer(user.id, body.user_id);
+  if (eligibility.unavailable) return threadCreateFailure();
+  if (!eligibility.eligible) {
+    return apiError("User not found", 404, "USER_NOT_FOUND");
   }
   if (await isBlocked(supabase, user.id, body.user_id)) {
     return apiError("User not found", 404, "USER_NOT_FOUND");

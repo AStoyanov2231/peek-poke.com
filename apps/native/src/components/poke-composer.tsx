@@ -1,0 +1,22 @@
+import { useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { randomUUID } from "expo-crypto";
+import type { Activity } from "@peekpoke/shared";
+import { colors, fontFamilies, radii, spacing } from "@peekpoke/design";
+import { createPoke } from "@/data/pokes";
+import { nativeQueryKeys } from "@/data/query-keys";
+import { availabilityActivities } from "@/components/availability-editor";
+
+export function PokeComposer({ recipientId, name, defaultActivity = "anything", defaultCustomLabel, onClose, onSent }: { recipientId: string; name: string; defaultActivity?: Activity; defaultCustomLabel?: string | null; onClose: () => void; onSent?: () => void }) {
+  const client = useQueryClient(); const [activity, setActivity] = useState<Activity>(defaultActivity); const [customLabel, setCustomLabel] = useState(defaultCustomLabel ?? ""); const [note, setNote] = useState("");
+  const attempt = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
+  const mutation = useMutation({ mutationFn: () => {
+    const request = { recipientId, activity, customLabel: activity === "custom" ? customLabel.trim() : null, note: note.trim() || null };
+    const fingerprint = JSON.stringify(request);
+    if (attempt.current?.fingerprint !== fingerprint) attempt.current = { fingerprint, idempotencyKey: randomUUID() };
+    return createPoke(request, { idempotencyKey: attempt.current.idempotencyKey });
+  }, onSuccess: () => { attempt.current = null; void client.invalidateQueries({ queryKey: nativeQueryKeys.pokes }); onSent?.(); onClose(); } });
+  return <Modal transparent animationType="slide" visible onRequestClose={onClose}><View style={styles.scrim}><View style={styles.sheet}><Text style={styles.title}>Poke {name}?</Text><Text style={styles.body}>A short invitation. They can accept, reply later, or pass.</Text><View style={styles.grid}>{availabilityActivities.map((item) => <Pressable key={item.value} onPress={() => setActivity(item.value)} style={[styles.chip, activity === item.value && styles.chipSelected]}><Text style={[styles.chipText, activity === item.value && styles.chipTextSelected]}>{item.label}</Text></Pressable>)}</View>{activity === "custom" ? <TextInput accessibilityLabel="Custom Poke activity" value={customLabel} onChangeText={setCustomLabel} maxLength={48} placeholder="Your activity" style={styles.input} /> : null}<TextInput accessibilityLabel="Poke note" value={note} onChangeText={setNote} maxLength={280} placeholder="Optional note" multiline style={[styles.input, styles.note]} />{mutation.isError ? <Text accessibilityRole="alert" style={styles.error}>Couldn’t send your Poke. Try again.</Text> : null}<Pressable accessibilityRole="button" disabled={mutation.isPending || (activity === "custom" && !customLabel.trim())} onPress={() => mutation.mutate()} style={styles.primary}>{mutation.isPending ? <ActivityIndicator color={colors.surface} /> : <Text style={styles.primaryText}>Send Poke</Text>}</Pressable><Pressable accessibilityRole="button" onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable></View></View></Modal>;
+}
+const styles = StyleSheet.create({ scrim: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" }, sheet: { padding: spacing[5], gap: spacing[3], borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, backgroundColor: colors.surface }, title: { color: colors.ink[9], fontFamily: fontFamilies.bold, fontSize: 22 }, body: { color: colors.ink[6], fontFamily: fontFamilies.regular }, grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }, chip: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radii.pill, backgroundColor: colors.ink[2] }, chipSelected: { backgroundColor: colors.primary[500] }, chipText: { color: colors.ink[8], fontFamily: fontFamilies.medium }, chipTextSelected: { color: colors.surface }, input: { minHeight: 46, padding: spacing[3], borderRadius: radii.md, color: colors.ink[9], backgroundColor: colors.ink[2] }, note: { minHeight: 84, textAlignVertical: "top" }, error: { color: colors.danger[500] }, primary: { minHeight: 48, borderRadius: radii.pill, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary[500] }, primaryText: { color: colors.surface, fontFamily: fontFamilies.semibold }, cancel: { color: colors.ink[6], fontFamily: fontFamilies.semibold, textAlign: "center" } });

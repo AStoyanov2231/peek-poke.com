@@ -25,7 +25,7 @@ import {
   type DmMessageMutationAttempt,
 } from "@peekpoke/shared";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
-import { ChatProximityBanner } from "@/features/chat/components/ChatProximityBanner";
+import { MeetupAcknowledgement } from "@/features/chat/components/MeetupAcknowledgement";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { useCallStore } from "@/stores/callStore";
@@ -41,6 +41,8 @@ import { sendPreparedWebChatMessage } from "@/data/chat-message";
 import { useReadReceipt } from "@/features/chat/useReadReceipt";
 import { ReadReceiptRecovery } from "@/features/chat/components/ReadReceiptRecovery";
 import { mutatePreparedWebDmMessage } from "@/data/dm-message-mutations";
+import { ChatMomentumActions } from "@/features/chat/components/ChatMomentumActions";
+import { PlanComposerDialog } from "@/features/plans/components/PlanComposerDialog";
 
 interface ChatSheetContentProps {
   threadId: string;
@@ -85,6 +87,8 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   } | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [hasPendingImage, setHasPendingImage] = useState(false);
+  const [planComposerOpen, setPlanComposerOpen] = useState(false);
+  const [planPlacePrefill, setPlanPlacePrefill] = useState("");
   const lifecycleOwnerRef = useRef<PropertyKey | null>(null);
   const [sendAttempts] = useState(() =>
     createChatMessageAttemptCoordinator(() => crypto.randomUUID()),
@@ -114,7 +118,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, user?.id);
 
   const isOtherOnline = other?.is_online === true && !isReadOnly;
-  const { distanceMeters, isNearby, meetingEligible } = useProximityToThread(threadId);
+  const { sociallyEligible } = useProximityToThread(threadId, other?.id);
 
   const lifecycleOwnerIdentity = JSON.stringify([threadId, user?.id ?? null]);
   useClientLayoutEffect(() => {
@@ -441,7 +445,6 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         other={other}
         isOnline={isOtherOnline}
         isTyping={isPeerTyping}
-        distanceMeters={distanceMeters}
         onBack={() => router.push("/inbox")}
         onStartCall={isReadOnly ? undefined : handleStartCall}
       />
@@ -450,17 +453,7 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         <ReadReceiptRecovery pending={readReceipt.isPending} onRetry={readReceipt.retry} />
       ) : null}
 
-      {!isReadOnly && user && other && isNearby && distanceMeters !== null && (
-        <ChatProximityBanner
-          key={`${user.id}:${threadId}:${other.id}`}
-          accountId={user.id}
-          friendId={other.id}
-          distanceMeters={distanceMeters}
-          meetingEligible={meetingEligible}
-          name={other.display_name || other.username}
-          threadId={threadId}
-        />
-      )}
+      {!isReadOnly && user && other && sociallyEligible ? <MeetupAcknowledgement peerId={other.id} name={other.display_name || other.username} onPlanAgain={() => setPlanComposerOpen(true)} /> : null}
 
       <ChatMessageList
         messages={messages}
@@ -480,6 +473,17 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
         </div>
       ) : (
         <>
+          <ChatMomentumActions
+            threadId={threadId}
+            threadReady={Boolean(thread)}
+            hasMessages={messages.length > 0}
+            onChooseReply={(suggestion) => {
+              if (editingMessage) return;
+              setInput(suggestion);
+            }}
+            onMakePlan={() => { setPlanPlacePrefill(""); setPlanComposerOpen(true); }}
+            onMeetHere={(venue) => { setPlanPlacePrefill(venue.name); setPlanComposerOpen(true); }}
+          />
           {hasPendingImage ? (
             <div className="mx-4 flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface px-3 py-2 text-[12px] text-ink-6 md:mx-auto md:w-full md:max-w-xl">
               <span>Photo ready to retry without uploading again.</span>
@@ -540,6 +544,12 @@ export function ChatSheetContent({ threadId }: ChatSheetContentProps) {
             editError={editError}
             onCancelEdit={handleCancelEdit}
             onSelectImage={(file) => void handleImage(file)}
+          />
+          <PlanComposerDialog
+            open={planComposerOpen}
+            onOpenChange={setPlanComposerOpen}
+            sourceThreadId={threadId}
+            defaultPlaceText={planPlacePrefill}
           />
         </>
       )}

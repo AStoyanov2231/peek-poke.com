@@ -4,31 +4,34 @@ import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChatsTab } from "@/features/inbox/components/ChatsTab";
-import { FriendsTab } from "@/features/inbox/components/FriendsTab";
-import { RequestsTab } from "@/features/inbox/components/RequestsTab";
+import { PokesTab } from "@/features/inbox/components/PokesTab";
+import { PlansTab } from "@/features/inbox/components/PlansTab";
 import { InboxChatPanel } from "@/features/inbox/components/InboxChatPanel";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RestoredScroll } from "@/features/layout/components/RestoredScroll";
-import { useFriendRequestCount, useTotalUnread } from "@/stores/selectors";
-import { friendsQueryOptions, sharedGroupsQueryOptions, threadsQueryOptions } from "@/data/web-query";
+import { useTotalUnread } from "@/stores/selectors";
+import { sharedGroupsQueryOptions, threadsQueryOptions } from "@/data/web-query";
+import { usePokeInbox } from "@/features/inbox/usePokeInbox";
 import { InboxDataRecovery } from "@/features/inbox/components/InboxDataRecovery";
 
-type Tab = "chats" | "friends" | "requests";
+type Tab = "pokes" | "plans" | "chats";
 
 
 export function InboxClient() {
-  const friendsQuery = useQuery(friendsQueryOptions);
   const threadsQuery = useQuery(threadsQueryOptions);
   const groupsQuery = useQuery(sharedGroupsQueryOptions);
+  const { pokesQuery, pendingReceivedCount: pokeCount } = usePokeInbox();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const threadId = searchParams.get("thread") ?? null;
   const groupId = searchParams.get("group") ?? null;
-  const requestCount = useFriendRequestCount();
   const unreadCount = useTotalUnread();
 
-  const localTab = (searchParams.get("tab") ?? "chats") as Tab;
+  const requestedTab = searchParams.get("tab");
+  const localTab: Tab = requestedTab === "pokes" || requestedTab === "plans" || requestedTab === "chats"
+    ? requestedTab
+    : "pokes";
 
   const handleSetTab = useCallback(
     (newTab: Tab) => {
@@ -61,14 +64,14 @@ export function InboxClient() {
     [router, searchParams]
   );
 
-  if (friendsQuery.isError || (threadsQuery.isError && !threadsQuery.data)) {
+  if ((threadsQuery.isError && !threadsQuery.data) || pokesQuery.isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="t-body text-ink-9">Your inbox could not be loaded.</p>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
-          onClick={() => void Promise.all([friendsQuery.refetch(), threadsQuery.refetch()])}
+          onClick={() => void Promise.all([threadsQuery.refetch(), pokesQuery.refetch()])}
         >
           Try again
         </button>
@@ -89,22 +92,22 @@ export function InboxClient() {
         <div className="flex-shrink-0 px-4 pb-3">
           <Tabs value={localTab} onValueChange={(v) => handleSetTab(v as Tab)}>
             <TabsList className="w-full">
-              <TabsTrigger value="chats" className="flex-1 gap-1.5">
-                Chats
-                {unreadCount > 0 && (
+              <TabsTrigger value="pokes" className="flex-1 gap-1.5">
+                Pokes
+                {pokeCount > 0 && (
                   <span className="badge" style={{ background: "var(--primary-500)", fontSize: 12, minWidth: 16, height: 16 }}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
+                    {pokeCount > 9 ? "9+" : pokeCount}
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="friends" className="flex-1">
-                Friends
+              <TabsTrigger value="plans" className="flex-1">
+                Plans
               </TabsTrigger>
-              <TabsTrigger value="requests" className="flex-1 gap-1.5">
-                Requests
-                {requestCount > 0 && (
+              <TabsTrigger value="chats" className="flex-1 gap-1.5">
+                Messages
+                {unreadCount > 0 && (
                   <span className="badge" style={{ fontSize: 12, minWidth: 16, height: 16 }}>
-                    {requestCount > 9 ? "9+" : requestCount}
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
               </TabsTrigger>
@@ -120,15 +123,15 @@ export function InboxClient() {
 
         {/* Tab content */}
         <RestoredScroll storageKey={`inbox:${localTab}`} className="flex-1 min-h-0 overflow-y-auto">
+          {localTab === "pokes" && <PokesTab />}
+          {localTab === "plans" && <PlansTab />}
           {localTab === "chats" && <ChatsTab onSelectThread={setThread} onSelectGroup={setGroup} activeThreadId={threadId} activeGroupId={groupId} />}
-          {localTab === "friends" && <FriendsTab />}
-          {localTab === "requests" && <RequestsTab />}
         </RestoredScroll>
       </div>
 
       {/* Desktop right panel */}
       <div className="hidden md:flex flex-1 flex-col min-w-0 min-h-0">
-        <InboxChatPanel threadId={threadId} groupId={groupId} />
+        <InboxChatPanel threadId={threadId} groupId={groupId} tab={localTab} />
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Map, { Marker } from "react-map-gl/mapbox";
 import Supercluster from "supercluster";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { useUserLocation, useNearbyUsers, useProfile, useFriends, useHighlightedUserId, useIsPremium, usePendingUserId, useHighlightedData } from "@/stores/selectors";
+import { useUserLocation, useNearbyUsers, useProfile, useFriends, useHighlightedUserId, usePendingUserId, useHighlightedData } from "@/stores/selectors";
 import { useAppStore } from "@/stores/appStore";
 import { UserPinContent } from "./UserPin";
 import { HighlightedPin } from "./HighlightedPin";
@@ -13,9 +13,11 @@ import { useBots as useBotsHook } from "@/features/map/useBots";
 import { haversineKm } from "@/lib/geo";
 import type { NearbyUser } from "@/types/database";
 import type { MapRef } from "react-map-gl/mapbox";
+import { useAvailablePeople } from "@/features/map/useAvailablePeople";
+import { activityInfo } from "@/features/now/activities";
 
-const DEFAULT_ZOOM = 17;
-const DEFAULT_PITCH = 50;
+const DEFAULT_ZOOM = 13;
+const DEFAULT_PITCH = 0;
 const MAP_STYLE = "mapbox://styles/mapbox/standard";
 // const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
 // const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
@@ -37,7 +39,7 @@ export function MapViewInner() {
   const highlightedUserId = useHighlightedUserId();
   const pendingUserId = usePendingUserId();
   const highlightedData = useHighlightedData();
-  const isPremium = useIsPremium();
+  const availablePeople = useAvailablePeople();
   const bots = useBotsHook();
   const setSelectedClusterUserIds = useAppStore((s) => s.setSelectedClusterUserIds);
   const setHighlightedUserId = useAppStore((s) => s.setHighlightedUserId);
@@ -45,7 +47,6 @@ export function MapViewInner() {
 
   const hasCentered = useRef(false);
   const isDragging = useRef(false);
-  const isOrbitingRef = useRef(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
   const [mapBounds, setMapBounds] = useState<[number, number, number, number] | null>(null);
@@ -79,7 +80,7 @@ export function MapViewInner() {
           zoom: DEFAULT_ZOOM,
           pitch: DEFAULT_PITCH,
           bearing: 0,
-          duration: 1200,
+          duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 450,
         });
       }
     };
@@ -87,35 +88,23 @@ export function MapViewInner() {
     return () => window.removeEventListener("recenter-map", handler);
   }, [userLocation]);
 
-  // Center on highlighted user then orbit — orbit delayed until easeTo finishes
+  // Nearby pins represent an area. Keep neighborhood context and let the
+  // person control the camera instead of orbiting an approximate coordinate.
   useEffect(() => {
     if (!highlightedUserId || !mapRef.current) return;
-    const user = nearbyUsers.find((u) => u.userId === highlightedUserId);
+    const user = nearbyUsers.find((item) => item.userId === highlightedUserId);
     if (!user) return;
-    const map = mapRef.current.getMap();
-    const targetZoom = Math.max(map.getZoom(), 17);
     const isMobile = window.innerWidth < 768;
-    const EASE_MS = 700;
     mapRef.current.easeTo({
       center: [user.lng, user.lat],
-      zoom: targetZoom,
-      duration: EASE_MS,
+      zoom: DEFAULT_ZOOM,
+      bearing: 0,
+      pitch: DEFAULT_PITCH,
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 450,
       padding: isMobile
-        ? { left: 0, right: 0, top: 0, bottom: 300 }
-        : { left: 0, right: 0, top: 0, bottom: 0 },
+        ? { left: 0, right: 0, top: 0, bottom: 240 }
+        : { left: 0, right: 160, top: 0, bottom: 0 },
     });
-    let rafId: number;
-    const tid = setTimeout(() => {
-      const startBearing = map.getBearing();
-      const start = performance.now();
-      isOrbitingRef.current = true;
-      const animate = (now: number) => {
-        setViewState(prev => ({ ...prev, bearing: startBearing + (now - start) * (360 / 60000) }));
-        rafId = requestAnimationFrame(animate);
-      };
-      rafId = requestAnimationFrame(animate);
-    }, EASE_MS);
-    return () => { isOrbitingRef.current = false; clearTimeout(tid); cancelAnimationFrame(rafId); };
   }, [highlightedUserId, nearbyUsers]);
 
   // Supercluster for marker clustering
@@ -136,7 +125,7 @@ export function MapViewInner() {
     return sc;
   }, [nearbyUsers, highlightedUserId]);
 
-  // Compute clusters from current viewport — only recomputes when zoom changes or pan ends
+  // Compute clusters when zoom changes or a pan ends.
   const clusters = useMemo(() => {
     if (!mapLoaded || !mapBounds) return [];
     return supercluster.getClusters(mapBounds, Math.round(viewState.zoom));
@@ -157,7 +146,7 @@ export function MapViewInner() {
   const handleDragStart = useCallback(() => { isDragging.current = true; }, []);
   const handleDragEnd = useCallback(() => { setTimeout(() => { isDragging.current = false; }, 100); }, []);
 
-  // Handle map click (clear selections) — skip if drag just ended
+  // Clear map selections unless the click followed a drag.
   const handleMapClick = useCallback(() => {
     if (isDragging.current) return;
     setSelectedClusterId(null);
@@ -165,7 +154,7 @@ export function MapViewInner() {
     setHighlightedUserId(null);
   }, [setSelectedClusterUserIds, setHighlightedUserId]);
 
-  // Handle user click — delegates fetch + open to store action
+  // Delegate user selection and profile loading to the store.
   const handleUserClick = useCallback((userId: string) => {
     setSelectedClusterId(null);
     setSelectedClusterUserIds(null);
@@ -203,7 +192,7 @@ export function MapViewInner() {
       <Map
         ref={mapRef}
         {...viewState}
-        onMove={(evt) => { if (!isOrbitingRef.current) setViewState(evt.viewState); }}
+        onMove={(evt) => setViewState(evt.viewState)}
         onMoveEnd={handleMoveEnd}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -224,8 +213,8 @@ export function MapViewInner() {
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
         style={{ width: "100%", height: "100%" }}
-        minZoom={16}
-        maxPitch={85}
+        minZoom={8}
+        maxPitch={60}
         clickTolerance={8}
         fadeDuration={0}
       >
@@ -274,10 +263,10 @@ export function MapViewInner() {
                 className={pendingUserId === userId ? "user-pin-loading" : ""}
                 onClick={(e) => { e.stopPropagation(); handleUserClick(userId); }}
                 tabIndex={0}
-                aria-label={`View ${user.display_name || user.username || "user"}`}
+                aria-label={`View ${user.display_name || user.username || "user"}${availablePeople.has(userId) ? `, up for ${availablePeople.get(userId)?.customLabel ?? activityInfo(availablePeople.get(userId)!.activity).label.toLowerCase()}` : ""}`}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); handleUserClick(userId); } }}
               >
-                <UserPinContent user={user} isFriend={friendIds.has(userId)} />
+                <UserPinContent user={user} isFriend={friendIds.has(userId)} availability={availablePeople.get(userId)} />
               </button>
             </Marker>
           );
@@ -300,7 +289,7 @@ export function MapViewInner() {
             key={highlightedUser.userId}
             user={highlightedUser}
             isFriend={friendIds.has(highlightedUser.userId)}
-            isPremium={isPremium}
+            availability={availablePeople.get(highlightedUser.userId)}
             initialData={highlightedData}
           />
         )}

@@ -32,6 +32,7 @@ import {
   finalizeDescendingMessagePage,
   olderThanMessageCursor,
 } from "@/lib/message-history";
+import { canInteractWithSocialPeer } from "@/lib/social-peer-eligibility";
 
 const messageRpcErrorSchema = z.strictObject({
   error: z.enum([
@@ -63,6 +64,13 @@ export const GET = withAuth<{ threadId: string }>(async (request, { user, supaba
     ? thread.participant_2_id
     : thread.participant_1_id;
   if (await isBlocked(supabase, user.id, peerId)) {
+    return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
+  }
+  const eligibility = await canInteractWithSocialPeer(user.id, peerId);
+  if (eligibility.unavailable) {
+    return apiError("Thread temporarily unavailable", 503, "THREAD_NOT_FOUND");
+  }
+  if (!eligibility.eligible) {
     return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
   }
 
@@ -180,6 +188,13 @@ export const POST = withAuth<{ threadId: string }>(async (request, { user, supab
   }
   if (await isBlocked(supabase, user.id, peerId)) {
     return apiError("Cannot message this user", 403, "BLOCKED");
+  }
+  const eligibility = await canInteractWithSocialPeer(user.id, peerId);
+  if (eligibility.unavailable) {
+    return apiError("Message delivery is temporarily unavailable", 503, "MESSAGE_SEND_FAILED");
+  }
+  if (!eligibility.eligible) {
+    return apiError("Cannot message this user", 403, "MESSAGE_SEND_FAILED");
   }
 
   if (msg.reply_to_id) {

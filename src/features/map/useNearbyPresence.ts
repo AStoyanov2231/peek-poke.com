@@ -112,7 +112,10 @@ export function useNearbyPresence(userId: string | undefined) {
 
     const run = () => {
       lastTrackRef.current = Date.now();
-      void runLocationSync(async () => userLocation);
+      // A previous acknowledgement is no longer valid. Never renew the server
+      // TTL with a coordinate cached in the client store: acquire a new browser
+      // sample under the already-granted permission instead.
+      void runLocationSync(requestCurrentWebLocation);
     };
     const waitMs = Math.max(0, TRACK_DEBOUNCE_MS - (Date.now() - lastTrackRef.current));
     if (waitMs === 0) {
@@ -129,6 +132,10 @@ export function useNearbyPresence(userId: string | undefined) {
     if (!userId) return;
     void runLocationSync(requestCurrentWebLocation);
   }, [runLocationSync, userId]);
+  const requestLocationSync = useCallback(
+    () => runLocationSync(requestCurrentWebLocation),
+    [runLocationSync],
+  );
 
   return {
     isLocationFresh: locationFresh,
@@ -139,5 +146,6 @@ export function useNearbyPresence(userId: string | undefined) {
     ),
     isLocationSyncPending: pendingForUserId === userId,
     retryLocationSync,
+    requestLocationSync,
   };
 }

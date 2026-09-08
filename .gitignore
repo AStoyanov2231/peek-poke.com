@@ -3,6 +3,10 @@ node_modules/
 
 # Next.js
 .next/
+.next-e2e/
+.next-hosted-verification/
+.next-hosted-integration/
+.next-ci-verify/
 out/
 
 # Build
@@ -39,6 +43,7 @@ next-env.d.ts
 .vercel
 
 # Supabase
+.supabase-backups/
 /supabase/
 !/supabase/
 /supabase/*

@@ -27,13 +27,15 @@ export function UpgradeDialog({ open, onOpenChange, message }: UpgradeDialogProp
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" style={{ color: "var(--primary-500)" }} />
-            Upgrade to Premium
+            Peek+ is coming soon
           </DialogTitle>
-          <DialogDescription>{message}</DialogDescription>
+          <DialogDescription>
+            {message ?? "We are still building optional extras. New subscriptions are not available yet."}
+          </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Maybe Later
+            Close
           </Button>
           <Button
             variant="accent"
@@ -43,7 +45,7 @@ export function UpgradeDialog({ open, onOpenChange, message }: UpgradeDialogProp
             }}
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            Upgrade Now
+            See Peek+
           </Button>
         </DialogFooter>
       </DialogContent>

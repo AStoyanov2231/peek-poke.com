@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { NearbySwiper } from "@/features/map/components/NearbySwiper";
 import { RecenterButton } from "@/features/map/components/RecenterButton";
 import { MapTopLabels } from "@/features/map/components/MapTopLabels";
@@ -17,7 +19,15 @@ import { QrScanButton } from "@/features/map/components/QrScanButton";
 
 export default function MainPage() {
   const userId = useQuery(bootstrapQueryOptions).data?.identity.id;
-  useGeolocation(userId);
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (navigator.permissions) void navigator.permissions.query({ name: "geolocation" }).then((permission) => {
+      if (active && permission.state === "granted") setLocationEnabled(true);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  useGeolocation(locationEnabled ? userId : undefined);
   const locationPresence = useNearbyPresence(userId);
   useMeetingDetection(userId);
 
@@ -36,7 +46,8 @@ export default function MainPage() {
         <BotHint />
         <LocationGate
           pending={locationPresence.isLocationSyncPending}
-          onRetry={locationPresence.retryLocationSync}
+          requested={locationEnabled}
+          onRetry={() => { if (!locationEnabled) setLocationEnabled(true); else locationPresence.retryLocationSync(); }}
         />
         <LocationRecoveryAlert
           open={locationPresence.isLocationSyncError}

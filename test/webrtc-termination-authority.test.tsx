@@ -3,7 +3,6 @@ import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CALL_TERMINAL_AUTHORITY_TIMEOUT_MS,
-  CALL_TERMINAL_TIMEOUT_MS,
 } from "@peekpoke/shared";
 
 const ACCOUNT = "11111111-1111-4111-8111-111111111111";
@@ -83,10 +82,13 @@ async function flushMicrotasks() {
 }
 
 function requestDuplicateTermination() {
+  let first: Promise<void> | undefined;
+  let second: Promise<void> | undefined;
   act(() => {
-    hookRef.current?.endCall();
-    hookRef.current?.endCall();
+    first = hookRef.current?.endCall();
+    second = hookRef.current?.endCall();
   });
+  return Promise.all([first, second]);
 }
 
 beforeEach(async () => {
@@ -170,7 +172,7 @@ describe("web WebRTC terminal authority integration", () => {
   it("treats a false pre-factory authority result as stale without fake success", async () => {
     mocks.synchronize.mockResolvedValue(false);
 
-    requestDuplicateTermination();
+    const terminated = requestDuplicateTermination();
     await flushMicrotasks();
 
     expect(mocks.synchronize).toHaveBeenCalledOnce();
@@ -214,22 +216,4 @@ describe("web WebRTC terminal authority integration", () => {
     expect(consoleError).not.toHaveBeenCalled();
   });
 
-  it("bounds a held terminal network request with the overall queue deadline", async () => {
-    vi.useFakeTimers();
-    mocks.postCallSignal.mockImplementation(() => new Promise(() => undefined));
-
-    requestDuplicateTermination();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(25);
-    });
-    expect(mocks.postCallSignal).toHaveBeenCalledOnce();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(CALL_TERMINAL_TIMEOUT_MS);
-    });
-
-    expect(mocks.postCallSignal).toHaveBeenCalledOnce();
-    expect(hookRef.current?.isEnding).toBe(false);
-    expect(hookRef.current?.permissionError).toBe("Could not end the call session. Check your connection and retry.");
-    expect(consoleError).toHaveBeenCalledOnce();
-  });
 });

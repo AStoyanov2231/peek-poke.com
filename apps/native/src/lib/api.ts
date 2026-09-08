@@ -37,11 +37,6 @@ export function isUnauthorizedError(error: unknown) {
   return error instanceof ApiRequestError && error.status === 401;
 }
 
-export function isFriendLimitError(error: unknown): error is ApiRequestError {
-  return error instanceof ApiRequestError &&
-    (error.code === "FRIEND_LIMIT_REACHED" || error.code === "REQUESTER_LIMIT_REACHED");
-}
-
 function buildUrl(path: string) {
   try {
     return resolveApiUrl(env.apiBaseUrl, path);

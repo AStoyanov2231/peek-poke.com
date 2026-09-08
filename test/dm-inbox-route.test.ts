@@ -35,6 +35,7 @@ const database = vi.hoisted(() => ({
   blocked: new Set<string>(),
   cursorLimit: vi.fn(),
 }));
+const eligibility = vi.hoisted(() => ({ filter: vi.fn() }));
 
 vi.mock("@/lib/auth", () => ({
   withAuth: (handler: (request: Request, context: unknown) => Promise<Response>) =>
@@ -56,6 +57,10 @@ vi.mock("@/lib/supabase/server", () => ({
     }),
   }),
 }));
+vi.mock("@/lib/social-peer-eligibility", () => ({
+  filterEligibleSocialPeerIds: eligibility.filter,
+  canInteractWithSocialPeer: vi.fn(),
+}));
 
 import { GET } from "@/app/api/dm/threads/route";
 
@@ -67,6 +72,7 @@ describe("GET /api/dm/threads contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     database.blocked = new Set();
+    eligibility.filter.mockImplementation(async (_viewerId: string, ids: string[]) => ({ ids: new Set(ids) }));
     database.rpc.mockResolvedValue({ data: { threads: [thread], total_unread: 999, private_rpc_column: true }, error: null });
     database.cursors = {
       data: [{ thread_id: THREAD_ID, last_read_sequence: 3, thread: { next_message_sequence: 5 } }],
@@ -85,6 +91,16 @@ describe("GET /api/dm/threads contract", () => {
     expect(payload.threads[0]).not.toHaveProperty("operational_column");
     expect(payload.threads[0].participant_1).not.toHaveProperty("private_profile_column");
     expect(database.rpc).toHaveBeenCalledWith("get_threads", { p_user_id: VIEWER_ID });
+  });
+
+  it("removes a pending or blocked peer before it can reach the inbox DTO", async () => {
+    eligibility.filter.mockResolvedValue({ ids: new Set() });
+    database.cursors = { data: [], error: null };
+
+    const response = await request();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ threads: [], total_unread: 0 });
   });
 
   it.each([

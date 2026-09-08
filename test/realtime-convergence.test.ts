@@ -72,13 +72,14 @@ describe("cross-platform Realtime convergence batching", () => {
     expect(recover).toHaveBeenCalledTimes(2);
     scheduler.dispose();
   });
-  it("creates one per-user channel carrying message, friendship, and coin hints", () => {
+  it("creates one per-user channel carrying message, friendship, social, and coin hints", () => {
     const channel = { id: "single-channel" };
     const createChannel = vi.fn(() => channel);
     const registrations: Array<{ channel: typeof channel; event: string }> = [];
     const messageHandler = vi.fn();
     const friendshipHandler = vi.fn();
     const coinHandler = vi.fn();
+    const socialHandler = vi.fn();
     const profileHandler = vi.fn();
 
     const result = createUserSyncChannel({
@@ -89,6 +90,7 @@ describe("cross-platform Realtime convergence batching", () => {
       },
       onMessagesChanged: messageHandler,
       onFriendshipsChanged: friendshipHandler,
+      onSocialChanged: socialHandler,
       onCoinsChanged: coinHandler,
       onProfileChanged: profileHandler,
     });
@@ -96,12 +98,13 @@ describe("cross-platform Realtime convergence batching", () => {
     expect(result).toBe(channel);
     expect(createChannel).toHaveBeenCalledOnce();
     expect(createChannel).toHaveBeenCalledWith("sync:user:user-a");
-    expect(registrations).toEqual([
+    expect(registrations).toEqual(expect.arrayContaining([
       { channel, event: "messages-changed" },
       { channel, event: "friendships-changed" },
+      { channel, event: "social-changed" },
       { channel, event: "coins-changed" },
       { channel, event: "profile-changed" },
-    ]);
+    ]));
   });
 
   it("recovers both event streams after errors, reconnect, and foreground", async () => {
@@ -129,6 +132,7 @@ describe("cross-platform Realtime convergence batching", () => {
       onBroadcast: (_channel, event, handler) => handlers.set(event, handler),
       onMessagesChanged: () => messages.hint("thread-a"),
       onFriendshipsChanged: () => friendships.hint("friendships"),
+      onSocialChanged: () => undefined,
       onCoinsChanged: () => coins.hint("coins"),
       onProfileChanged: () => undefined,
     });

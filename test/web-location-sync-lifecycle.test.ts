@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -9,6 +11,7 @@ import {
   createWebLocationSyncCoordinator,
   discardUnsafeWebLocationCaches,
   locationIsFreshForViewer,
+  requestCurrentWebLocation,
   runWebLocationSyncAttempt,
   WebLocationSyncDeadlineError,
   type WebLocationSyncPhase,
@@ -42,9 +45,30 @@ afterEach(() => {
   useAppStore.getState().clearStore();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("web location sync lifecycle", () => {
+  it("does not renew a stale server acknowledgement from cached store coordinates", () => {
+    const presence = readFileSync(resolve(process.cwd(), "src/features/map/useNearbyPresence.ts"), "utf8");
+    expect(presence).toContain("void runLocationSync(requestCurrentWebLocation);");
+    expect(presence).not.toContain("void runLocationSync(async () => userLocation);");
+  });
+
+  it("takes a new browser sample before a stale acknowledgement can be renewed", async () => {
+    const getCurrentPosition = vi.fn((success: PositionCallback) => success({
+      coords: { latitude: NEXT_COORDS.lat, longitude: NEXT_COORDS.lng },
+    } as GeolocationPosition));
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+
+    await expect(requestCurrentWebLocation(new AbortController().signal)).resolves.toEqual(NEXT_COORDS);
+    expect(getCurrentPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), {
+      enableHighAccuracy: false,
+      maximumAge: 0,
+      timeout: 10_000,
+    });
+  });
+
   it("keeps first-load nearby and meetings gated until the server acknowledgement commits", () => {
     const store = useAppStore.getState();
     store.setDeviceLocation(COORDS);
@@ -60,6 +84,13 @@ describe("web location sync lifecycle", () => {
 
     expect(useAppStore.getState().markLocationSynced(USER_A, COORDS)).toBe(true);
     expect(locationIsFreshForViewer(storeLocationSnapshot(), USER_A)).toBe(true);
+    expect(shouldDetectWebMeetings({
+      hasFreshLocation: true,
+      hasUser: true,
+      hasLocation: true,
+      friendCount: 1,
+      nearbyCount: 1,
+    })).toBe(false);
   });
 
   it("retains safe coordinates but marks discovery stale after GPS or server failure", () => {

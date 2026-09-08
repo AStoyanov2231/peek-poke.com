@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { isValidEmailFormat, validateEmail } from "@peekpoke/shared";
+import { onboardingRedirect } from "@/lib/onboarding-redirect";
 import { isSafeInternalRedirect } from "@/lib/internal-redirect";
 import { ensureAuthProfile } from "@/lib/auth-profile";
 
@@ -135,8 +136,7 @@ export async function signup(formData: FormData) {
   }
 
   // Redirect to onboarding instead of messages
-  const inviteMatch = redirectTo?.match(/^\/invite\/([a-zA-Z0-9-]+)$/);
-  redirect(inviteMatch ? `/onboarding?invite=${inviteMatch[1]}` : "/onboarding");
+  redirect(onboardingRedirect(redirectTo));
 }
 
 // Public auth entry point: Supabase Auth enforces provider email rate limits;

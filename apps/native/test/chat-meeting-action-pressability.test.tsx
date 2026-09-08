@@ -10,6 +10,11 @@ import {
 
 const mockSetQueryData = jest.fn();
 
+jest.mock("@peekpoke/shared", () => ({
+  ...jest.requireActual("@peekpoke/shared"),
+  canAttemptMeetingReward: jest.fn(() => true),
+}));
+
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ setQueryData: mockSetQueryData }),
 }));

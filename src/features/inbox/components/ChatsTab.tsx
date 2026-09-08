@@ -74,15 +74,15 @@ export function ChatsTab({ onSelectThread, onSelectGroup, activeThreadId, active
   if (conversations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-48 text-center px-8">
-        <p className="t-body muted">No conversations yet</p>
-        <p className="t-caption muted mt-1">Find friends on the map or scan a QR code to start chatting</p>
+        <p className="t-body muted">No messages yet</p>
+        <p className="t-caption muted mt-1">Send a Poke, make a plan, or Scan to join a Circle.</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-0.5 px-2 py-2">
-      {!groupsLoaded ? <div className="px-3 py-2 t-caption muted" role="status">Loading shared groups…</div> : null}
+      {!groupsLoaded ? <div className="px-3 py-2 t-caption muted" role="status">Loading Circles…</div> : null}
       {conversations.map((conversation) => {
         if (conversation.kind === "group") {
           const group = conversation.item;
@@ -96,7 +96,7 @@ export function ChatsTab({ onSelectThread, onSelectGroup, activeThreadId, active
                 isActive ? "bg-ink-1" : "md:hover:bg-ink-1",
               )}
               onClick={() => handleGroupClick(group.id)}
-              aria-label={`Open ${group.name}, ${group.member_count} members`}
+              aria-label={`Open Circle ${group.name}, ${group.member_count} members`}
             >
               <span className="flex h-[52px] w-[52px] flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700">
                 <Users aria-hidden="true" size={22} />
@@ -108,7 +108,7 @@ export function ChatsTab({ onSelectThread, onSelectGroup, activeThreadId, active
                 </span>
                 <span className="mt-0.5 flex items-center justify-between gap-2">
                   <span className={cn("t-caption truncate", group.unread_count ? "text-ink-8 font-medium" : "muted")}>
-                    {group.last_message_preview ?? `${group.member_count} members`}
+                    {group.last_message_preview ?? `Circle · ${group.member_count} members`}
                   </span>
                   {group.unread_count ? <span className="badge flex-shrink-0" style={{ background: "var(--accent-500)", minWidth: 18, height: 18, fontSize: 12 }}>{group.unread_count > 9 ? "9+" : group.unread_count}</span> : null}
                 </span>

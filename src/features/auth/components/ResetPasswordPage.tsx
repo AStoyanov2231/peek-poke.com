@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, Lock } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -9,8 +9,10 @@ import { InputWithIcon } from "@/components/ui/input-with-icon";
 import { createClient } from "@/lib/supabase/client";
 
 const MIN_PASSWORD_LENGTH = 8;
+const subscribeHydration = () => () => undefined;
 
 export default function ResetPasswordPage() {
+  const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -48,13 +50,13 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-background p-4">
+    <main id="main-content" className="flex min-h-dvh items-center justify-center bg-background p-4">
       <section className="w-full max-w-md rounded-lg bg-background p-6 shadow-e-2 lg:p-8">
         <h1 className="text-center font-display text-2xl font-bold text-foreground">Set a new password</h1>
         <p className="mt-2 text-center text-sm text-muted-foreground">
           Use at least {MIN_PASSWORD_LENGTH} characters and do not reuse a password from another service.
         </p>
-        <form className="mt-6 space-y-3" onSubmit={submit}>
+        <form method="post" className="mt-6 space-y-3" onSubmit={submit}>
           <InputWithIcon
             autoComplete="new-password"
             icon={<Lock className="h-5 w-5" />}
@@ -62,6 +64,7 @@ export default function ResetPasswordPage() {
             onChange={(event) => setPassword(event.target.value)}
             placeholder="New password"
             required
+            disabled={!hydrated}
             type="password"
             value={password}
           />
@@ -72,6 +75,7 @@ export default function ResetPasswordPage() {
             onChange={(event) => setConfirmation(event.target.value)}
             placeholder="Confirm new password"
             required
+            disabled={!hydrated}
             type="password"
             value={confirmation}
           />
@@ -81,7 +85,7 @@ export default function ResetPasswordPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <Button className="h-12 w-full rounded-full" disabled={loading} type="submit" variant="primary">
+          <Button className="h-12 w-full rounded-full" disabled={!hydrated || loading} type="submit" variant="primary">
             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Update Password"}
           </Button>
         </form>

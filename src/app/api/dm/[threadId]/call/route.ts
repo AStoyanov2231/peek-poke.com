@@ -18,6 +18,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { parseBody } from "@/lib/validators";
 import { broadcastPrivateRealtimeEvent } from "@/lib/realtime-broadcast";
 import { createServiceClient } from "@/lib/supabase/server";
+import { canInteractWithSocialPeer } from "@/lib/social-peer-eligibility";
 
 const callCommandResultSchema = z.strictObject({
   call_id: z.uuid(),
@@ -48,6 +49,14 @@ function callCommandError(code: string | undefined) {
   }
   if (code === "22023") return apiError("Invalid call command", 400, "VALIDATION_ERROR");
   return apiError("Call signaling unavailable", 503, "CALL_SIGNAL_FAILED");
+}
+
+function commandRequiresEligiblePeer(command: z.infer<typeof callSignalCommandSchema>) {
+  return command.type === "invite"
+    || command.type === "accept"
+    || command.type === "offer"
+    || command.type === "answer"
+    || command.type === "ice";
 }
 
 function canonicalEvent(
@@ -114,6 +123,15 @@ export const POST = withAuth<{ threadId: string }>(
       : thread.participant_1_id;
     if (await isDeletedProfile(recipientId)) {
       return apiError("User not found", 410, "ACCOUNT_DELETED");
+    }
+    if (commandRequiresEligiblePeer(command)) {
+      const eligibility = await canInteractWithSocialPeer(user.id, recipientId);
+      if (eligibility.unavailable) {
+        return apiError("Call signaling is temporarily unavailable", 503, "CALL_SIGNAL_UNAVAILABLE");
+      }
+      if (!eligibility.eligible) {
+        return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
+      }
     }
     if (command.type === "invite" && await isBlocked(supabase, user.id, recipientId)) {
       return apiError("Blocked", 403, "BLOCKED");

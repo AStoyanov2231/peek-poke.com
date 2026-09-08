@@ -6,7 +6,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import Copy from "lucide-react-native/icons/copy";
 import CornerUpLeft from "lucide-react-native/icons/corner-up-left";
 import ImageIcon from "lucide-react-native/icons/image";
-import MapPin from "lucide-react-native/icons/map-pin";
 import Pencil from "lucide-react-native/icons/pencil";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import {
@@ -42,12 +41,14 @@ import {
   createDmMessageMutationCoordinator,
   EDIT_WINDOW_MINUTES,
   isPremium,
-  meetingProximityEligible,
   mergeNewestFirstMessagePages,
   type ChatMessageDraft,
   type ChatMessageSubmissionToken,
   type DMMessage,
   type DmMessageMutationAttempt,
+  venueSuggestionsResponseSchema,
+  type VenueCard,
+  type VenueSuggestionsResponse,
 } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
 import { Avatar, Body, Caption, IconButton, PremiumBadge, Skeleton } from "@/components/ui";
@@ -56,18 +57,15 @@ import { fetchCurrentProfile, fetchMessages, type MessagesData } from "@/data/ap
 import { uploadAndSendChatMedia } from "@/data/chat-upload";
 import { sendPreparedChatMessage } from "@/data/chat-message";
 import { mutatePreparedNativeDmMessage } from "@/data/dm-message-mutations";
-import { fetchNearby } from "@/data/discovery/api";
 import { nativeQueryKeys } from "@/data/query-keys";
-import { socialQuery } from "@/data/social/queries";
-import { haversineKm } from "@/lib/format";
-import { useDeviceLocation } from "@/lib/location";
-import { locationIsFreshForDiscovery } from "@/data/discovery/location-sync";
 import { useTypingIndicator } from "@/hooks/use-typing-indicator";
 import { useAppStore } from "@/state/app-store";
 import { useCallStore } from "@/state/call-store";
-import { ChatMeetingAction } from "@/components/chat-meeting-action";
+import { ChatMeetupAcknowledgement } from "@/components/chat-meetup-acknowledgement";
 import { useReadReceipt } from "@/hooks/use-read-receipt";
 import { ReadReceiptRecovery } from "@/components/read-receipt-recovery";
+import { PlanComposer } from "@/components/plan-composer";
+import { apiFetch } from "@/lib/api";
 
 const EMPTY_MESSAGES: DMMessage[] = [];
 
@@ -77,13 +75,14 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const listRef = useRef<FlatList<DMMessage>>(null);
+  const [planComposerOpen, setPlanComposerOpen] = useState(false);
+  const [planPlacePrefill, setPlanPlacePrefill] = useState("");
   const loadingOlderRef = useRef(false);
   const queryClient = useQueryClient();
   const profileQuery = useQuery({
     queryKey: nativeQueryKeys.profile.current,
     queryFn: fetchCurrentProfile,
   });
-  const socialDataQuery = useQuery(socialQuery());
   const conversationQuery = useInfiniteQuery({
     queryKey: nativeQueryKeys.chat.messages(threadId),
     queryFn: ({ pageParam, signal }) => fetchMessages(threadId, pageParam, signal),
@@ -101,26 +100,12 @@ export default function ChatScreen() {
     if (!pages) return EMPTY_MESSAGES;
     return mergeNewestFirstMessagePages(pages) as DMMessage[];
   }, [conversationQuery.data?.pages]);
-  const deviceLocation = useDeviceLocation();
-  const location = deviceLocation.coords;
-  const locationFresh = locationIsFreshForDiscovery(deviceLocation, profile?.id);
-  const nearbyQuery = useQuery({
-    queryKey: locationFresh && location && profile?.id
-      ? nativeQueryKeys.discovery.nearby(profile.id, location.lat, location.lng)
-      : ["discovery", "nearby", "disabled"],
-    queryFn: ({ signal }) => fetchNearby(location!, profile!.id, signal),
-    enabled: false,
-  });
   const draft = useAppStore((state) => state.drafts[threadId] ?? "");
   const setDraft = useAppStore((state) => state.setDraft);
   const setActiveThreadId = useAppStore((state) => state.setActiveThreadId);
   const setActiveGroupId = useAppStore((state) => state.setActiveGroupId);
   const readReceipt = useReadReceipt(profileQuery.data?.id, threadId);
   const thread = conversationQuery.data?.pages[0]?.thread ?? null;
-  const nearbyUsers = useMemo(
-    () => locationFresh ? (nearbyQuery.data ?? []) : [],
-    [locationFresh, nearbyQuery.data],
-  );
   const [sending, setSending] = useState(false);
   const [hasPendingImage, setHasPendingImage] = useReducer(
     (_current: boolean, next: boolean) => next,
@@ -142,7 +127,6 @@ export default function ChatScreen() {
   const [contextMessage, setContextMessage] = useState<DMMessage | null>(null);
   const [contextCanEdit, setContextCanEdit] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [proximityDismissed, setProximityDismissed] = useState(false);
 
   const lifecycleOwnerIdentity = JSON.stringify([threadId, profile?.id ?? null]);
   useLayoutEffect(() => {
@@ -187,20 +171,9 @@ export default function ChatScreen() {
     return thread.participant_1_id === profile.id ? thread.participant_2 : thread.participant_1;
   }, [profile, thread]);
   const isReadOnly = other?.account_deleted === true;
+  const venuesQuery = useQuery<VenueSuggestionsResponse>({ queryKey: ["chat", threadId, "venues"], enabled: Boolean(threadId && other && !isReadOnly), queryFn: () => apiFetch<VenueSuggestionsResponse>(`/api/dm/${threadId}/venues`, { responseSchema: venueSuggestionsResponseSchema }), staleTime: 60_000 });
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, profile?.id);
   const isOtherOnline = other?.is_online === true && !isReadOnly;
-  const distanceMeters = useMemo(() => {
-    if (!other || !location) return null;
-    const nearby = nearbyUsers.find((user) => user.userId === other.id);
-    if (!nearby) return null;
-    return Math.round(haversineKm(location.lat, location.lng, nearby.lat, nearby.lng) * 1000);
-  }, [location, nearbyUsers, other]);
-  const acceptedFriend = Boolean(profile && other && socialDataQuery.data?.friends.some((friend) =>
-    (friend.requester_id === profile.id && friend.addressee_id === other.id)
-      || (friend.requester_id === other.id && friend.addressee_id === profile.id)));
-  const meetingEligible = locationFresh
-    && acceptedFriend
-    && meetingProximityEligible(distanceMeters);
 
   async function submit() {
     const content = draft.trim();
@@ -551,7 +524,7 @@ export default function ChatScreen() {
     : isPeerTyping
     ? "Typing…"
     : isOtherOnline
-    ? distanceMeters !== null ? `Online · ${distanceMeters}m away` : "Online now"
+    ? "Online now"
     : other ? `@${other.username}` : "Loading";
   const replyAuthor = replyingTo
     ? replyingTo.sender_id === profile?.id ? "Yourself" : displayName(other)
@@ -593,24 +566,7 @@ export default function ChatScreen() {
           <ReadReceiptRecovery pending={readReceipt.isPending} onRetry={readReceipt.retry} />
         ) : null}
 
-        {!isReadOnly && !proximityDismissed && distanceMeters !== null && distanceMeters < 500 && other ? (
-          <View style={styles.proximityBanner}>
-            <MapPin color={colors.primary[500]} size={16} strokeWidth={2} />
-            <Caption numberOfLines={1} style={styles.proximityText}>
-              You&apos;re {distanceMeters}m from {displayName(other)}
-            </Caption>
-            {profile && other ? (
-              <ChatMeetingAction
-                key={`${profile.id}:${threadId}:${other.id}`}
-                accountId={profile.id}
-                friendId={other.id}
-                meetingEligible={meetingEligible}
-                threadId={threadId}
-              />
-            ) : null}
-            <IconButton icon="close" iconColor={colors.primary[400]} iconSize={14} label="Dismiss proximity message" onPress={() => setProximityDismissed(true)} size={44} variant="ghost" />
-          </View>
-        ) : null}
+        {!isReadOnly && other ? <View style={styles.meetupAction}><ChatMeetupAcknowledgement peerId={other.id} threadId={threadId} onPlanAgain={() => setPlanComposerOpen(true)} /></View> : null}
 
         <View style={styles.messageListWrap}>
           <FlatList
@@ -622,6 +578,26 @@ export default function ChatScreen() {
             ListHeaderComponent={conversationQuery.isFetchingNextPage
               ? <ActivityIndicator color={colors.primary[500]} size="small" />
               : null}
+            ListEmptyComponent={
+              <View style={styles.emptyConversation}>
+                {conversationQuery.isPending ? (
+                  <ActivityIndicator accessibilityLabel="Loading conversation" color={colors.primary[500]} />
+                ) : conversationQuery.isError ? (
+                  <>
+                    <Text style={styles.emptyTitle}>Couldn’t load this conversation</Text>
+                    <Body style={styles.emptyBody}>Check your connection and try again.</Body>
+                    <Pressable accessibilityRole="button" disabled={conversationQuery.isFetching} onPress={() => void conversationQuery.refetch()} style={styles.emptyRetry}>
+                      <Text style={styles.emptyRetryText}>{conversationQuery.isFetching ? "Loading…" : "Try again"}</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.emptyTitle}>{isReadOnly ? "No messages yet" : "Start with a hello"}</Text>
+                    <Body style={styles.emptyBody}>{isReadOnly ? "There are no messages in this conversation." : "Say what you’re up for and find a time that works for you both."}</Body>
+                  </>
+                )}
+              </View>
+            }
             maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
             onContentSizeChange={() => {
               if (loadingOlderRef.current) {
@@ -652,6 +628,7 @@ export default function ChatScreen() {
           </View>
         ) : (
           <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
+            {venuesQuery.data?.venues.length ? <View style={styles.venueCards}>{venuesQuery.data.venues.map((venue: VenueCard) => <View key={venue.id} style={styles.venueCard}><Text style={styles.venueName}>{venue.name}</Text>{venue.address ? <Caption>{venue.address}</Caption> : null}<View style={styles.venueActions}><Pressable accessibilityRole="button" onPress={() => setDraft(threadId, `How about ${venue.name}?`)}><Text style={styles.venueAction}>Suggest place</Text></Pressable><Pressable accessibilityRole="button" onPress={() => { setPlanPlacePrefill(venue.name); setPlanComposerOpen(true); }}><Text style={styles.venueAction}>Meet here</Text></Pressable></View></View>)}</View> : venuesQuery.data?.source === "unavailable" ? <Caption>Venue suggestions are unavailable right now.</Caption> : null}
             {replyingTo ? (
               <ComposerNotice
                 icon={<CornerUpLeft color={colors.accent[500]} size={14} />}
@@ -755,7 +732,8 @@ export default function ChatScreen() {
         }}
         onDelete={() => contextMessage && void deleteMessage(contextMessage)}
       />
-    </SafeAreaView>
+      <PlanComposer open={planComposerOpen} onClose={() => setPlanComposerOpen(false)} sourceThreadId={threadId} initialPlaceText={planPlacePrefill} onCreated={(planId) => router.push(`/plans/${planId}` as never)} />
+      </SafeAreaView>
   );
 }
 
@@ -975,6 +953,11 @@ const styles = StyleSheet.create({
   proximityText: { flex: 1, color: colors.primary[600] },
   messageListWrap: { flex: 1, position: "relative" },
   messages: { flexGrow: 1, paddingHorizontal: spacing[4], paddingTop: spacing[3], paddingBottom: spacing[4] },
+  emptyConversation: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: spacing[5], paddingVertical: spacing[6], gap: spacing[2] },
+  emptyTitle: { ...typography.bodyBold, color: colors.ink[9], textAlign: "center" },
+  emptyBody: { color: colors.ink[6], textAlign: "center", maxWidth: 280 },
+  emptyRetry: { minHeight: 44, justifyContent: "center", paddingHorizontal: spacing[4], marginTop: spacing[2] },
+  emptyRetryText: { ...typography.bodyBold, color: colors.primary[600] },
   messageRow: { flexDirection: "row" },
   messageRowOwn: { justifyContent: "flex-end" },
   messageRowOther: { justifyContent: "flex-start" },
@@ -1012,12 +995,18 @@ const styles = StyleSheet.create({
     bottom: spacing[3],
   },
   composerWrap: { paddingHorizontal: spacing[4], paddingTop: spacing[2], backgroundColor: colors.background },
+  meetupAction: { paddingHorizontal: spacing[4], paddingTop: spacing[2], backgroundColor: colors.background },
   readOnlyNotice: { paddingHorizontal: spacing[4], paddingTop: spacing[4], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline, backgroundColor: colors.surface },
   readOnlyText: { color: colors.ink[5], textAlign: "center" },
   notice: { flexDirection: "row", alignItems: "flex-start", gap: spacing[2], marginBottom: spacing[2], paddingHorizontal: spacing[1] },
   noticeContent: { flex: 1, minWidth: 0 },
   noticeTitle: { fontFamily: fontFamilies.semibold, fontSize: 12, lineHeight: 15, color: colors.accent[500] },
   noticeEdit: { fontFamily: fontFamilies.medium, fontSize: 12, lineHeight: 16, color: colors.accent[500] },
+  venueCards: { gap: spacing[2], marginBottom: spacing[2] },
+  venueCard: { gap: spacing[1], padding: spacing[3], borderRadius: radii.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.hairline, backgroundColor: colors.surface },
+  venueName: { ...typography.body, fontFamily: fontFamilies.semibold, color: colors.ink[8] },
+  venueActions: { flexDirection: "row", gap: spacing[3] },
+  venueAction: { ...typography.caption, fontFamily: fontFamilies.semibold, color: colors.primary[500] },
   composer: {
     minHeight: 48,
     borderRadius: radii.pill,
