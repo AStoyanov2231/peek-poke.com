@@ -1,5 +1,19 @@
 # Supabase rollback instructions
 
+## Prepared temporary-conversation layer
+
+The next migration has not been applied to production.
+Its exact old function definitions, owners, grants, absent-object inventory, and 183-entry migration history are saved in `.supabase-backups/temporary-chat-20260909/`.
+Start with that folder's `README.md` for the guarded reversal and required confirmation settings.
+The separate sealed archive is `.supabase-backups/MyaouDB-temporary-chat-rollback-candidate-20260909.tar.gz`, with its `.sha256` sidecar.
+SHA-256: `670c46b7f5e61af5873cab7af565dbcaf55718b95a37d57bea92355766bc77c0`.
+All eleven payload hashes passed archive verification, and twenty-five local rollback assertions passed.
+The package restores the exact old call-start and delayed-delivery functions, removes the newly added conversation objects, and preserves message, call, Poke, and Plan rows.
+If this migration is later deployed, save its actual deployed version separately and reverse this layer before using the twenty-migration package below.
+This candidate package does not authorize or claim a completed production migration or a full hosted restore.
+
+## Deployed twenty-migration package
+
 The saved Supabase application state and recovery instructions for all twenty deployed migrations are in `.supabase-backups/MyaouDB-deployed-20-migration-rollback-20260908/`.
 Start with that folder's `README.md`.
 The package belongs to MyaouDB, project `ttojvnwpnpuhkyjncwxn`, and nests the unchanged nineteen-migration archive with the original application records, all 96 original Storage files, exact changed database definitions and permissions, the pre-correction photo records, and scheduler reversal instructions.

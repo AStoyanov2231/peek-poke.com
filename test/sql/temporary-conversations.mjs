@@ -1,15 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { actor, peer, outsider, blocked, thread, legacy, call, message, lifecycleFixtureSql, rpcFixtureSql, rpcDefinitions } from "./temporary-conversation-fixture.mjs";
 import { PGlite } from "@electric-sql/pglite";
 
-const actor = "11111111-1111-4111-8111-111111111111";
-const peer = "22222222-2222-4222-8222-222222222222";
-const outsider = "33333333-3333-4333-8333-333333333333";
-const blocked = "44444444-4444-4444-8444-444444444444";
-const thread = "55555555-5555-4555-8555-555555555555";
-const legacy = "66666666-6666-4666-8666-666666666666";
-const call = "77777777-7777-4777-8777-777777777777";
-const message = "88888888-8888-4888-8888-888888888888";
 const migration = await readFile(new URL("../../supabase/migrations/20260908221806_temporary_poke_conversations.sql", import.meta.url), "utf8");
 const db = await PGlite.create();
 let assertions = 0;
@@ -19,35 +12,9 @@ async function denied(sql, code = "PT409", params = []) {
   assertions += 1;
 }
 try {
-  await db.exec(`
-    create role anon; create role authenticated; create role service_role;
-    create schema app_private;
-    create table public.profiles(id uuid primary key, deleted_at timestamptz, onboarding_completed boolean default true);
-    create table public.dm_threads(id uuid primary key, participant_1_id uuid, participant_2_id uuid);
-    create table public.dm_thread_members(thread_id uuid, user_id uuid);
-    create table public.user_blocks(blocker_id uuid, blocked_id uuid);
-    create table public.friendships(requester_id uuid, addressee_id uuid, status text);
-    create table public.pokes(id uuid primary key default gen_random_uuid(), thread_id uuid, status text, responded_at timestamptz);
-    create table public.dm_messages(id uuid primary key default gen_random_uuid(), thread_id uuid, sender_id uuid,
-      content text, message_type text default 'text', media_url text, media_thumbnail_url text, reply_to_id uuid,
-      is_deleted boolean default false, is_read boolean default false);
-    create table public.call_sessions(id uuid primary key default gen_random_uuid(), thread_id uuid, caller_id uuid, callee_id uuid, state text, expires_at timestamptz);
-    create function public.is_adult_social_admitted_v1(id uuid) returns boolean language sql as $$ select id <> '${blocked}'::uuid $$;
-    create function public.require_adult_social_admission_v1(id uuid) returns void language plpgsql as $$ begin
-      if not public.is_adult_social_admitted_v1(id) then raise exception 'Admission required' using errcode = '42501'; end if;
-    end $$;
-    create function public.can_users_interact_v1(a uuid,b uuid) returns boolean language sql as $$
-      select public.is_adult_social_admitted_v1(a) and public.is_adult_social_admitted_v1(b)
-        and (select count(*) from public.profiles where id in (a,b) and deleted_at is null) = 2;
-    $$;
-    insert into profiles(id) values('${actor}'),('${peer}'),('${outsider}'),('${blocked}');
-    insert into dm_threads values('${thread}','${actor}','${peer}'),('${legacy}','${actor}','${outsider}');
-    insert into dm_thread_members values('${thread}','${actor}'),('${thread}','${peer}');
-    insert into pokes(thread_id,status,responded_at) values('${thread}','accepted',now()-interval '25 hours');
-    insert into dm_messages(id,thread_id,sender_id,content) values('${message}','${thread}','${peer}','Retained history');
-    insert into call_sessions(id,thread_id,caller_id,callee_id,state,expires_at)
-      values('${call}','${thread}','${actor}','${peer}','invited',now()+interval '1 minute');
-  `);
+  await db.exec(lifecycleFixtureSql);
+  await db.exec(rpcFixtureSql);
+  await db.exec(rpcDefinitions);
   await db.exec(migration);
   const facts = (await db.query("select public.read_dm_conversation_facts_v1($1,$2) as value", [actor, thread])).rows[0].value;
   check(facts.friendship_accepted, false);
@@ -88,5 +55,62 @@ try {
   check((await db.query("select has_function_privilege('authenticated','public.read_dm_conversation_facts_v1(uuid,uuid)','execute') as allowed")).rows[0].allowed, false);
   check((await db.query("select has_function_privilege('anon','app_private.dm_conversation_expires_at_v1(uuid)','execute') as allowed")).rows[0].allowed, false);
   check((await db.query("select has_function_privilege('service_role','public.read_dm_conversation_facts_v1(uuid,uuid)','execute') as allowed")).rows[0].allowed, true);
+
+  // Exercise the actual message RPC, including its sequence allocation and outbox.
+  await db.query("update pokes set responded_at=now() where thread_id=$1", [thread]);
+  const clientId = "99999999-9999-4999-8999-999999999999";
+  const sendSql = "select public.send_message_transactional($1,$2,$3,$4) as result";
+  const sent = (await db.query(sendSql, [thread, actor, clientId, "Committed before expiry"])).rows[0].result;
+  check(sent.deduplicated, false);
+  check(sent.message.content, "Committed before expiry");
+  await db.query("update pokes set responded_at=now()-interval '24 hours' where thread_id=$1", [thread]);
+  const replay = (await db.query(sendSql, [thread, actor, clientId, "Committed before expiry"])).rows[0].result;
+  check(replay.deduplicated, true);
+  check(replay.message.id, sent.message.id);
+  await denied(sendSql, "PT409", [thread, actor, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Expired new attempt"]);
+  check((await db.query("select next_message_sequence from dm_threads where id=$1", [thread])).rows[0].next_message_sequence, 1);
+  check((await db.query("select count(*)::int count from outbox_events where event_type='message.changed'")).rows[0].count, 1);
+  check((await db.query(sendSql, [thread, actor, clientId, "Changed payload"])).rows[0].result.error, "IDEMPOTENCY_KEY_REUSED");
+
+  // New call requests use the actual production begin RPC and its partial index.
+  await db.query("update call_sessions set state='ended'");
+  await db.query("update pokes set responded_at=now() where thread_id=$1", [thread]);
+  const newCall = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const command = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const beginSql = "select public.begin_call_session($1,$2,$3,$4,$5) as result";
+  const started = (await db.query(beginSql, [newCall, thread, actor, command, "a".repeat(64)])).rows[0].result;
+  check(started.replayed, false);
+
+  await db.query("update pokes set responded_at=now()-interval '24 hours' where thread_id=$1", [thread]);
+  const callReplay = (await db.query(beginSql, [newCall, thread, actor, command, "a".repeat(64)])).rows[0].result;
+  check(callReplay.replayed, true);
+  check(callReplay.capability, started.capability);
+  check((await db.query("select count(*)::int count from outbox_events where event_type='call.invite'")).rows[0].count, 1);
+  check((await db.query("select public.authorize_call_invite_delivery($1,$2,$3,$4) as allowed", [newCall, thread, actor, peer])).rows[0].allowed, false);
+  const advanceSql = "select public.advance_call_session($1,$2,$3,$4,$5,$6,$7) as result";
+  const cancelId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const cancelled = (await db.query(advanceSql, [newCall, thread, actor, started.capability, cancelId, "cancel", "b".repeat(64)])).rows[0].result;
+  check(cancelled.replayed, false);
+  check((await db.query("select state from call_sessions where id=$1", [newCall])).rows[0].state, "cancelled");
+  const cancelReplay = (await db.query(advanceSql, [newCall, thread, actor, started.capability, cancelId, "cancel", "b".repeat(64)])).rows[0].result;
+  check(cancelReplay.replayed, true);
+  await denied(advanceSql, "55000", [newCall, thread, peer, started.capability, "dddddddd-dddd-4ddd-8ddd-dddddddddddd", "accept", "c".repeat(64)]);
+  await denied(beginSql, "PT409", ["eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", thread, actor, "ffffffff-ffff-4fff-8fff-ffffffffffff", "d".repeat(64)]);
+
+  await db.query("update pokes set responded_at=now() where thread_id=$1", [thread]);
+  const editSql = "select public.mutate_dm_message_idempotent($1,$2,$3,$4,$5,$6,$7,$8,$9) as result";
+  const editArgs = [actor, thread, sent.message.id, "edit", "Edited before expiry", "dm_message:edit", "edit-before-expiry", "e".repeat(64), "fixture-request"];
+  const edited = (await db.query(editSql, editArgs)).rows[0].result;
+  check(edited.response_status, 200);
+  check(edited.replayed, false);
+  await db.query("update pokes set responded_at=now()-interval '24 hours' where thread_id=$1", [thread]);
+  const editReplay = (await db.query(editSql, editArgs)).rows[0].result;
+  check(editReplay.replayed, true);
+  check(editReplay.response_body, edited.response_body);
+  await denied(editSql, "PT409", [actor, thread, sent.message.id, "edit", "New expired edit", "dm_message:edit", "edit-after-expiry", "f".repeat(64), "fixture-request"]);
+  check((await db.query("select count(*)::int count from idempotency_records where key='edit-after-expiry'")).rows[0].count, 0);
+  const deleted = (await db.query(editSql, [actor, thread, sent.message.id, "delete", null, "dm_message:delete", "delete-after-expiry", "a".repeat(64), "fixture-request"])).rows[0].result;
+  check(deleted.response_status, 200);
+  check(deleted.response_body.message.is_deleted, true);
   console.log(`Temporary conversation database guards: ${assertions} assertions passed.`);
 } finally { await db.close(); }

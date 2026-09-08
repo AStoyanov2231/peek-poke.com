@@ -13,7 +13,7 @@ Generate only the ignored temporary Xcode project with `ruby test/native-ui/gene
 
 Select an isolated XcodeBuildMCP profile with that generated project, the `PeekPokePrivacyAuditUITests` scheme, the intended booted Simulator, and an isolated DerivedData path.
 
-Run XcodeBuildMCP `test_sim` with progress enabled.
+Run XcodeBuildMCP `test_sim` with progress enabled and select the intended test with `-only-testing`; the privacy and conversation journeys require different starting screens.
 
 The runner selects the opposite of the current Friends or Your Circles state, allows the fixture request to settle, rejects a visible Save error, then checks the selected state after closing and reopening Discovery visibility.
 
@@ -25,3 +25,16 @@ The reopened screenshot shows Friends selected, and a separate read-only fixture
 The test covers Simulator accessibility and fixture-backed persistence only.
 
 It does not prove physical-device behavior or production API behavior.
+
+## Temporary conversations
+
+`testExpiredConversationRetainsHistoryAndOffersNewPoke` uses only the loopback fixture at port 3002 and an already signed-in development app.
+Start from the Now screen or the synthetic expired conversation with Mila.
+The runner opens Inbox, accepts the fixture Poke when needed, and checks readable history, missing message/call controls, and new Poke opening/cancellation.
+It then renews the synthetic window for 25 seconds, types `Keep this draft`, waits for timer expiry, simulates unavailable access, and verifies that retry after renewal restores the draft and call action.
+It never taps Send or submits a Poke.
+Run only this method with `-only-testing:PeekPokePrivacyAuditUITests/PeekPokePrivacyAuditUITests/testExpiredConversationRetainsHistoryAndOffersNewPoke`.
+Use a fresh empty draft for repeat runs; the test deliberately preserves its final unsent text.
+The fixture state endpoint is not a production API.
+The final iOS run passed in 54.3 seconds, and a separate fixture counter read confirmed zero message sends.
+This is installed development-app evidence, not release signing, physical-device, or store-distribution proof.

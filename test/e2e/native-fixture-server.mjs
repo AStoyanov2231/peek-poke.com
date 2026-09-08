@@ -19,6 +19,9 @@ let planJoinRequests = 0;
 let inviteAcceptRequests = 0;
 let invitePreviewAvailable = true;
 let incomingPokeAccepted = false;
+let conversationMode = "legacy";
+let conversationExpiresAt = null;
+let messageSendRequests = 0;
 let planMeetupViewerConfirmed = false;
 let chatMeetupViewerConfirmed = false;
 let discoveryPreference = { audience: "everyone" };
@@ -195,6 +198,14 @@ createServer(async (req, res) => {
   }
   const method = req.method;
 
+  if (url.pathname === "/__test/conversation-state" && method === "POST") {
+    if (!["legacy", "active", "expired", "unavailable"].includes(body.mode)) return json(res, { error: "Invalid fixture mode" }, 400);
+    conversationMode = body.mode;
+    conversationExpiresAt = body.mode === "active" ? later(Number(body.duration_ms) || 86_400_000) : body.mode === "expired" ? later(-60_000) : null;
+    return json(res, { mode: conversationMode, expires_at: conversationExpiresAt });
+  }
+  if (url.pathname === "/__test/conversation-state" && method === "GET")
+    return json(res, { mode: conversationMode, message_send_requests: messageSendRequests });
   if (method === "POST" && /^\/api\/plans\/[^/]+\/join$/u.test(url.pathname)) planJoinRequests += 1;
   if (method === "POST" && /^\/api\/invites\/[^/]+$/u.test(url.pathname)) inviteAcceptRequests += 1;
   if (url.pathname === "/__test/invitation-state" && method === "GET")
@@ -419,7 +430,9 @@ createServer(async (req, res) => {
     });
   }
   if (url.pathname === `/api/dm/${threadId}/access`)
-    return json(res, { version: "v1", account_id: ownerId, thread_id: threadId, basis: "legacy", expires_at: null, server_now: now() });
+    return conversationMode === "unavailable"
+      ? json(res, { error: "Conversation access is temporarily unavailable", code: "CONVERSATION_ACCESS_UNAVAILABLE" }, 503)
+      : json(res, { version: "v1", account_id: ownerId, thread_id: threadId, basis: conversationMode === "legacy" ? "legacy" : "poke", expires_at: conversationExpiresAt, server_now: now() });
   if (url.pathname === `/api/dm/${threadId}/read`) return json(res, { success: true, last_read_sequence: 0 });
   if (url.pathname === `/api/dm/${threadId}/typing` && method === "POST")
     return json(res, { success: true });
@@ -436,6 +449,7 @@ createServer(async (req, res) => {
     return json(res, { source: "unavailable", venues: [] });
   if (url.pathname === `/api/dm/${threadId}`) {
     if (method === "POST") {
+      messageSendRequests += 1;
       return json(res, {
         message: {
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -457,7 +471,11 @@ createServer(async (req, res) => {
         },
       });
     }
-    return json(res, { thread: thread(), messages: [], pagination: page });
+    return json(res, { thread: thread(), messages: conversationMode === "legacy" ? [] : [{
+      id: "abababab-abab-4bab-8bab-abababababab", thread_id: threadId, sender_id: peerId,
+      content: "See you by the café.", message_type: "text", media_url: null, media_thumbnail_url: null,
+      is_read: true, is_edited: false, is_deleted: false, created_at: now(), reply_to_id: null, reply_to: null,
+    }], pagination: page });
   }
 
   if (url.pathname === "/api/meetups") {

@@ -17,7 +17,14 @@ The expired state offers the existing Poke composer; sending alone does not reop
 The browser regression first reproduced the missing expiry UI, then passed history retention, hidden composer/call controls, opening the new Poke dialog, timer expiry, access-service failure, draft recovery after renewal, and zero message sends.
 That journey exposed the global disabled focus-refresh default; this permission query now explicitly refreshes on web focus, while native refreshes on screen focus and foreground activation.
 Desktop/mobile visual inspection corrected missing size classes on the new Poke action, and the final screenshots are retained under `test-results/e2e/expired-chat-*.png`.
-The first SQL fixture failure was an unqualified table in its interaction helper under the migration's restricted search path; the corrected harness passes 23 assertions, including delayed-call authorization after renewal and denial after blocking.
+The SQL harness now passes 49 assertions using the exact deployed message-send, edit, call-start, and call-transition RPC bodies.
+Four PostgreSQL 17 concurrency cases observe real lock waits and verify expiry after waiting, same-key deduplication, renewed acceptance, and friendship removal without extra messages or outbox events.
+The real call-start RPC reproduced SQLSTATE 42P10 against the existing partial outbox index; the candidate migration adds the missing conflict predicate.
+The exact old call-start and delivery functions, owners, grants, absent-object inventory, and 183-entry history were captured before any production change.
+A separate private rollback package passes 25 assertions, and all eleven archived payloads verify against their hashes.
+The original twenty-migration archive remains unchanged; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) points to both packages and their reversal order.
+The full product-database suite initially reproduced a timezone-sensitive test failure after Sofia midnight while UTC was still on the previous day.
+The fixture now explicitly uses UTC for its UTC cohort assertions, and the complete product-database suite passes.
 The focused API/contract suite passes 106 tests, and the native hook passes six iOS/Android tests covering expiry, refreshed renewal, access failure, and account-switch isolation.
 The complete local suites pass 1,387 web tests, 531 native logic tests, 126 platform renderer tests, and fifteen browser journeys; ten hosted-only tests remain intentionally skipped outside their explicit runner.
 Accepted-Poke and friendship realtime recovery now invalidate account-scoped conversation access on both clients, keeping the database response authoritative rather than trusting event payloads.
@@ -25,7 +32,14 @@ The focused realtime transport rerun passes four tests.
 A fresh hosted read confirms authenticated users have only SELECT on messages, no direct call/Poke table writes, and no client write-column grants.
 The database has no existing accepted Pokes and remains at 183 migrations; the proposed migration has not been applied to production.
 React Doctor reports 92/100 with four chat-component complexity/state warnings and no errors; the scoped design detector reports no findings, and no new suppression was added.
-Real RPC replay/concurrency proof, the new guarded rollback layer, complete native runtime verification, and release gates still need completion before production activation.
+The installed iOS development app passes an XCUITest journey for retained history, missing message/call actions, new Poke opening/cancellation, timer expiry while typing, access failure, and restored draft after renewal.
+Android development-app inspection independently confirms the expired state, new Poke dialog/cancellation, unavailable access, and restored `Android draft` with call/send controls after retry.
+Screenshots were visually inspected and retained under `test-results/native/temporary-chat-android-*.png`; the iOS result bundle is recorded in the local native receipt.
+The shared synthetic fixture still reports zero message sends after both journeys.
+Android's production-release guard caught missing Google/Firebase provider configuration, so runtime checks used a development build without weakening release checks.
+Signed native distribution, physical-device acceptance, hosted verification, source CI, and production activation remain open.
+The new candidate migration has not changed the production database.
+Root lint, the complete product-database suite, both PostgreSQL concurrency suites, and diff whitespace checks pass for this follow-up.
 
 The next packaged Android check reproduced profile invitation links losing their token on cold launch while the same warm link reached Connect.
 The invitation entry route now survives session hydration, while a screen-level boundary withholds all preview reads and Connect until an adult account is resolved.

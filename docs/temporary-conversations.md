@@ -38,10 +38,17 @@ Calls that started within an active window may terminate normally after expiry, 
 
 ## Current verification
 
-The local SQL harness passes 23 assertions against the proposed migration.
+The local SQL harness passes 49 assertions against the proposed migration, including the exact deployed message, edit, call-start, and call-transition RPC bodies.
+A separate PostgreSQL 17 harness passes four real lock-wait cases covering expiry while waiting, concurrent idempotent message retries, accepted renewal while waiting, and friendship removal while waiting.
+The RPC harness reproduced a valid call failing with SQLSTATE 42P10 because its conflict clause omitted the existing partial-index predicate.
+The candidate migration now includes that narrow call-start correction, and the exact old function is preserved in the separate rollback layer.
 The shared/server/route checks pass 106 tests, including the exact shared-contract boundary, API denial, and exclusion of typing, provider, and call-broadcast side effects after expiry.
 The browser checks cover readable history, hidden new-interaction controls, the new Poke dialog, expiry while composing, access failure, refreshed renewal, retained text, and zero message sends.
 The native hook passes six platform tests for timer expiry, renewed access, failure with cached permission, and account-switch isolation.
-These checks do not establish actual database RPC replay/concurrency behavior or packaged native runtime acceptance.
+An installed iOS development-app XCUITest passes history retention, hidden message/call actions, new Poke opening/cancellation, expiry while typing, unavailable access, and draft recovery after renewal.
+Android development-app inspection separately verifies the expired state, new Poke dialog/cancellation, unavailable access, and recovered draft with interaction controls after retry.
+The shared fixture records zero message sends after both journeys.
+The separate guarded rollback package passes 25 assertions for exact restoration, drift refusal, atomic failure, preserved rows, and repeat refusal.
+These checks use synthetic local data and do not establish production-distributed native acceptance or a full hosted restore.
 Production remains unchanged at 183 migrations, with no accepted Pokes currently present.
 Release and operator prerequisites remain tracked in [PRODUCT_LAUNCH_BLOCKERS.md](../PRODUCT_LAUNCH_BLOCKERS.md).

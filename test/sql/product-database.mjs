@@ -24,6 +24,8 @@ try {
   // This fixture contains only metadata verified from the hosted schema. It is
   // intentionally not a substitute for the legacy friendship/outbox baseline.
   await db.exec(`
+    -- Metric cohorts use UTC days; PGlite otherwise inherits the Mac's timezone.
+    SET TIME ZONE 'UTC';
     create role anon; create role authenticated; create role service_role;
     create schema app_private; create schema auth; create schema realtime;
     create table realtime.messages (id bigint primary key, topic text, extension text, private boolean);
@@ -492,7 +494,7 @@ try {
   const privateMetrics = await db.query("select * from public.product_private_activity_metrics(current_date,current_date)");
   const activationAfterAvailability = await db.query("select source, activated_at = $2::timestamptz unchanged from public.product_first_activations where user_id=$1::uuid", [ids.alex, activationBeforeAvailability.rows[0].activated_at]);
   assert(activationBeforeAvailability.rows[0].source === 'poke' && activationAfterAvailability.rows[0].unchanged === true, "Poke trigger must retain the original first activation when availability changes");
-  assert(privateMetrics.rows[0].first_activations === 1 && privateMetrics.rows[0].opportunities_2km === 2 && privateMetrics.rows[0].opportunities_10km === 4 && privateMetrics.rows[0].opportunities_25km === 12 && privateMetrics.rows[0].plan_confirmation_started_pairs === 3 && privateMetrics.rows[0].plan_to_mutual_confirmed === 3 && privateMetrics.rows[0].plan_conversion_attribution_available === true, "private activity metrics must retain first activation, daily maxima, and explicit Plan confirmation event counts");
+  assert(privateMetrics.rows[0].first_activations === 1 && privateMetrics.rows[0].opportunities_2km === 2 && privateMetrics.rows[0].opportunities_10km === 4 && privateMetrics.rows[0].opportunities_25km === 12 && privateMetrics.rows[0].plan_confirmation_started_pairs === 3 && privateMetrics.rows[0].plan_to_mutual_confirmed === 3 && privateMetrics.rows[0].plan_conversion_attribution_available === true, `private activity metrics must retain first activation, daily maxima, and explicit Plan confirmation event counts: ${JSON.stringify(privateMetrics.rows[0])}`);
   await db.query("insert into public.product_activity_days(user_id,activity_day,kind) values($1::uuid,current_date-32,'discovery')", [ids.casey]);
   await db.query("select public.purge_product_daily_activity_v1(31)");
   const expiredActivity = await db.query("select count(*)::int count from public.product_activity_days where activity_day < current_date-31");

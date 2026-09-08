@@ -166,3 +166,186 @@ begin
   );
 end;
 $function$;
+
+-- Match the existing partial call-invitation index when enqueueing a new call.
+CREATE OR REPLACE FUNCTION public.begin_call_session(p_call_id uuid, p_thread_id uuid, p_actor_id uuid, p_command_id uuid, p_payload_hash text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_thread public.dm_threads%rowtype;
+  v_session public.call_sessions%rowtype;
+  v_command public.call_signal_commands%rowtype;
+  v_callee_id uuid;
+  v_replayed boolean := false;
+BEGIN
+  perform public.require_adult_social_admission_v1(p_actor_id);
+  if p_call_id is null or p_thread_id is null or p_actor_id is null or p_command_id is null
+     or p_payload_hash is null or p_payload_hash !~ '^[0-9a-f]{64}$' then
+    raise exception 'Invalid call command' using errcode = '22023';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_call_id::text, 0)
+  );
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('call-thread:' || p_thread_id::text, 0)
+  );
+
+  select thread.* into v_thread
+  from public.dm_threads thread
+  where thread.id = p_thread_id
+    and p_actor_id in (thread.participant_1_id, thread.participant_2_id);
+  if not found then
+    raise exception 'Call thread not found' using errcode = '42501';
+  end if;
+
+  v_callee_id := case
+    when v_thread.participant_1_id = p_actor_id then v_thread.participant_2_id
+    else v_thread.participant_1_id
+  end;
+
+  if not public.can_users_interact_v1(p_actor_id, v_callee_id) then
+    raise exception 'Call is not allowed' using errcode = '42501';
+  end if;
+
+  -- Serialize overlapping calls by participant in a stable order. This makes
+  -- simultaneous cross-invites converge to one session instead of two rings.
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'call-user:' || case when p_actor_id::text < v_callee_id::text then p_actor_id::text else v_callee_id::text end,
+      0
+    )
+  );
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'call-user:' || case when p_actor_id::text < v_callee_id::text then v_callee_id::text else p_actor_id::text end,
+      0
+    )
+  );
+
+  -- Bound durable replay state without a table-wide cron dependency. Each new
+  -- invite removes a small SKIP LOCKED batch that is safely outside the replay
+  -- and reconnect window; command rows cascade with their session.
+  with expired as (
+    select session.id
+    from public.call_sessions session
+    where (
+      session.state in ('rejected', 'cancelled', 'ended')
+      and session.updated_at < now() - interval '1 hour'
+    ) or (
+      session.state in ('invited', 'accepted', 'negotiating', 'connected')
+      and session.expires_at < now() - interval '1 hour'
+    )
+    order by session.updated_at asc
+    limit 100
+    for update skip locked
+  )
+  delete from public.call_sessions session
+  using expired
+  where session.id = expired.id;
+
+  if exists (
+    select 1 from public.profiles profile
+    where profile.id in (p_actor_id, v_callee_id)
+      and (profile.deleted_at is not null or profile.onboarding_completed is not true)
+  ) or (
+    select count(*) from public.profiles profile
+    where profile.id in (p_actor_id, v_callee_id)
+  ) <> 2 or exists (
+    select 1 from public.user_blocks block
+    where (block.blocker_id = p_actor_id and block.blocked_id = v_callee_id)
+       or (block.blocker_id = v_callee_id and block.blocked_id = p_actor_id)
+  ) then
+    raise exception 'Call is not allowed' using errcode = '42501';
+  end if;
+
+  if (
+    select pg_catalog.count(*)
+    from public.dm_thread_members member
+    where member.thread_id = p_thread_id
+      and member.user_id in (p_actor_id, v_callee_id)
+  ) <> 2 then
+    raise exception 'Call thread membership is incomplete' using errcode = '42501';
+  end if;
+
+  select session.* into v_session
+  from public.call_sessions session
+  where session.id = p_call_id
+  for update;
+
+  if found then
+    if v_session.thread_id <> p_thread_id or v_session.caller_id <> p_actor_id
+       or v_session.callee_id <> v_callee_id then
+      raise exception 'Call identifier is already owned' using errcode = '23505';
+    end if;
+    select command.* into v_command
+    from public.call_signal_commands command
+    where command.call_id = p_call_id and command.command_id = p_command_id;
+    if not found or v_command.event_type <> 'invite'
+       or v_command.sender_id <> p_actor_id or v_command.payload_hash <> p_payload_hash then
+      raise exception 'Call command identifier was reused' using errcode = '23505';
+    end if;
+    if v_command.expires_at <= now() then
+      raise exception 'Call command expired' using errcode = '57014';
+    end if;
+    v_replayed := true;
+  else
+    if exists (
+      select 1
+      from public.call_sessions active
+      where active.id <> p_call_id
+        and active.state in ('invited', 'accepted', 'negotiating', 'connected')
+        and active.expires_at > now()
+        and (
+          p_actor_id in (active.caller_id, active.callee_id)
+          or v_callee_id in (active.caller_id, active.callee_id)
+        )
+    ) then
+      raise exception 'A participant is already in a call' using errcode = '55000';
+    end if;
+
+    insert into public.call_sessions (
+      id, thread_id, caller_id, callee_id, state, last_sequence, expires_at
+    ) values (
+      p_call_id, p_thread_id, p_actor_id, v_callee_id, 'invited', 1,
+      now() + interval '30 seconds'
+    ) returning * into v_session;
+
+    insert into public.call_signal_commands (
+      call_id, command_id, sender_id, recipient_id, event_type,
+      payload_hash, sequence, expires_at
+    ) values (
+      p_call_id, p_command_id, p_actor_id, v_callee_id, 'invite',
+      p_payload_hash, 1, v_session.expires_at
+    ) returning * into v_command;
+
+    insert into public.outbox_events (
+      event_type, aggregate_type, aggregate_id, payload
+    ) values (
+      'call.invite', 'call', p_call_id,
+      pg_catalog.jsonb_build_object(
+        'recipient_id', v_callee_id,
+        'sender_id', p_actor_id,
+        'thread_id', p_thread_id,
+        'call_id', p_call_id
+      )
+    ) on conflict (event_type, aggregate_id) where event_type = 'call.invite' do nothing;
+  end if;
+
+  return pg_catalog.jsonb_build_object(
+    'call_id', v_session.id,
+    'thread_id', v_session.thread_id,
+    'capability', v_session.capability,
+    'sender_id', v_session.caller_id,
+    'recipient_id', v_session.callee_id,
+    'sequence', v_command.sequence,
+    'issued_at', v_command.created_at,
+    'expires_at', v_command.expires_at,
+    'replayed', v_replayed
+  );
+end;
+$function$
+;
