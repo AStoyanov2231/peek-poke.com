@@ -7,6 +7,10 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
+The latest verified source checkpoint is `bac1ce63c` on `product-redesign`.
+Publishing for CI is paused because automatic approval review rejected `git push origin product-redesign`, requiring explicit authorization to export repository contents to the configured GitHub destination `AStoyanov2231/peek-poke.com`.
+The remote URL was verified, the push did not occur, and production remains unchanged.
+The synthetic API, auth fixture, Metro process, test app, and task-started Android emulator were stopped after verification; the pre-existing iOS Simulator remains available.
 Expo login is verified as `andy2231`, and EAS created and linked `@andy2231/peek-poke`, project ID `e0631d17-11c0-47e9-a4fe-d577f0e6e06e`.
 Project creation did not start a build or submission; release signing, distribution, and physical-device verification remain open.
 Temporary Poke conversations are in local implementation using a working default of 24 hours after the latest acceptance, with readable history preserved.
