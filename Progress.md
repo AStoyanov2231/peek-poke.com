@@ -7,12 +7,12 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
-The release-hardening source checkpoint is `b3dc487e3` on `product-redesign`, published in [PR #17](https://github.com/AStoyanov2231/peek-poke.com/pull/17).
+The release-hardening source checkpoint is `3347a5315` on `product-redesign`, published in [PR #17](https://github.com/AStoyanov2231/peek-poke.com/pull/17).
 A read-only Expo follow-up found no project or account environment variables in production, preview, or development, and no cloud builds.
 Actual Expo config evaluation reproduced development builds accepting production services; the guard now rejects production API or Supabase origins for both development and preview while allowing isolated services.
 The complete native logic suite passes 535 tests, including ten release-environment tests; native typecheck and root lint also pass.
 The PostgreSQL concurrency harness now uses a short cross-platform `/tmp` socket path, and both real concurrency suites pass after that change.
-The existing SQL CI gate now installs PostgreSQL 17 and runs those suites; hosted CI remains pending the publication permission below.
+The existing SQL CI gate now installs PostgreSQL 17 and runs those suites; the corresponding hosted CI gate now passes.
 The workflow YAML parses successfully, and [product operations](docs/product-operations.md) records the verified EAS configuration gaps and required next release evidence.
 The publication gate was resolved by recovering the earlier explicit user approval for this branch and verifying the configured repository is public.
 Automatic review accepted that evidence, the branch was pushed, and draft PR #17 was created.
@@ -21,16 +21,26 @@ The workflow now installs the official signing key and explicitly configures the
 All eight CI checks passed on `8c1203735`, including the actual PostgreSQL 17 concurrency suites on Linux.
 The next browser flow reproduced an already-open Plan composer unmounting and losing its draft when the conversation expired.
 Web and native now keep that independent composer mounted, with account/thread keys resetting its data on identity changes.
-The new browser regression passes in 6.4 seconds, and the installed iOS Plan-draft XCUITest passes in 25.9 seconds.
+The new browser regression passes in 6.4 seconds.
+Screenshot inspection exposed that the initial iOS draft-retention test did not prove cancellation: its Cancel tap left the modal open behind the keyboard.
+The native composer now avoids the keyboard on iOS and dismisses it on scroll.
+Android retains its native modal resizing; adding a second height adjustment reproduced clipped actions and was removed.
+The strengthened iOS XCUITest verifies exact title retention, scrolls to the actions, and asserts the modal disappears after Cancel; it passes in 30.3 seconds.
+Fresh screenshots under `test-results/native/plan-keyboard-ios/` show the retained title, accessible actions, and closed modal.
+The corrected Android bundle separately retains `Picnic` through expiry and closes after Cancel, with history visible and send/call controls absent.
+Android verification covered the emulator hardware/floating input method, not physical-device docked keyboards.
+Native typecheck and native lint pass.
 Creating a Plan does not enroll or message the conversation peer; the hosted journey now verifies owner-only membership after expiry.
-These follow-up changes still require the matching CI rerun.
-React Doctor reports 91/100 with five warnings and no errors: three existing chat-complexity warnings, related-state guidance, and a small environment-validation array-chain warning.
+All eight CI checks passed on `3347a5315`; the subsequent native keyboard fix still requires its matching CI run.
+React Doctor reports 91/100 with six warnings and no errors: four existing component-complexity warnings including the newly scanned Plan form, related-state guidance, and a small environment-validation array-chain warning.
 No detector suppression was added.
 The hosted product suite now includes a dedicated temporary-conversation journey with synthetic accounts, actual accepted renewal, message replay/denial, call replay/cancellation/delayed-delivery denial, readable history, friendship, and block precedence.
 Its call, message, outbox, and user cleanup is explicitly scoped; this new hosted journey is not yet executed, and remains skipped without authorized integration configuration.
 Production still has 183 migrations, 50 profiles, 11 Auth users, and 96 Storage objects.
 A fresh read exactly matches all saved original function definitions, owners, ACLs, migration history, and absent new objects; the candidate SQL hash still matches the sealed rollback package.
-The synthetic API, auth fixture, Metro process, test app, and task-started Android emulator were stopped after verification; the pre-existing iOS Simulator remains available.
+The final native fixture receipt records zero message sends.
+Synthetic API, auth, Metro, test apps, and the task-started Android emulator were stopped; the pre-existing iOS Simulator remains available.
+The Android keyboard setting was restored to its original value.
 Expo login is verified as `andy2231`, and EAS created and linked `@andy2231/peek-poke`, project ID `e0631d17-11c0-47e9-a4fe-d577f0e6e06e`.
 Project creation did not start a build or submission; release signing, distribution, and physical-device verification remain open.
 Temporary Poke conversations are in local implementation using a working default of 24 hours after the latest acceptance, with readable history preserved.

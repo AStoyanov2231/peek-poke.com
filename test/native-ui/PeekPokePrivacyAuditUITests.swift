@@ -79,7 +79,9 @@ final class PeekPokePrivacyAuditUITests: XCTestCase {
         app.buttons["I'm in"].tap()
       } else {
         requireButton("Chats").tap()
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Mila,")).firstMatch.tap()
+        let conversation = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Mila, Now, Coffee after work?")).firstMatch
+        XCTAssertTrue(conversation.waitForExistence(timeout: 8))
+        conversation.tap()
       }
     }
     XCTAssertTrue(app.staticTexts["This Poke conversation has ended."].waitForExistence(timeout: 15), app.debugDescription)
@@ -119,6 +121,11 @@ final class PeekPokePrivacyAuditUITests: XCTestCase {
   func testConversationExpiryPreservesOpenPlanDraft() {
     setConversationMode("active")
     foregroundConversation()
+    if app.textFields["Title (optional)"].exists {
+      app.descendants(matching: .any)["plan-composer-scroll"].swipeUp()
+      requireButton("Cancel").tap()
+      XCTAssertTrue(app.textFields["Title (optional)"].waitForNonExistence(timeout: 5))
+    }
     let server = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "http://127.0.0.1:8081")).firstMatch
     if server.waitForExistence(timeout: 3) { server.tap() }
     if !app.buttons["Turn this into a plan"].exists {
@@ -127,14 +134,20 @@ final class PeekPokePrivacyAuditUITests: XCTestCase {
         app.buttons["I'm in"].tap()
       } else {
         requireButton("Chats").tap()
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Mila,")).firstMatch.tap()
+        let conversation = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Mila, Now, Coffee after work?")).firstMatch
+        XCTAssertTrue(conversation.waitForExistence(timeout: 8))
+        conversation.tap()
       }
     }
     requireButton("Turn this into a plan", timeout: 15).tap()
     let title = app.textFields["Title (optional)"]
     XCTAssertTrue(title.waitForExistence(timeout: 8), app.debugDescription)
     title.tap()
-    title.typeText("Picnic")
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+    for character in "Picnic" {
+      title.typeText(String(character))
+      RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+    }
     XCTAssertEqual(title.value as? String, "Picnic")
     setConversationMode("active", durationMs: 4_000)
     foregroundConversation()
@@ -142,10 +155,14 @@ final class PeekPokePrivacyAuditUITests: XCTestCase {
     RunLoop.current.run(until: Date().addingTimeInterval(6))
     XCTAssertEqual(title.value as? String, "Picnic", app.debugDescription)
     attachScreenshot("conversation-expired-plan-draft")
+    app.descendants(matching: .any)["plan-composer-scroll"].swipeUp()
+    attachScreenshot("conversation-plan-actions")
     requireButton("Cancel").tap()
+    XCTAssertTrue(app.textFields["Title (optional)"].waitForNonExistence(timeout: 5), "Plan composer did not close after Cancel")
     XCTAssertTrue(app.staticTexts["This Poke conversation has ended."].waitForExistence(timeout: 8), app.debugDescription)
     XCTAssertFalse(app.buttons["Send message"].exists)
     XCTAssertFalse(app.buttons["Start video call"].exists)
+    attachScreenshot("conversation-plan-cancelled")
   }
 
   func testDiscoveryVisibilitySelectionPersistsAfterCloseAndReopen() {

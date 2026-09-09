@@ -1,7 +1,7 @@
 import { randomUUID } from "expo-crypto";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { PlanCreateRequest } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, spacing } from "@peekpoke/design";
 import { createPlan } from "@/data/plans";
@@ -51,9 +51,10 @@ function PlanComposerForm({ onClose, sourceThreadId, initialPlaceText, onCreated
       setError(cause instanceof Error ? cause.message : "Couldn’t create this Plan. Please try again.");
     } finally { setPreparing(false); }
   };
-  return <Modal transparent animationType="slide" visible onRequestClose={close}><View style={s.root} accessibilityViewIsModal>
+  // Android's modal already resizes for the keyboard; a second height adjustment clips its actions.
+  return <Modal transparent animationType="slide" visible onRequestClose={close}><KeyboardAvoidingView style={s.root} behavior="padding" enabled={Platform.OS === "ios"} accessibilityViewIsModal>
     <Pressable accessibilityLabel="Close plan composer" onPress={close} disabled={busy} style={s.backdrop} />
-    <ScrollView style={s.scroll} contentContainerStyle={s.sheet} keyboardShouldPersistTaps="handled">
+    <ScrollView testID="plan-composer-scroll" style={s.scroll} contentContainerStyle={s.sheet} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <Text accessibilityRole="header" style={s.title}>Make a plan</Text>
       <Text style={s.help}>{sourceThreadId ? "Give this conversation a clear time and place." : "Choose the details before you invite anyone."}</Text>
       <Field label="Activity" value={draft.activity} onChangeText={(activity) => setDraft({ ...draft, activity })} placeholder="Coffee, walk, dinner" editable={!locked} maxLength={80} />
@@ -75,7 +76,7 @@ function PlanComposerForm({ onClose, sourceThreadId, initialPlaceText, onCreated
       <Pressable accessibilityRole="button" disabled={busy} onPress={() => void submit()} style={[s.primary, busy && s.disabled]}>{busy ? <ActivityIndicator color={colors.surface} /> : <Text style={s.primaryText}>{hasAttempt ? "Retry creating plan" : "Create plan"}</Text>}</Pressable>
       <Pressable accessibilityRole="button" disabled={busy} onPress={close} style={s.cancel}><Text style={s.choiceText}>Cancel</Text></Pressable>
     </ScrollView>
-  </View></Modal>;
+  </KeyboardAvoidingView></Modal>;
 }
 
 function Field({ label, ...props }: { label: string } & React.ComponentProps<typeof TextInput>) {

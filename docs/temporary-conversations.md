@@ -50,6 +50,11 @@ The native hook passes six platform tests for timer expiry, renewed access, fail
 An installed iOS development-app XCUITest passes history retention, hidden message/call actions, new Poke opening/cancellation, expiry while typing, unavailable access, and draft recovery after renewal.
 Android development-app inspection separately verifies the expired state, new Poke dialog/cancellation, unavailable access, and recovered draft with interaction controls after retry.
 The shared fixture records zero message sends after both journeys.
+A separate browser regression proves an already-open independent Plan retains its draft after chat expiry.
+The strengthened iOS Plan journey checks exact title retention and actual modal disappearance after scrolling and Cancel; it passes in 30.3 seconds.
+Android verifies the corrected bundle retains the same title through expiry and closes after Cancel, returning to read-only history.
+The Plan uses keyboard padding on iOS and native modal resizing on Android; adding a second Android height adjustment reproduced clipping and was removed.
+Physical-device docked-keyboard acceptance remains open.
 The separate guarded rollback package passes 25 assertions for exact restoration, drift refusal, atomic failure, preserved rows, and repeat refusal.
 These checks use synthetic local data and do not establish production-distributed native acceptance or a full hosted restore.
 Production remains unchanged at 183 migrations, with no accepted Pokes currently present.
