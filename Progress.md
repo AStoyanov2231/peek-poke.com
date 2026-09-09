@@ -21,8 +21,14 @@ The hosted regression verifies an actual reply preview alongside expiry, replay,
 Seventy-one focused mapping/message tests and scoped lint pass; the exact enum fixture passes 49 SQL assertions and four real PostgreSQL concurrency cases.
 Hosted cleanup returns to 50 profiles, 11 Auth users, 96 Storage objects, no accepted Pokes, and no queued events.
 The isolated hosted server stopped after its runner completed.
-The source and documentation follow-up still needs its matching CI run and web release.
-The web release remains on master `d3e452101178c9a36d51e78c30a4414d05573ae5`; PR #17 is still a draft and not merged.
+All eight final PR checks passed on `fe8e5b3bb`, and all four master checks passed on merge `7063739cd1cd84fedad5ec8d32d1a7a2651be23f`.
+PR #17 is merged and Vercel deployment `dpl_FAtCZYybBqmEPcCT7bWtCmad2sS2` is Ready on both production domains without alias errors.
+The same two synthetic product journeys pass through `https://www.peek-poke.com` in 30.0 seconds.
+Final deployed cleanup again confirms 50 profiles, 11 Auth users, 96 Storage objects, 184 migrations, no accepted Pokes, and no queued events.
+The private release receipt is `.supabase-backups/deployment-20260909/temporary-chat-release.json`.
+All task fixture processes are stopped, and the Xcode default profile is restored.
+The full production-readiness goal remains open for signed native distribution, physical-device/provider acceptance, isolated environments, external monitoring, support/privacy operations, full hosted recovery, trusted rewards, and paid-benefit readiness.
+The active product-redesign branch includes the master merge; earlier checkpoints below are historical.
 
 ## Earlier continuation checkpoints
 

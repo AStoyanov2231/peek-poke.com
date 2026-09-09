@@ -1,6 +1,8 @@
 # Temporary Poke conversations
 
-Database enforcement deployed as migration `20260909002222`; the matching web PR remains in release verification.
+Database enforcement is deployed as migration `20260909002222`.
+The matching web release is master `7063739cd1cd84fedad5ec8d32d1a7a2651be23f`, deployed to both production domains.
+Both scoped product journeys also pass against the public site in 30.0 seconds, with final cleanup restoring the baseline counts.
 The working duration is 24 hours after the latest accepted Poke.
 This resolves the brief's temporary-conversation requirement without deleting readable history.
 

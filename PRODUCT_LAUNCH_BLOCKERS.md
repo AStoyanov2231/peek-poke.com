@@ -38,7 +38,7 @@
 - [x] Reproduce and repair hosted age-release regressions, close retired chat RPC access, and seal the eighteen-migration rollback.
 - [x] Verify the native pending birth-date, review-before-submit, and blocked age-admission recovery screens in the Simulator.
 - [ ] Choose and operate a support/privacy contact; the user has not selected an address.
-- [ ] Complete and release the temporary-chat lifecycle, currently in local implementation using a working default of 24 hours after the latest accepted Poke, with history and drafts preserved; the duration is not user-confirmed.
+- [ ] Release the matching signed native temporary-chat lifecycle; database and web enforcement are deployed through PR #17 and pass both public-site journeys, while installed development apps pass draft/expiry checks; the working 24-hour duration is not user-confirmed.
 - [ ] Rehearse backups/PITR, restore, provider outages, load limits, canary release, and rollback using the existing production-baseline checklist.
 - [ ] Before enabling meetup coin rewards, select and implement trusted-presence verification with server challenges, assertion validation, replay protection, and atomic award consumption; device/app integrity alone does not verify GPS proximity.
 - [ ] Prove the selected reward mechanism on two physical devices, including freshness, replay rejection, blocks, distant participants, and concurrent awards.
