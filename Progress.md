@@ -7,6 +7,16 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
+The latest product audit found Plan participant names were inert on both clients, leaving no direct route from a meetup to a person's profile and its connection/safety actions.
+A real browser fixture first reproduced the missing participant link.
+The Going list now opens participant profiles on web and native, with visible chevrons, accessible link labels, and a direct route to the viewer's own profile.
+The browser journey verifies mobile navigation, visible Report and Block controls without submitting either action, return to the Plan, desktop keyboard activation, and a visible focus outline.
+Both that journey and the adjacent explicit meetup-confirmation/retry journey pass; phone and desktop screenshots are inspected under `test-results/e2e/plan-participant-*.png`.
+All six new iOS/Android participant press tests pass; the other 126 existing native renderer tests passed in the preceding run.
+Native typecheck and scoped web/native lint pass, and the scoped Impeccable detector reports no findings.
+React Doctor reports 86/100 over the current changed-file set, with four warnings: existing Plan-screen complexity on both clients, the bounded native member list, and the release guard's array iteration.
+All four are reproduced against the same files from the preceding commit in an isolated source copy; the score uses a different file set from earlier checkpoints and is not a comparable whole-project score.
+No detector suppression was added.
 The latest continuation reproduced production Expo configuration accepting a Firebase file registered to an unrelated Android application.
 The build guard now validates Android client selection, project/app consistency, and required client keys, rejects misplaced service-account credentials, and keeps parser errors free of file contents.
 The actual Expo config command rejects the original wrong-package fixture and accepts the matching fixture after the fix.

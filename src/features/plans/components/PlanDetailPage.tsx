@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
+  ChevronRight,
   Check,
   Copy,
   MapPin,
@@ -38,6 +40,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlanMeetupAcknowledgements } from "@/features/plans/components/PlanMeetupAcknowledgements";
 import { hasPlanStarted } from "@/data/plan-detail-time";
+import { useAuth } from "@/features/auth/useAuth";
 
 function localDate(value: string) {
   return new Date(
@@ -48,6 +51,7 @@ function localDate(value: string) {
 }
 
 export function PlanDetailPage({ planId }: { planId: string }) {
+  const { user } = useAuth();
   const router = useTransitionRouter();
   const queryClient = useQueryClient();
   const query = useQuery(planQueryOptions(planId));
@@ -309,7 +313,12 @@ export function PlanDetailPage({ planId }: { planId: string }) {
           {members.map((member) => {
             const name = member.display_name ?? "Peek & Poke member";
             return (
-              <div key={member.user_id} className="flex items-center gap-3">
+              <Link
+                key={member.user_id}
+                href={member.user_id === user?.id ? "/profile" : `/profile/${member.user_id}`}
+                aria-label={`View ${name}'s profile`}
+                className="flex min-h-12 items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-ink-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              >
                 <Avatar className="h-9 w-9">
                   <AvatarImage
                     src={member.avatar_url ?? undefined}
@@ -317,13 +326,14 @@ export function PlanDetailPage({ planId }: { planId: string }) {
                   />
                   <AvatarFallback name={name} />
                 </Avatar>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="t-callout text-ink-8">{name}</p>
                   <p className="t-caption muted">
                     {member.role === "owner" ? "Hosting" : "Going"}
                   </p>
                 </div>
-              </div>
+                <ChevronRight size={18} className="shrink-0 text-ink-5" aria-hidden="true" />
+              </Link>
             );
           })}
         </div>

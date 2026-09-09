@@ -202,6 +202,34 @@ test.describe("redesigned social journey", () => {
     expect(fixture.planMeetupPosts[0]).toBe(fixture.planMeetupPosts[1]);
     await page.screenshot({ path: "test-results/e2e/plan-confirmed-desktop.png", fullPage: true });
   });
+  test("Plan participants lead to profile connection and safety controls", async ({ page }) => {
+    const fixture = await installSocialFixture(page, { planMeetup: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/login?redirectTo=/plans/${planId}`);
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === `/plans/${planId}`);
+    const participant = page.getByRole("link", { name: "View Mila's profile", exact: true });
+    await expect(participant).toBeVisible();
+    await page.screenshot({ path: "test-results/e2e/plan-participant-mobile.png", fullPage: true });
+    await participant.click();
+    await page.waitForURL((url) => url.pathname === `/profile/${peerId}`);
+    await expect(page.getByRole("button", { name: "Report", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Block", exact: true })).toBeVisible();
+    expect(fixture.apiRequests.filter((request) => request.method !== "GET" &&
+      (request.path.includes("/report") || request.path.includes("/block")))).toHaveLength(0);
+    await page.goBack();
+    await expect(participant).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.keyboard.press("Tab");
+    await participant.focus();
+    await expect(participant).toBeFocused();
+    await expect(participant).toHaveCSS("outline-style", "solid");
+    await page.screenshot({ path: "test-results/e2e/plan-participant-desktop.png", fullPage: true });
+    await page.keyboard.press("Enter");
+    await page.waitForURL((url) => url.pathname === `/profile/${peerId}`);
+  });
   test("Map and profile carry current intent into a Poke", async ({ page, context }) => {
     await page.addInitScript(() => {
       // Chromium's synthetic sensor streams watchPosition but never fulfils a
