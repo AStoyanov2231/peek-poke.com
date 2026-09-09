@@ -18,7 +18,8 @@ export const lifecycleFixtureSql = `
     create table public.dm_thread_members(thread_id uuid, user_id uuid);
     create table public.user_blocks(blocker_id uuid, blocked_id uuid);
     create table public.friendships(requester_id uuid, addressee_id uuid, status text);
-    create table public.pokes(id uuid primary key default gen_random_uuid(), thread_id uuid, status text, responded_at timestamptz);
+    create type public.poke_status as enum ('pending','accepted','later','declined','expired');
+    create table public.pokes(id uuid primary key default gen_random_uuid(), thread_id uuid, status public.poke_status, responded_at timestamptz);
     create table public.dm_messages(id uuid primary key default gen_random_uuid(), thread_id uuid, sender_id uuid,
       content text, message_type text default 'text', media_url text, media_thumbnail_url text, reply_to_id uuid,
       is_deleted boolean default false, is_read boolean default false);

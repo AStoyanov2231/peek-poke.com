@@ -1,6 +1,6 @@
 # Temporary Poke conversations
 
-Implementation in progress, not activated in production.
+Database enforcement deployed as migration `20260909002222`; the matching web PR remains in release verification.
 The working duration is 24 hours after the latest accepted Poke.
 This resolves the brief's temporary-conversation requirement without deleting readable history.
 
@@ -57,5 +57,11 @@ The Plan uses keyboard padding on iOS and native modal resizing on Android; addi
 Physical-device docked-keyboard acceptance remains open.
 The separate guarded rollback package passes 25 assertions for exact restoration, drift refusal, atomic failure, preserved rows, and repeat refusal.
 These checks use synthetic local data and do not establish production-distributed native acceptance or a full hosted restore.
-Production remains unchanged at 183 migrations, with no accepted Pokes currently present.
+The pre-deployment baseline had 183 migrations and no accepted Pokes.
+The deployed state has 184 migration entries; exact live definitions and grants match the corrected enum-backed rollback manifest.
 Release and operator prerequisites remain tracked in [PRODUCT_LAUNCH_BLOCKERS.md](../PRODUCT_LAUNCH_BLOCKERS.md).
+
+The scoped hosted product file now passes both journeys in 36.8 seconds against the deployed migration.
+The new journey verifies real reply previews, retained history, expired send and call denial, committed operation replay, call cancellation, accepted renewal, independent owner-only Plans, friendship, and blocking.
+It reproduced and repaired a history query selecting a nonexistent `reply_to` column; replies now use a bounded same-thread lookup without relying on the unavailable PostgREST self-relationship cache.
+Synthetic cleanup returns profile, Auth, and Storage counts to 50, 11, and 96, with no accepted Pokes or queued outbox events.

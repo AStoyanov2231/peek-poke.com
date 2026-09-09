@@ -1,16 +1,20 @@
 # Supabase rollback instructions
 
-## Prepared temporary-conversation layer
+## Deployed temporary-conversation layer
 
-The next migration has not been applied to production.
-Its exact old function definitions, owners, grants, absent-object inventory, and 183-entry migration history are saved in `.supabase-backups/temporary-chat-20260909/`.
-Start with that folder's `README.md` for the guarded reversal and required confirmation settings.
-The separate sealed archive is `.supabase-backups/MyaouDB-temporary-chat-rollback-candidate-20260909.tar.gz`, with its `.sha256` sidecar.
-SHA-256: `670c46b7f5e61af5873cab7af565dbcaf55718b95a37d57bea92355766bc77c0`.
-All eleven payload hashes passed archive verification, and twenty-five local rollback assertions passed.
-The package restores the exact old call-start and delayed-delivery functions, removes the newly added conversation objects, and preserves message, call, Poke, and Plan rows.
-If this migration is later deployed, save its actual deployed version separately and reverse this layer before using the twenty-migration package below.
-This candidate package does not authorize or claim a completed production migration or a full hosted restore.
+Migration `temporary_poke_conversations` was applied as `20260909002222`, taking MyaouDB from 183 to 184 migration entries.
+The exact old function definitions, owners, grants, absent-object inventory, and 183-entry history were saved before deployment.
+Use `.supabase-backups/temporary-chat-deployed-20260909/README.md` and its guarded `rollback.sql` to reverse this layer first.
+The sealed archive is `.supabase-backups/MyaouDB-temporary-chat-deployed-rollback-20260909.tar.gz`, with its `.sha256` sidecar.
+SHA-256: `1258b1856acc708c391e995bd920c8079d3bc33e85332d59631730b3903b90a6`.
+All twelve payloads are hashed, and twenty-five local rollback assertions pass using the exact hosted `poke_status` enum.
+The six deployed function definitions, owners, grants, two triggers, and index match this package's manifest exactly.
+The package restores the old call-start and delayed-delivery functions, removes the added conversation objects, and preserves message, call, Poke, and Plan rows.
+The exact deployed version and object receipt are included; this is not a full hosted restore.
+
+The earlier candidate archive remains unchanged with SHA-256 `670c46b7f5e61af5873cab7af565dbcaf55718b95a37d57bea92355766bc77c0`.
+It is superseded for rollback because its minimal rehearsal used a text status column, making its strict index guard refuse the live enum-backed index.
+Use the deployed package above, then the unchanged twenty-migration package below if returning further back.
 
 ## Deployed twenty-migration package
 

@@ -539,9 +539,9 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     async function acceptNewPoke() {
       const sent = await api(alice, "/api/pokes", {
         method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomUUID() },
-        body: JSON.stringify({ recipientId: bob.id, activity: "coffee", note: "Synthetic conversation-window check" }),
+        body: JSON.stringify({ recipientId: bob.id, activity: "coffee", customLabel: null, note: "Synthetic conversation-window check" }),
       });
-      expect(sent.status).toBe(201);
+      expect(sent.status).toBe(200);
       const payload = await sent.json();
       pokeIds.push(payload.poke.id);
       const accepted = await api(bob, `/api/pokes/${payload.poke.id}`, {
@@ -571,6 +571,13 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     const sent = await send(clientId);
     expect(sent.status).toBe(200);
     const original = await sent.json();
+    const replyId = randomUUID();
+    const replyResponse = await api(bob, path, {
+      method: "POST", headers: { "content-type": "application/json", "idempotency-key": replyId },
+      body: JSON.stringify({ client_id: replyId, content: "Reply to retained history", message_type: "text", reply_to_id: original.message.id }),
+    });
+    expect(replyResponse.status).toBe(200);
+    const reply = await replyResponse.json();
 
     // Start with the actual hosted RPC. Neither synthetic user has a push device.
     const callId = randomUUID();
@@ -616,10 +623,12 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
     expect((await deniedCall.json()).code).toBe("POKE_CONVERSATION_EXPIRED");
     const history = await api(alice, path);
     expect(history.status).toBe(200);
-    expect((await history.json()).messages.some((message: { id: string }) => message.id === original.message.id)).toBe(true);
+    const retained = await history.json();
+    expect(retained.messages.some((message: { id: string }) => message.id === original.message.id)).toBe(true);
+    expect(retained.messages.find((message: { id: string }) => message.id === reply.message.id)?.reply_to).toEqual({ id: original.message.id, sender_id: alice.id, content: "Retain this synthetic history" });
     const stored = await service.from("dm_messages").select("id").eq("thread_id", first.threadId).eq("message_type", "text");
     expect(stored.error).toBeNull();
-    expect(stored.data).toHaveLength(1);
+    expect(stored.data).toHaveLength(2);
 
     // A Plan is independently owned; the source thread is attribution only.
     const independent = await api(alice, "/api/plans", {

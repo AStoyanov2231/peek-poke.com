@@ -7,6 +7,26 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
+The temporary-conversation migration is now deployed as `20260909002222`, with 184 migration entries.
+All eight CI checks passed on `41a2a5fe5` before activation.
+The exact original functions, grants, and 183-entry history matched the saved preflight immediately before deployment.
+Live verification found the existing `poke_status` enum rendered the new index differently from the minimal text fixture.
+The fixture now uses the exact hosted enum, and a separate deployed rollback package matches all six functions, grants, two triggers, and index and passes 25 reversal assertions.
+The original candidate and twenty-migration archives remain unchanged; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) now identifies the correct deployed package and reversal order.
+Security advisors remain at the pre-existing thirteen service-table information notices and one leaked-password-protection warning, with no new notice.
+Both hosted product journeys now pass in 36.8 seconds after correcting the test request contract and repairing a real history-query defect.
+The deployed message table has `reply_to_id`, not a `reply_to` column; its self-relationship is also absent from the PostgREST cache.
+History now loads reply previews in one bounded lookup restricted to the same thread, hides deleted preview content, and retains the existing DTO.
+The hosted regression verifies an actual reply preview alongside expiry, replay, call cancellation, renewal, owner-only Plans, friendship, and block precedence.
+Seventy-one focused mapping/message tests and scoped lint pass; the exact enum fixture passes 49 SQL assertions and four real PostgreSQL concurrency cases.
+Hosted cleanup returns to 50 profiles, 11 Auth users, 96 Storage objects, no accepted Pokes, and no queued events.
+The isolated hosted server stopped after its runner completed.
+The source and documentation follow-up still needs its matching CI run and web release.
+The web release remains on master `d3e452101178c9a36d51e78c30a4414d05573ae5`; PR #17 is still a draft and not merged.
+
+## Earlier continuation checkpoints
+
+The goal remains active and incomplete.
 The release-hardening source checkpoint is `6420debfc` on `product-redesign`, published in [PR #17](https://github.com/AStoyanov2231/peek-poke.com/pull/17).
 A read-only Expo follow-up found no project or account environment variables in production, preview, or development, and no cloud builds.
 Actual Expo config evaluation reproduced development builds accepting production services; the guard now rejects production API or Supabase origins for both development and preview while allowing isolated services.
@@ -41,7 +61,7 @@ React Doctor reports 91/100 with six warnings and no errors: four existing compo
 No detector suppression was added.
 The hosted product suite now includes a dedicated temporary-conversation journey with synthetic accounts, actual accepted renewal, message replay/denial, call replay/cancellation/delayed-delivery denial, readable history, friendship, and block precedence.
 Its call, message, outbox, and user cleanup is explicitly scoped; this new hosted journey is not yet executed, and remains skipped without authorized integration configuration.
-Production still has 183 migrations, 50 profiles, 11 Auth users, and 96 Storage objects.
+The pre-deployment baseline had 183 migrations, 50 profiles, 11 Auth users, and 96 Storage objects.
 A fresh read exactly matches all saved original function definitions, owners, ACLs, migration history, and absent new objects; the candidate SQL hash still matches the sealed rollback package.
 The final native fixture receipt records zero message sends.
 Synthetic API, auth, Metro, test apps, and the task-started Android emulator were stopped; the pre-existing iOS Simulator remains available.
@@ -69,7 +89,7 @@ The complete local suites pass 1,387 web tests, 531 native logic tests, 126 plat
 Accepted-Poke and friendship realtime recovery now invalidate account-scoped conversation access on both clients, keeping the database response authoritative rather than trusting event payloads.
 The focused realtime transport rerun passes four tests.
 A fresh hosted read confirms authenticated users have only SELECT on messages, no direct call/Poke table writes, and no client write-column grants.
-The database has no existing accepted Pokes and remains at 183 migrations; the proposed migration has not been applied to production.
+The pre-deployment database had no accepted Pokes and 183 migrations; the deployment update above supersedes this earlier checkpoint.
 React Doctor reports 92/100 with four chat-component complexity/state warnings and no errors; the scoped design detector reports no findings, and no new suppression was added.
 The installed iOS development app passes an XCUITest journey for retained history, missing message/call actions, new Poke opening/cancellation, timer expiry while typing, access failure, and restored draft after renewal.
 Android development-app inspection independently confirms the expired state, new Poke dialog/cancellation, unavailable access, and restored `Android draft` with call/send controls after retry.

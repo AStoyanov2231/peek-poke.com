@@ -139,6 +139,13 @@ describe("shared API contract", () => {
     })).toEqual(contractFixtureReport);
   });
 
+  it("keeps joined reply previews within their thread and hides deleted content", () => {
+    const reply = { id: contractFixtureMessage.id, sender_id: contractFixtureMessage.sender_id, thread_id: contractFixtureMessage.thread_id, content: "Earlier message", is_deleted: false };
+    expect(mapMessage({ ...contractFixtureMessage, reply_to: reply }).reply_to).toEqual({ id: reply.id, sender_id: reply.sender_id, content: "Earlier message" });
+    expect(mapMessage({ ...contractFixtureMessage, reply_to: { ...reply, is_deleted: true } }).reply_to?.content).toBeNull();
+    expect(mapMessage({ ...contractFixtureMessage, reply_to: { ...reply, thread_id: "another-thread" } }).reply_to).toBeNull();
+  });
+
   it("keeps error, authorization, and idempotency behavior stable", async () => {
     const unauthorized = apiError("Unauthorized", 401, "UNAUTHORIZED");
     expect(unauthorized.status).toBe(401);

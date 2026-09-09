@@ -133,10 +133,10 @@ export function mapMessage(value: unknown): Message {
       : {}),
     ...(typeof row.client_id === "string" ? { client_id: row.client_id } : {}),
     reply_to_id: nullableString(row.reply_to_id),
-    reply_to: row.reply_to ? {
+    reply_to: row.reply_to && (reply.thread_id === undefined || reply.thread_id === row.thread_id) ? {
       id: stringValue(reply.id),
       sender_id: stringValue(reply.sender_id),
-      content: nullableString(reply.content),
+      content: reply.is_deleted === true ? null : nullableString(reply.content),
     } : null,
     ...(row.sender ? { sender: mapProfileCard(row.sender) } : {}),
   };
@@ -193,7 +193,6 @@ export const MESSAGE_COLUMNS = [
   "is_deleted",
   "created_at",
   "reply_to_id",
-  "reply_to",
   "sender:profiles!sender_id(id, username, display_name, avatar_url, location_text, is_online, last_seen_at)",
 ].join(", ");
 export const DURABLE_MESSAGE_COLUMNS = `${MESSAGE_COLUMNS}, sequence, client_id`;
