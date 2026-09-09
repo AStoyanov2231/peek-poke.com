@@ -36,6 +36,7 @@ import { fetchCurrentProfile } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { PlanMeetupAcknowledgements } from "@/components/plan-meetup-acknowledgements";
 import { PlanParticipantRow } from "@/components/plan-participant-row";
+import { PlanDetailsShare } from "@/components/plan-details-share";
 import { env } from "@/lib/env";
 
 type EditDraft = {
@@ -261,6 +262,7 @@ export default function PlanDetailScreen() {
           <Text style={styles.detail}>
             {plan.member_count}/{plan.participant_limit} people going
           </Text>
+          <PlanDetailsShare key={`${profileQuery.data?.id}:${plan.id}`} plan={plan} />
           {plan.viewer_is_owner && isActive ? (
             <View style={styles.actions}>
               <Action label="Edit" onPress={openEdit} />

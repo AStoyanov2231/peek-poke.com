@@ -19,24 +19,35 @@ Pending requests created by the previous paid flow have no such marker, so their
 Existing earned coin balances and verified meeting rewards are untouched.
 
 The same migration returns nearby people in 0.01-degree display cells.
-The follow-on `20260908113454_privacy_location_retention.sql` migration adds a service-only, lock-safe batch purge for coordinates older than ten minutes; its scheduler must be configured before release.
+The follow-on `20260908113454_privacy_location_retention.sql` migration adds a service-only, lock-safe batch purge for coordinates older than ten minutes.
+Its every-minute scheduler is configured and has recorded successful execution; [product operations](product-operations.md) tracks the remaining alerting and hosted recovery work.
 Exact coordinates remain in `user_locations` for server-side matching and are never returned by discovery APIs.
 Only a future server-verified device attestation may authorize a reward-bearing proximity claim.
 Do not use client coordinates to grant rewards or disclose an exact friend location unless the user has explicitly shared it for a bounded period.
 
-An accepted Poke and active, time-bounded shared Plan are valid social contexts for recording a meetup.
-The server still rejects blocks, stale locations, and pairs beyond its exact 50-meter threshold before it records the canonical pair or awards an earned coin.
-The one-kilometer client candidate radius only compensates for coarse display-cell error and cannot authorize or widen a reward.
+An accepted Poke or shared Plan supplies context for explicit mutual meetup acknowledgement.
+Acknowledgement does not verify physical presence and does not award coins.
+The reward-bearing proximity endpoint remains unavailable until a trusted presence mechanism is implemented and verified; [product verification](product-verification.md) records that separate prerequisite.
+
+## Sharing a Plan with someone trusted
+
+Any current participant in an active Plan can choose Share details on web or native, including after its start time.
+The preview contains the activity/title, date and local time with timezone, place text, and attendee count.
+The participant must separately choose Share or Copy details before anything leaves the preview.
+The generated summary does not add an invitation link, internal identifiers, precise device coordinates, or other participants' names.
+It retains the place text supplied for the Plan, so the preview allows the participant to review that information before disclosure.
+Copy failure leaves selectable text available, and copying does not send a message automatically.
+Host-created invitation links remain a separate Share invite action with the existing membership and revocation controls.
 
 ## Deployment and verification
 
-Read-only hosted metadata confirmed that `create_or_find_thread` currently debits one coin for a new non-friend direct message.
-The migration replaces that exact function signature with a zero-cost path that retains its profile checks, normalized-pair lock, and block check.
-Before promotion, apply the migration to an isolated copy of the hosted baseline.
-Run concurrent request, accept, delete, block, and direct-message tests against synthetic users, then verify that a 0-coin account can complete each core action without a wallet or coin-transaction change.
+The initial read-only hosted metadata confirmed that `create_or_find_thread` debited one coin for a new non-friend direct message.
+The deployed migration replaced that function with a zero-cost path retaining its profile checks, normalized-pair lock, and block check.
+[Progress.md](../Progress.md) records the subsequent hosted verification and release evidence.
+For future changes, run concurrent request, accept, delete, block, and direct-message tests against explicitly authorized synthetic users, and verify that a zero-coin account can complete each core action without a wallet or coin-transaction change.
 
 Test location privacy with repeated nearby requests and confirm that no response exposes more than two decimal places.
-Keep exact location disabled unless an attestation provider is live and a device-level test has passed.
+Keep exact-location disclosure and reward claims unavailable until their separate consent, trusted-provider, and device-verification requirements are satisfied.
 
 ## Research findings
 

@@ -7,6 +7,17 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
+The trusted-person sharing requirement now has a dedicated flow on web and native, after a browser reproduction confirmed participants had no way to share meetup details.
+Any current participant in an active Plan can review and share or copy its title/activity, date with timezone, place, and attendee count, including after the scheduled start.
+This action creates no invitation capability and adds no internal Plan, account, or conversation identifiers to the summary.
+Host invitation sharing remains separate and is labeled Share invite on both clients.
+Sharing and clipboard writes require a separate press after the preview; failures retain selectable text, and a false native clipboard result does not claim success.
+The browser fixture passes mobile copying, desktop native-share handoff through a mock, clipboard-failure recovery, and zero Plan mutation requests during sharing.
+The adjacent participant navigation and accepted-Poke-to-Plan journeys also pass, for three browser journeys in 12.6 seconds.
+All twelve iOS/Android sharing renderer checks and both shared formatter tests pass; web and native typecheck and scoped lint pass.
+Phone and desktop previews were visually inspected at `test-results/e2e/plan-trusted-share-mobile.png` and `test-results/e2e/plan-trusted-share-desktop.png`.
+The scoped design detector reports no findings, and React Doctor reports only the two previously verified Plan-screen complexity warnings, with no suppression added.
+No database migration, real message, or external recipient was used for this feature or its verification.
 The latest product audit found Plan participant names were inert on both clients, leaving no direct route from a meetup to a person's profile and its connection/safety actions.
 A real browser fixture first reproduced the missing participant link.
 The Going list now opens participant profiles on web and native, with visible chevrons, accessible link labels, and a direct route to the viewer's own profile.

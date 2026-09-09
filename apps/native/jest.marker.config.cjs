@@ -20,6 +20,7 @@ module.exports = {
       "^@peekpoke/shared/(.*)$": "<rootDir>/../../packages/shared/src/$1",
     },
     testMatch: [
+      "<rootDir>/test/plan-details-share.test.tsx",
       "<rootDir>/test/plan-participant-row.test.tsx",
       "<rootDir>/test/map-marker-pressability.test.tsx",
       "<rootDir>/test/map-filter-menu-pressability.test.tsx",

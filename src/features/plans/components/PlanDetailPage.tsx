@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlanMeetupAcknowledgements } from "@/features/plans/components/PlanMeetupAcknowledgements";
+import { PlanDetailsShare } from "@/features/plans/components/PlanDetailsShare";
 import { hasPlanStarted } from "@/data/plan-detail-time";
 import { useAuth } from "@/features/auth/useAuth";
 
@@ -272,7 +273,7 @@ export function PlanDetailPage({ planId }: { planId: string }) {
                 onClick={() => shareMutation.mutate()}
               >
                 <Share2 size={16} />
-                {shareMutation.isPending ? "Preparing…" : "Share"}
+                {shareMutation.isPending ? "Preparing…" : "Share invite"}
               </button>
             ) : null}
             {plan.source_thread_id ? (
@@ -306,6 +307,7 @@ export function PlanDetailPage({ planId }: { planId: string }) {
             ) : null}
           </div>
         )}
+        <PlanDetailsShare key={`${user?.id}:${plan.id}`} plan={plan} />
       </section>
       <section className="card-flat p-5">
         <p className="t-body-b text-ink-9">Going</p>

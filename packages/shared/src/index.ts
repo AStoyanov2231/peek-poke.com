@@ -32,6 +32,7 @@ export * from "./dm-conversation-access";
 
 export * from "./social";
 export * from "./plans";
+export * from "./plan-sharing";
 
 export * from "./chat-suggestions";
 export * from "./chat-assistance";
