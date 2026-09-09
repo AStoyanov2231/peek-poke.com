@@ -14,7 +14,7 @@ const pageInfo = {
 };
 export async function installSocialFixture(
   page: Page,
-  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean; discoveryContext?: boolean; expiredPokeChat?: boolean; ageAdmission?: "pending" | "adult" | "blocked" } = {},
+  options: { empty?: boolean; retryPoke?: boolean; peerMet?: boolean; onboarding?: boolean; retryVisibility?: boolean; venues?: boolean; map?: boolean; planMeetup?: boolean; participantPlan?: boolean; discoveryContext?: boolean; expiredPokeChat?: boolean; ageAdmission?: "pending" | "adult" | "blocked" } = {},
 ) {
   const now = new Date().toISOString();
   const later = new Date(Date.now() + 60 * 60_000).toISOString();
@@ -67,9 +67,9 @@ export async function installSocialFixture(
     threadId: null,
   };
   let plan: Record<string, unknown> | null = options.planMeetup ? {
-    id: planId, owner_id: ownerId, title: "Coffee & a walk", activity: "coffee", circle_id: null, participant_limit: 4,
+    id: planId, owner_id: options.participantPlan ? peerId : ownerId, title: "Coffee & a walk", activity: "coffee", circle_id: null, participant_limit: 4,
     starts_at: new Date(Date.now() - 60 * 60_000).toISOString(), place_text: "The café by the park", visibility: "private",
-    member_count: 2, status: "active", created_at: now, updated_at: now, viewer_is_member: true, viewer_is_owner: true, source_thread_id: threadId,
+    member_count: 2, status: "active", created_at: now, updated_at: now, viewer_is_member: true, viewer_is_owner: !options.participantPlan, source_thread_id: threadId,
   } : null;
   let pokeAttempts = 0;
   const apiPaths: string[] = [];
@@ -399,12 +399,12 @@ export async function installSocialFixture(
         members: [
           {
             user_id: ownerId,
-            role: "owner",
+            role: options.participantPlan ? "member" : "owner",
             joined_at: now,
             display_name: "Nikola",
             avatar_url: null,
           },
-          ...(options.planMeetup ? [{ user_id: peerId, role: "member", joined_at: now, display_name: "Mila", avatar_url: null }] : []),
+          ...(options.planMeetup ? [{ user_id: peerId, role: options.participantPlan ? "owner" : "member", joined_at: now, display_name: "Mila", avatar_url: null }] : []),
         ],
       });
     if (path === `/api/plans/${planId}/meetups`) {

@@ -198,7 +198,7 @@ Set `POSTGRES_BIN` to its binary directory when `pg_config` and the Homebrew fal
 The harnesses start temporary Unix-socket-only clusters with synthetic rows, verify actual lock waits in both account-erasure orderings, bounded `SKIP LOCKED` cleanup, and temporary-conversation expiry/retry/renewal ordering, then remove the clusters.
 The existing SQL CI gate installs PostgreSQL 17 on Ubuntu 24.04 and runs both harnesses through the same command.
 The runner uses short `/tmp` socket paths on macOS and Linux.
-The first hosted execution of this added CI step remains pending source publication.
+The added CI step passes on the final PR #17 source and master merge `7063739cd1cd84fedad5ec8d32d1a7a2651be23f`.
 This local check does not constitute a hosted restore rehearsal or production concurrency test.
 
 The production mobile build evaluates `apps/native/app.config.js` and rejects missing or mismatched production public API and Supabase origins.
@@ -208,9 +208,14 @@ Run the configured EAS production build configuration evaluation for each platfo
 ## Native release configuration status
 
 On 2026-09-09, the authenticated Expo account was `andy2231`, and the linked project was `@andy2231/peek-poke` (`e0631d17-11c0-47e9-a4fe-d577f0e6e06e`).
-Read-only EAS checks found no production, preview, or development variables at either project or account scope and no cloud builds.
-Those checks did not inspect signing credentials and did not start a build or submission.
-Each environment still needs its approved API origin, Supabase URL and public client key, and Mapbox public token through the four `EXPO_PUBLIC_*` variables required by `apps/native/scripts/verify-environment.js`.
+The initial EAS checks found no environment variables or cloud builds.
+The four required production client variables are now configured at project scope, and an EAS environment execution verifies their values and successfully evaluates production iOS configuration.
+The API and Supabase URLs use plaintext visibility; the public Supabase client key and Mapbox token use sensitive visibility.
+Public client values remain part of the distributed app; no server credentials were copied.
+Preview and development project environments remain empty.
+Read-only signing inspection reports no credentials configured for either iOS or Android.
+This setup did not start a build or submission.
+See [native release configuration](native-release-configuration.md) for exact scope, rollback, and icon verification.
 Android preview/production additionally requires the matching Firebase `GOOGLE_SERVICES_JSON` file; no local file was present during verification.
 Keep provider secrets and signing material out of Git and chat, and configure them through their respective managed stores.
 Development and preview need isolated services before they can build under their EAS profiles.

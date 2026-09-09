@@ -6,7 +6,71 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
-The goal remains active and incomplete.
+The user renewed public-push authorization on 2026-09-09 with "Push yes".
+All six local follow-up commits through `9ecfc31ae` are now published on `origin/product-redesign`.
+GitHub verification run `34299622513` passed all four jobs on the publication journal commit `160a774e7`.
+The preceding failed run exposed a synthetic visibility-event mismatch in the chat-expiry browser test: the event did not bubble to Query's window listener, making refresh depend on incidental recovery work.
+Both expiry journeys now dispatch one bubbling document event, matching the [HTML visibility event contract](https://html.spec.whatwg.org/multipage/interaction.html#page-visibility).
+Both affected browser journeys passed three consecutive repetitions each, and scoped ESLint passed.
+The publication approval gate is resolved; CI for this test correction, master release, and the native/provider/operator requirements remain outstanding.
+
+## Prior local release checkpoint
+
+The goal remains incomplete.
+The next release actions are blocked on renewed public-publication confirmation and the outstanding native/provider setup recorded in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
+The same publication gate has persisted across more than three consecutive goal turns; independent implementation and verification work has now been completed for this checkpoint.
+The combined gate on source `3ce57ed10be29617ed6ff6420ae33e3178933b4e` passes 1,390 web tests, 544 native logic tests, 144 native renderer tests, all eighteen browser fixture journeys, root/native lint, native typecheck, and the production web build.
+Eleven hosted-only web tests remain skipped without their explicit integration configuration; this local run does not replace prior hosted evidence or verify an unpublished production release.
+The build uses inert configuration after blanking all names loaded from local environment files.
+The initial sandbox build failed on Turbopack's internal worker port; an approved run with a fresh generated output directory completed successfully, compiling in 6.1 seconds and generating all 67 static pages.
+The full logs are `/private/tmp/peek-final-web-tests.log`, `/private/tmp/peek-final-native-tests.log`, `/private/tmp/peek-final-browser.log`, and `/private/tmp/peek-final-build.log`, with separate lint/type logs beside them.
+All tracked verification processes completed, and the browser runner stopped its fixture services.
+Both private deployed rollback archives still match their sealed SHA-256 values: temporary chat `1258b1856acc708c391e995bd920c8079d3bc33e85332d59631730b3903b90a6` and the preceding twenty-migration package `4cff473598c05a098e74f466516de81288d1a8c83e14de97bc6b68ccb3af77ab`.
+The native signing, physical-device/provider proof, isolated environments, operator contact and policies, monitoring, hosted recovery, and optional paid/reward prerequisites remain open.
+The trusted-person sharing requirement now has a dedicated flow on web and native, after a browser reproduction confirmed participants had no way to share meetup details.
+Any current participant in an active Plan can review and share or copy its title/activity, date with timezone, place, and attendee count, including after the scheduled start.
+This action creates no invitation capability and adds no internal Plan, account, or conversation identifiers to the summary.
+Host invitation sharing remains separate and is labeled Share invite on both clients.
+Sharing and clipboard writes require a separate press after the preview; failures retain selectable text, and a false native clipboard result does not claim success.
+The browser fixture passes mobile copying, desktop native-share handoff through a mock, clipboard-failure recovery, and zero Plan mutation requests during sharing.
+The adjacent participant navigation and accepted-Poke-to-Plan journeys also pass, for three browser journeys in 12.6 seconds.
+All twelve iOS/Android sharing renderer checks and both shared formatter tests pass; web and native typecheck and scoped lint pass.
+Phone and desktop previews were visually inspected at `test-results/e2e/plan-trusted-share-mobile.png` and `test-results/e2e/plan-trusted-share-desktop.png`.
+The scoped design detector reports no findings, and React Doctor reports only the two previously verified Plan-screen complexity warnings, with no suppression added.
+No database migration, real message, or external recipient was used for this feature or its verification.
+The latest product audit found Plan participant names were inert on both clients, leaving no direct route from a meetup to a person's profile and its connection/safety actions.
+A real browser fixture first reproduced the missing participant link.
+The Going list now opens participant profiles on web and native, with visible chevrons, accessible link labels, and a direct route to the viewer's own profile.
+The browser journey verifies mobile navigation, visible Report and Block controls without submitting either action, return to the Plan, desktop keyboard activation, and a visible focus outline.
+Both that journey and the adjacent explicit meetup-confirmation/retry journey pass; phone and desktop screenshots are inspected under `test-results/e2e/plan-participant-*.png`.
+All six new iOS/Android participant press tests pass; the other 126 existing native renderer tests passed in the preceding run.
+Native typecheck and scoped web/native lint pass, and the scoped Impeccable detector reports no findings.
+React Doctor reports 86/100 over the current changed-file set, with four warnings: existing Plan-screen complexity on both clients, the bounded native member list, and the release guard's array iteration.
+All four are reproduced against the same files from the preceding commit in an isolated source copy; the score uses a different file set from earlier checkpoints and is not a comparable whole-project score.
+No detector suppression was added.
+The latest continuation reproduced production Expo configuration accepting a Firebase file registered to an unrelated Android application.
+The build guard now validates Android client selection, project/app consistency, and required client keys, rejects misplaced service-account credentials, and keeps parser errors free of file contents.
+The actual Expo config command rejects the original wrong-package fixture and accepts the matching fixture after the fix.
+All 544 native logic tests pass, including nineteen release-environment cases, and native typecheck passes.
+Scoped lint exposed the Node app-config and build scripts being evaluated without their CommonJS directory global; their ESLint environment now declares that runtime correctly without disabling rules.
+The full native lint run also found a WebRTC test harness publishing hook state during render; it now observes committed state in an effect, and all five termination-authority regression tests pass after the change.
+Full native lint completes with zero errors and 29 existing test-style warnings, including import order, Jest mock factory imports, array notation, and an unused test import; no rule suppression was added.
+The complete lint output is retained at `/private/tmp/peek-native-full-lint-20260909.log`.
+Publication remains pending the already-requested confirmation after automatic approval review rejected the previous checkpoint.
+Expo authentication is verified as `andy2231`, and the production environment of `@andy2231/peek-poke` now has the four required public client variables at project scope.
+An EAS environment execution verifies all four values against the approved sources without printing keys and successfully evaluates the production iOS configuration.
+The canonical API origin is `https://www.peek-poke.com`; the configured Mapbox public token returns HTTP 200 from its style API.
+Development and preview project environments remain empty and require isolated services.
+Read-only credential inspection confirms no iOS or Android signing credentials are configured; the Apple Developer team and Firebase project are still awaiting user identification.
+No cloud build or store submission was started.
+The native app had no configured icon, and its existing generated iOS icon was blank.
+A new opaque terracotta/ivory asset based on the existing mark is now configured through Expo.
+An isolated prebuild with synthetic service configuration succeeds for both platforms and generates a nonblank opaque 1024-pixel iOS icon and Android launcher assets; the largest legacy Android icon is 192 pixels.
+Generated icons were visually inspected, but installation and store acceptance remain pending signed native builds.
+[Native release configuration](docs/native-release-configuration.md) records the EAS changes, exact variable rollback scope, and asset verification.
+The native release checkpoint is committed locally as `9b1c55be1`.
+Automatic approval review rejected publication twice, including after the earlier explicit public-publication approval was recovered from the session transcript.
+The reviewer did not accept that transcript as trusted authorization; this checkpoint is not pushed, and its hosted CI remains pending renewed publication approval.
 The temporary-conversation migration is now deployed as `20260909002222`, with 184 migration entries.
 All eight CI checks passed on `41a2a5fe5` before activation.
 The exact original functions, grants, and 183-entry history matched the saved preflight immediately before deployment.
@@ -21,8 +85,14 @@ The hosted regression verifies an actual reply preview alongside expiry, replay,
 Seventy-one focused mapping/message tests and scoped lint pass; the exact enum fixture passes 49 SQL assertions and four real PostgreSQL concurrency cases.
 Hosted cleanup returns to 50 profiles, 11 Auth users, 96 Storage objects, no accepted Pokes, and no queued events.
 The isolated hosted server stopped after its runner completed.
-The source and documentation follow-up still needs its matching CI run and web release.
-The web release remains on master `d3e452101178c9a36d51e78c30a4414d05573ae5`; PR #17 is still a draft and not merged.
+All eight final PR checks passed on `fe8e5b3bb`, and all four master checks passed on merge `7063739cd1cd84fedad5ec8d32d1a7a2651be23f`.
+PR #17 is merged and Vercel deployment `dpl_FAtCZYybBqmEPcCT7bWtCmad2sS2` is Ready on both production domains without alias errors.
+The same two synthetic product journeys pass through `https://www.peek-poke.com` in 30.0 seconds.
+Final deployed cleanup again confirms 50 profiles, 11 Auth users, 96 Storage objects, 184 migrations, no accepted Pokes, and no queued events.
+The private release receipt is `.supabase-backups/deployment-20260909/temporary-chat-release.json`.
+All task fixture processes are stopped, and the Xcode default profile is restored.
+The full production-readiness goal remains open for signed native distribution, physical-device/provider acceptance, isolated environments, external monitoring, support/privacy operations, full hosted recovery, trusted rewards, and paid-benefit readiness.
+The active product-redesign branch includes the master merge; earlier checkpoints below are historical.
 
 ## Earlier continuation checkpoints
 

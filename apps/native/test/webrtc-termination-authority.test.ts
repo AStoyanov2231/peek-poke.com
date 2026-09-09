@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, useEffect } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -94,7 +94,10 @@ let hook: ReturnType<typeof useNativeWebRTCCall> | null = null;
 let consoleError: ReturnType<typeof vi.spyOn>;
 
 function Harness() {
-  hook = useNativeWebRTCCall(activeCall);
+  const current = useNativeWebRTCCall(activeCall);
+  useEffect(() => {
+    hook = current;
+  }, [current]);
   return null;
 }
 

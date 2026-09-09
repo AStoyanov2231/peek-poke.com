@@ -43,9 +43,8 @@ test.describe("redesigned social journey", () => {
     await expect(page.getByText("This Poke conversation has ended.", { exact: true })).toBeVisible({ timeout: 8_000 });
     await expect(page.getByRole("textbox", { name: "Message...", exact: true })).not.toBeVisible();
     accessMode = "error";
-    // Refocus triggers the same access refresh used when returning to the app.
-    await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    // Native visibility changes bubble to window, where Query observes focus.
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange", { bubbles: true })));
     await expect(page.getByText("Conversation access is unavailable.", { exact: true })).toBeVisible();
     accessMode = "renewed";
     await page.getByRole("button", { name: "Retry conversation access" }).click();
@@ -70,7 +69,7 @@ test.describe("redesigned social journey", () => {
     await dialog.getByLabel("Place or area", { exact: true }).fill("The public park café");
     expired = true;
     const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/dm/${threadId}/access`));
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange", { bubbles: true })));
     await refreshed;
     await expect(page.getByText("This Poke conversation has ended.", { exact: true })).toBeVisible();
     await expect(dialog).toBeVisible();
@@ -201,6 +200,82 @@ test.describe("redesigned social journey", () => {
     expect(fixture.planMeetupPosts).toHaveLength(2);
     expect(fixture.planMeetupPosts[0]).toBe(fixture.planMeetupPosts[1]);
     await page.screenshot({ path: "test-results/e2e/plan-confirmed-desktop.png", fullPage: true });
+  });
+  test("Plan participants lead to profile connection and safety controls", async ({ page }) => {
+    const fixture = await installSocialFixture(page, { planMeetup: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/login?redirectTo=/plans/${planId}`);
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === `/plans/${planId}`);
+    const participant = page.getByRole("link", { name: "View Mila's profile", exact: true });
+    await expect(participant).toBeVisible();
+    await page.screenshot({ path: "test-results/e2e/plan-participant-mobile.png", fullPage: true });
+    await participant.click();
+    await page.waitForURL((url) => url.pathname === `/profile/${peerId}`);
+    await expect(page.getByRole("button", { name: "Report", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Block", exact: true })).toBeVisible();
+    expect(fixture.apiRequests.filter((request) => request.method !== "GET" &&
+      (request.path.includes("/report") || request.path.includes("/block")))).toHaveLength(0);
+    await page.goBack();
+    await expect(participant).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.keyboard.press("Tab");
+    await participant.focus();
+    await expect(participant).toBeFocused();
+    await expect(participant).toHaveCSS("outline-style", "solid");
+    await page.screenshot({ path: "test-results/e2e/plan-participant-desktop.png", fullPage: true });
+    await page.keyboard.press("Enter");
+    await page.waitForURL((url) => url.pathname === `/profile/${peerId}`);
+  });
+  test("a participant can review and copy meetup details for someone they trust", async ({ page }) => {
+    const fixture = await installSocialFixture(page, { planMeetup: true, participantPlan: true });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+        writeText: async (text: string) => {
+          (window as Window & { copiedPlanDetails?: string }).copiedPlanDetails = text;
+        },
+      } });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/login?redirectTo=/plans/${planId}`);
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password").fill(password);
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+    await page.waitForURL((url) => url.pathname === `/plans/${planId}`);
+    await page.getByRole("button", { name: "Share details", exact: true }).click();
+    const preview = page.getByRole("dialog", { name: "Share plan details" });
+    await expect(preview).toContainText("The café by the park");
+    expect(await page.evaluate(() => (window as Window & { copiedPlanDetails?: string }).copiedPlanDetails)).toBeUndefined();
+    await preview.getByRole("button", { name: "Copy details", exact: true }).click();
+    await expect(preview.getByRole("status")).toContainText("Details copied");
+    const copied = await page.evaluate(() => (window as Window & { copiedPlanDetails?: string }).copiedPlanDetails);
+    expect(copied).toContain("Coffee & a walk");
+    expect(copied).toContain("The café by the park");
+    expect(copied).not.toContain(planId);
+    expect(copied).not.toContain("/plan/");
+    expect(fixture.apiRequests.filter((request) => request.method !== "GET" && request.path.startsWith("/api/plans"))).toHaveLength(0);
+    await page.screenshot({ path: "test-results/e2e/plan-trusted-share-mobile.png", fullPage: true });
+    await preview.getByRole("button", { name: "Done", exact: true }).click();
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "share", { configurable: true, value: async (payload: ShareData) => {
+        (window as Window & { sharedPlanDetails?: ShareData }).sharedPlanDetails = payload;
+      } });
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+        writeText: async () => { throw new Error("Clipboard unavailable"); },
+      } });
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByRole("button", { name: "Share details", exact: true }).click();
+    await preview.getByRole("button", { name: "Copy details", exact: true }).click();
+    await expect(preview.getByRole("alert")).toContainText("Select and copy the preview");
+    await expect(preview.locator("p.select-text")).toHaveCSS("user-select", "text");
+    await preview.getByRole("button", { name: "Share", exact: true }).click();
+    await expect(preview.getByRole("alert")).not.toBeVisible();
+    const shared = await page.evaluate(() => (window as Window & { sharedPlanDetails?: ShareData }).sharedPlanDetails);
+    expect(shared).toEqual({ title: "Coffee & a walk", text: copied });
+    await page.screenshot({ path: "test-results/e2e/plan-trusted-share-desktop.png", fullPage: true });
   });
   test("Map and profile carry current intent into a Poke", async ({ page, context }) => {
     await page.addInitScript(() => {

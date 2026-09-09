@@ -35,6 +35,8 @@ import {
 import { fetchCurrentProfile } from "@/data/api";
 import { nativeQueryKeys } from "@/data/query-keys";
 import { PlanMeetupAcknowledgements } from "@/components/plan-meetup-acknowledgements";
+import { PlanParticipantRow } from "@/components/plan-participant-row";
+import { PlanDetailsShare } from "@/components/plan-details-share";
 import { env } from "@/lib/env";
 
 type EditDraft = {
@@ -260,6 +262,7 @@ export default function PlanDetailScreen() {
           <Text style={styles.detail}>
             {plan.member_count}/{plan.participant_limit} people going
           </Text>
+          <PlanDetailsShare key={`${profileQuery.data?.id}:${plan.id}`} plan={plan} />
           {plan.viewer_is_owner && isActive ? (
             <View style={styles.actions}>
               <Action label="Edit" onPress={openEdit} />
@@ -314,16 +317,7 @@ export default function PlanDetailScreen() {
         </View>
         <Text style={styles.membersTitle}>People going</Text>
         {members.map((member) => (
-          <View key={member.user_id} style={styles.member}>
-            <View>
-              <Text style={styles.memberName}>
-                {member.display_name ?? "Plan member"}
-              </Text>
-              <Text style={styles.memberText}>
-                {member.role === "owner" ? "Host" : "Member"}
-              </Text>
-            </View>
-          </View>
+          <PlanParticipantRow key={member.user_id} member={member} viewerId={profileQuery.data?.id} />
         ))}
         {plan.viewer_is_member && profileQuery.data?.id ? (
           <PlanMeetupAcknowledgements
@@ -603,21 +597,6 @@ const styles = StyleSheet.create({
     color: colors.ink[9],
     fontFamily: fontFamilies.semibold,
     fontSize: 18,
-  },
-  member: {
-    padding: spacing[3],
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-  },
-  memberName: {
-    color: colors.ink[8],
-    fontFamily: fontFamilies.medium,
-    fontSize: 15,
-  },
-  memberText: {
-    color: colors.ink[6],
-    fontFamily: fontFamilies.regular,
-    fontSize: 13,
   },
   modalRoot: {
     flex: 1,

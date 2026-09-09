@@ -34,6 +34,7 @@ module.exports = ({ config }) => {
     profile: process.env.EAS_BUILD_PROFILE,
     platform: process.env.EAS_BUILD_PLATFORM,
     googleServicesFile,
+    androidPackage: config.android?.package,
     env: process.env,
     productionApiOrigin: PRODUCTION_API_ORIGIN,
     productionSupabaseOrigin: PRODUCTION_SUPABASE_ORIGIN,

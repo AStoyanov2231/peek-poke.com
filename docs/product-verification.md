@@ -1,5 +1,15 @@
 # Product redesign verification
 
+## Latest combined local gate
+
+Source `3ce57ed10be29617ed6ff6420ae33e3178933b4e` passes 1,390 web tests, 544 native logic tests, 144 native iOS/Android renderer tests, and all eighteen browser fixture journeys.
+Root/native lint, native typecheck, and the production web build also pass.
+The build uses inert local configuration, compiles successfully, and generates all 67 static pages.
+Eleven explicitly gated hosted-only tests are skipped in this local run.
+The combined results include the Firebase release guard, participant profile navigation, and trusted-person Plan detail sharing.
+This checkpoint has not been pushed or deployed; its new hosted CI and release verification remain pending publication approval.
+The earlier production evidence below applies only to its named deployed revisions.
+
 ## Baseline test gate
 
 Run `npm test` for the browser-independent suite.
@@ -93,6 +103,19 @@ The browser launcher, control requests, and WebSocket interception use the selec
 The fixture's Next server binds to 127.0.0.1 and stops when its own Auth fixture exits.
 
 ## Native verification
+
+### Plan participant access
+
+Plan participant rows now lead to the selected person's profile, making connection and safety actions reachable after a Plan or meetup.
+The browser regression first failed because the Going list had no participant links.
+It now verifies the mobile profile route, visible Report and Block controls, no submitted safety mutation, browser Back, desktop keyboard activation, and the visible focus outline.
+The adjacent Plan-specific mutual-confirmation and durable-retry journey also passes.
+The reviewed screenshots are `test-results/e2e/plan-participant-mobile.png` and `test-results/e2e/plan-participant-desktop.png`.
+The native `plan-participant-row.test.tsx` renderer tests exercise real presses on both iOS and Android, verifying selected-person navigation, direct own-profile navigation, an unnamed participant fallback, and no navigation before a press.
+These six checks pass, and the other 126 native renderer checks passed in the preceding run.
+This evidence establishes local navigation behavior; physical-device release acceptance remains separate.
+
+### Earlier native release evidence
 
 The signed iPhone 16 development build and Android compilation pass after the iOS scene-configuration fix and the Expo 57.0.20 / React Native 0.86.3 patch alignment.
 The unlocked Mac enabled actual fixture Login, Now availability, Poke sending/acceptance, Chat, Plan creation/detail/Back, recent meetup confirmation, location-decline recovery, Me, and discovery-sheet loading.
