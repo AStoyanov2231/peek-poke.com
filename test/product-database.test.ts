@@ -27,6 +27,7 @@ let authUserIds: string[] = [];
 let planIds: string[] = [];
 let pokeIds: string[] = [];
 let threadIds: string[] = [];
+const callIds: string[] = [];
 const runTag = `ppit${Date.now().toString(36)}${randomUUID().slice(0, 6)}`;
 
 function appUrl() {
@@ -110,7 +111,7 @@ async function cleanUpSyntheticData() {
     ...(firstThreads.data ?? []).map((row) => row.id),
     ...(secondThreads.data ?? []).map((row) => row.id),
   ])];
-  const aggregateIds = [...new Set([...scopedPlanIds, ...scopedPokeIds, ...scopedThreadIds])];
+  const aggregateIds = [...new Set([...scopedPlanIds, ...scopedPokeIds, ...scopedThreadIds, ...callIds])];
 
   await attempt(() => removeByIds("outbox_events", "aggregate_id", aggregateIds));
   await attempt(() => removeByIds("user_blocks", "blocker_id", userIds));
@@ -120,6 +121,9 @@ async function cleanUpSyntheticData() {
   await attempt(() => removeByIds("plan_members", "plan_id", scopedPlanIds));
   await attempt(() => removeByIds("plans", "id", scopedPlanIds));
   await attempt(() => removeByIds("pokes", "id", scopedPokeIds));
+  await attempt(() => removeByIds("call_signal_commands", "call_id", callIds));
+  await attempt(() => removeByIds("call_sessions", "id", callIds));
+  await attempt(() => removeByIds("dm_messages", "thread_id", scopedThreadIds));
   await attempt(() => removeByIds("dm_thread_members", "thread_id", scopedThreadIds));
   await attempt(() => removeByIds("dm_threads", "id", scopedThreadIds));
   await attempt(() => removeByIds("user_availabilities", "user_id", userIds));
@@ -516,4 +520,139 @@ describe.skipIf(!configured)("product social and Plans hosted integration", () =
       expect(result.data, `${relation} must stay absent after a stale RPC`).toEqual([]);
     }
   }, 90_000);
+
+  it("enforces temporary conversations through hosted RPCs and real authenticated API routes", async () => {
+    const alice = await createSyntheticUser("wa");
+    const bob = await createSyntheticUser("wb");
+    users.push(alice, bob);
+    const location = await service.from("user_locations").upsert([
+      { user_id: alice.id, lat: 42.6977, lng: 23.3219, updated_at: new Date().toISOString() },
+      { user_id: bob.id, lat: 42.6981, lng: 23.3223, updated_at: new Date().toISOString() },
+    ], { onConflict: "user_id" });
+    expect(location.error).toBeNull();
+    for (const user of [alice, bob]) {
+      expect((await api(user, "/api/availability", {
+        method: "PUT", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ activity: "coffee", customLabel: null, durationMinutes: 60 }),
+      })).status).toBe(200);
+    }
+    async function acceptNewPoke() {
+      const sent = await api(alice, "/api/pokes", {
+        method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomUUID() },
+        body: JSON.stringify({ recipientId: bob.id, activity: "coffee", customLabel: null, note: "Synthetic conversation-window check" }),
+      });
+      expect(sent.status).toBe(200);
+      const payload = await sent.json();
+      pokeIds.push(payload.poke.id);
+      const accepted = await api(bob, `/api/pokes/${payload.poke.id}`, {
+        method: "PATCH", headers: { "content-type": "application/json", "idempotency-key": randomUUID() },
+        body: JSON.stringify({ action: "accept" }),
+      });
+      expect(accepted.status).toBe(200);
+      const result = await accepted.json();
+      threadIds.push(result.threadId);
+      return { pokeId: payload.poke.id as string, threadId: result.threadId as string };
+    }
+    const first = await acceptNewPoke();
+    const path = `/api/dm/${first.threadId}`;
+    const access = await api(alice, `${path}/access`);
+    expect(access.status).toBe(200);
+    const active = await access.json();
+    expect(active).toEqual(expect.objectContaining({ basis: "poke", account_id: alice.id, thread_id: first.threadId }));
+    expect(Date.parse(active.expires_at)).toBeGreaterThan(Date.parse(active.server_now));
+    expect((await users[0].client.rpc("read_dm_conversation_facts_v1", { p_thread_id: first.threadId, p_actor_id: alice.id })).error).not.toBeNull();
+    expect((await api(users[0], `${path}/access`)).status).toBe(404);
+
+    const clientId = randomUUID();
+    const send = (id: string, content = "Retain this synthetic history") => api(alice, path, {
+      method: "POST", headers: { "content-type": "application/json", "idempotency-key": id },
+      body: JSON.stringify({ client_id: id, content, message_type: "text" }),
+    });
+    const sent = await send(clientId);
+    expect(sent.status).toBe(200);
+    const original = await sent.json();
+    const replyId = randomUUID();
+    const replyResponse = await api(bob, path, {
+      method: "POST", headers: { "content-type": "application/json", "idempotency-key": replyId },
+      body: JSON.stringify({ client_id: replyId, content: "Reply to retained history", message_type: "text", reply_to_id: original.message.id }),
+    });
+    expect(replyResponse.status).toBe(200);
+    const reply = await replyResponse.json();
+
+    // Start with the actual hosted RPC. Neither synthetic user has a push device.
+    const callId = randomUUID();
+    const callCommand = randomUUID();
+    callIds.push(callId);
+    const args = { p_call_id: callId, p_thread_id: first.threadId, p_actor_id: alice.id, p_command_id: callCommand, p_payload_hash: "a".repeat(64) };
+    const started = await service.rpc("begin_call_session", args);
+    expect(started.error).toBeNull();
+    expect(started.data.replayed).toBe(false);
+    const expired = await service.from("pokes").update({ responded_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString() }).eq("id", first.pokeId);
+    expect(expired.error).toBeNull();
+    const endedAccess = await api(alice, `${path}/access`);
+    const ended = await endedAccess.json();
+    expect(endedAccess.status).toBe(200);
+    expect(Date.parse(ended.expires_at)).toBeLessThan(Date.parse(ended.server_now));
+    const replay = await send(clientId);
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).message.id).toBe(original.message.id);
+    const deniedSend = await send(randomUUID());
+    expect(deniedSend.status).toBe(409);
+    expect((await deniedSend.json()).code).toBe("POKE_CONVERSATION_EXPIRED");
+    for (const endpoint of ["suggestions", "venues"]) {
+      expect((await api(alice, `${path}/${endpoint}`)).status).toBe(409);
+    }
+    const replayCall = await service.rpc("begin_call_session", args);
+    expect(replayCall.error).toBeNull();
+    expect(replayCall.data.replayed).toBe(true);
+    const delivery = await service.rpc("authorize_call_invite_delivery", { p_call_id: callId, p_thread_id: first.threadId, p_caller_id: alice.id, p_callee_id: bob.id });
+    expect(delivery.error).toBeNull();
+    expect(delivery.data).toBe(false);
+    const cancelled = await service.rpc("advance_call_session", {
+      p_call_id: callId, p_thread_id: first.threadId, p_actor_id: alice.id, p_capability: started.data.capability,
+      p_command_id: randomUUID(), p_event_type: "cancel", p_payload_hash: "b".repeat(64),
+    });
+    expect(cancelled.error).toBeNull();
+    const deniedCallId = randomUUID();
+    callIds.push(deniedCallId);
+    const deniedCall = await api(alice, `${path}/call`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ version: 1, commandId: randomUUID(), callId: deniedCallId, type: "invite" }),
+    });
+    expect(deniedCall.status).toBe(409);
+    expect((await deniedCall.json()).code).toBe("POKE_CONVERSATION_EXPIRED");
+    const history = await api(alice, path);
+    expect(history.status).toBe(200);
+    const retained = await history.json();
+    expect(retained.messages.some((message: { id: string }) => message.id === original.message.id)).toBe(true);
+    expect(retained.messages.find((message: { id: string }) => message.id === reply.message.id)?.reply_to).toEqual({ id: original.message.id, sender_id: alice.id, content: "Retain this synthetic history" });
+    const stored = await service.from("dm_messages").select("id").eq("thread_id", first.threadId).eq("message_type", "text");
+    expect(stored.error).toBeNull();
+    expect(stored.data).toHaveLength(2);
+
+    // A Plan is independently owned; the source thread is attribution only.
+    const independent = await api(alice, "/api/plans", {
+      method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomUUID() },
+      body: JSON.stringify({ activity: "coffee", starts_at: new Date(Date.now() + 3_600_000).toISOString(), place_text: "Synthetic public café", visibility: "private", participant_limit: 2, source_thread_id: first.threadId }),
+    });
+    expect(independent.status).toBe(201);
+    const independentPlan = await independent.json();
+    planIds.push(independentPlan.plan.id);
+    const members = await service.from("plan_members").select("user_id").eq("plan_id", independentPlan.plan.id);
+    expect(members.error).toBeNull();
+    expect(members.data).toEqual([{ user_id: alice.id }]);
+    expect((await api(bob, `/api/plans/${independentPlan.plan.id}`)).status).toBe(404);
+
+    const renewed = await acceptNewPoke();
+    expect(renewed.threadId).toBe(first.threadId);
+    expect((await send(randomUUID(), "Accepted renewal allows this message")).status).toBe(200);
+    const friendship = await service.from("friendships").insert({ requester_id: alice.id, addressee_id: bob.id, status: "accepted" });
+    expect(friendship.error).toBeNull();
+    const ongoing = await api(alice, `${path}/access`);
+    expect(await ongoing.json()).toEqual(expect.objectContaining({ basis: "friendship", expires_at: null }));
+    const block = await service.from("user_blocks").insert({ blocker_id: bob.id, blocked_id: alice.id });
+    expect(block.error).toBeNull();
+    expect((await api(alice, `${path}/access`)).status).toBe(404);
+  }, 90_000);
+
 });

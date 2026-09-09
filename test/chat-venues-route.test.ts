@@ -4,6 +4,7 @@ const USER = "11111111-1111-4111-8111-111111111111";
 const PEER = "22222222-2222-4222-8222-222222222222";
 const THREAD = "44444444-4444-4444-8444-444444444444";
 const mocks = vi.hoisted(() => ({
+  access: vi.fn(),
   blocked: vi.fn(),
   deleted: vi.fn(),
   membership: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/rate-limit", () => ({ enforceRateLimit: mocks.rate }));
 vi.mock("@/lib/supabase/server", () => ({
   createServiceClient: () => ({
-    rpc: mocks.rpc,
+    rpc: (name: string, ...args: unknown[]) => name === "read_dm_conversation_facts_v1" ? mocks.access(...args) : mocks.rpc(name, ...args),
     from: () => ({ select: () => ({ in: () => ({ gt: () => ({ limit: mocks.locations }) }) }) }),
   }),
 }));
@@ -52,10 +53,20 @@ describe("chat venue route authorization", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.rate.mockResolvedValue(null);
+    mocks.access.mockResolvedValue({ data: { friendship_accepted: true, latest_poke_accepted_at: null, server_now: new Date().toISOString() }, error: null });
     mocks.membership.mockResolvedValue({ id: THREAD, participant_1_id: USER, participant_2_id: PEER });
     mocks.blocked.mockResolvedValue(false);
     mocks.deleted.mockResolvedValue(false);
     mocks.venues.mockResolvedValue({ source: "google_places", venues: [] });
+  });
+
+  it("does not read locations or call Places after Poke expiry", async () => {
+    mocks.access.mockResolvedValue({ data: { friendship_accepted: false, latest_poke_accepted_at: "2026-09-07T10:00:00Z", server_now: "2026-09-08T10:00:00Z" }, error: null });
+    const response = await request();
+    expect(response.status).toBe(409);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.locations).not.toHaveBeenCalled();
+    expect(mocks.venues).not.toHaveBeenCalled();
   });
 
   it("does not consult privileged location data without current membership", async () => {

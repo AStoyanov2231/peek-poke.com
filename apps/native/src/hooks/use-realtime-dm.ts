@@ -214,6 +214,8 @@ export function useRealtimeUserSync(userId: string | undefined) {
       delayMs: FRIENDS_REFRESH_DEBOUNCE_MS,
       onError: (error) => console.warn("Friendship realtime recovery failed", error),
       onFlush: async ({ threadIds }, signal) => {
+        if (signal.aborted) return;
+        await queryClient.invalidateQueries({ queryKey: ["conversation-access", userId] });
         const includeInbox = threadIds.includes(FRIENDSHIP_HINT_KEY);
         const keys = [
           nativeQueryKeys.social.friends,
@@ -257,6 +259,8 @@ export function useRealtimeUserSync(userId: string | undefined) {
       delayMs: FRIENDS_REFRESH_DEBOUNCE_MS,
       onError: (error) => console.warn("Poke realtime recovery failed", error),
       onFlush: async ({ threadIds }, signal) => {
+        if (signal.aborted) return;
+        await queryClient.invalidateQueries({ queryKey: ["conversation-access", userId] });
         const acceptedThreadIds = threadIds
           .filter((hint) => hint.startsWith(ACCEPTED_POKE_THREAD_PREFIX))
           .map((hint) => hint.slice(ACCEPTED_POKE_THREAD_PREFIX.length));

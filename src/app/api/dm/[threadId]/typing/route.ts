@@ -1,3 +1,4 @@
+import { requireNewDmInteraction } from "@/lib/dm-conversation-access";
 import { NextResponse } from "next/server";
 import { isBlocked, isDeletedProfile, withAuth, verifyThreadParticipant } from "@/lib/auth";
 import { isValidUUID } from "@/lib/validation";
@@ -29,6 +30,9 @@ export const POST = withAuth<{ threadId: string }>(async (_request, { user, supa
   if (await isBlocked(supabase, user.id, peerId)) {
     return apiError("Thread not found", 404, "THREAD_NOT_FOUND");
   }
+
+  const accessError = await requireNewDmInteraction(threadId, user.id);
+  if (accessError) return accessError;
 
   const delivered = await broadcastPrivateRealtimeEvent(
     `thread:${threadId}`,

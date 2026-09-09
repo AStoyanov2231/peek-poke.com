@@ -53,13 +53,15 @@ import {
   type VenueSuggestionsResponse,
 } from "@peekpoke/shared";
 import { colors, fontFamilies, radii, shadows, spacing, typography } from "@peekpoke/design";
-import { Avatar, Body, Caption, IconButton, PremiumBadge, Skeleton } from "@/components/ui";
+import { Avatar, Body, Button, Caption, IconButton, PremiumBadge, Skeleton } from "@/components/ui";
 import { displayName } from "@/components/ui-helpers";
 import { fetchCurrentProfile, fetchMessages, type MessagesData } from "@/data/api";
 import { uploadAndSendChatMedia } from "@/data/chat-upload";
 import { sendPreparedChatMessage } from "@/data/chat-message";
 import { mutatePreparedNativeDmMessage } from "@/data/dm-message-mutations";
 import { nativeQueryKeys } from "@/data/query-keys";
+import { useConversationAccess } from "@/hooks/use-conversation-access";
+import { PokeComposer } from "@/components/poke-composer";
 import { useTypingIndicator } from "@/hooks/use-typing-indicator";
 import { useAppStore } from "@/state/app-store";
 import { useCallStore } from "@/state/call-store";
@@ -81,6 +83,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const listRef = useRef<FlatList<DMMessage>>(null);
+  const [pokeOpen, setPokeOpen] = useState(false);
   const [planComposerOpen, setPlanComposerOpen] = useState(false);
   const [planPlacePrefill, setPlanPlacePrefill] = useState("");
   const loadingOlderRef = useRef(false);
@@ -178,20 +181,22 @@ export default function ChatScreen() {
   }, [profile, thread]);
   const isInSameApproximateArea = useChatApproximateProximity(profile?.id, other?.id);
   const isReadOnly = other?.account_deleted === true;
+  const access = useConversationAccess(threadId, profile?.id);
+  const canInteract = !isReadOnly && access.canInteract;
   const suggestionsQuery = useQuery<ChatSuggestionsResponse>({
     queryKey: nativeQueryKeys.chat.suggestions(threadId),
     queryFn: ({ signal }) => fetchChatSuggestions(threadId, signal),
-    enabled: Boolean(threadId && other && !isReadOnly),
+    enabled: Boolean(threadId && other && canInteract),
     staleTime: 30_000,
   });
-  const venuesQuery = useQuery<VenueSuggestionsResponse>({ queryKey: ["chat", threadId, "venues"], enabled: Boolean(threadId && other && !isReadOnly), queryFn: () => apiFetch<VenueSuggestionsResponse>(`/api/dm/${threadId}/venues`, { responseSchema: venueSuggestionsResponseSchema }), staleTime: 60_000 });
+  const venuesQuery = useQuery<VenueSuggestionsResponse>({ queryKey: ["chat", threadId, "venues"], enabled: Boolean(threadId && other && canInteract), queryFn: () => apiFetch<VenueSuggestionsResponse>(`/api/dm/${threadId}/venues`, { responseSchema: venueSuggestionsResponseSchema }), staleTime: 60_000 });
   const { isPeerTyping, notifyTyping } = useTypingIndicator(threadId, profile?.id);
   const isOtherOnline = other?.is_online === true && !isReadOnly;
 
   async function submit() {
     const content = draft.trim();
     if (!content || !threadId || sending) return;
-    if (isReadOnly && !editingMessage) return;
+    if (!canInteract) return;
     const token = sendLifecycle.begin();
     if (!token) return;
     setSending(true);
@@ -304,6 +309,7 @@ export default function ChatScreen() {
   }
 
   async function retryPendingImage() {
+    if (!canInteract) return;
     const attempt = sendAttempts.peek();
     if (!threadId || !attempt?.draft.mediaUrl || sending) return;
     const token = sendLifecycle.begin();
@@ -335,7 +341,7 @@ export default function ChatScreen() {
   }
 
   async function selectAndSendImage() {
-    if (!threadId || !profile?.id || sending || editingMessage || isReadOnly) return;
+    if (!threadId || !profile?.id || sending || editingMessage || !canInteract) return;
     const token = sendLifecycle.begin();
     if (!token) return;
     discardPendingImage();
@@ -452,16 +458,17 @@ export default function ChatScreen() {
   }
 
   const beginReply = useCallback((message: DMMessage) => {
-    if (message.is_deleted || isReadOnly) return;
+    if (message.is_deleted || !canInteract) return;
     if (!sendAttempts.cancel()) return;
     setHasPendingImage(false);
     setReplyingTo(message);
     setEditingMessage(null);
     setEditError(null);
     setDraft(threadId, "");
-  }, [isReadOnly, sendAttempts, setDraft, threadId]);
+  }, [canInteract, sendAttempts, setDraft, threadId]);
 
   function beginEdit(message: DMMessage) {
+    if (!canInteract) return;
     if (!sendAttempts.cancel()) return;
     if (!messageMutations.cancel()) return;
     setHasPendingImage(false);
@@ -495,13 +502,13 @@ export default function ChatScreen() {
       message={item}
       previous={storedMessages[index - 1]}
       isOwn={item.sender_id === profile?.id}
-      canReply={!isReadOnly}
+      canReply={canInteract}
       replyAuthor={getReplyAuthor(item, storedMessages, profile?.id ?? "", other ?? null)}
       onReply={beginReply}
       onLongPress={handleLongPress}
       onPressReply={handlePressReply}
     />
-  ), [beginReply, handleLongPress, handlePressReply, isReadOnly, other, profile?.id, storedMessages]);
+  ), [beginReply, handleLongPress, handlePressReply, canInteract, other, profile?.id, storedMessages]);
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -534,7 +541,7 @@ export default function ChatScreen() {
 
   const subtitle = isReadOnly
     ? "Account deleted"
-    : isPeerTyping
+    : canInteract && isPeerTyping
     ? "Typing…"
     : isOtherOnline
     ? "Online now"
@@ -556,7 +563,7 @@ export default function ChatScreen() {
             </View>
             <Caption style={isOtherOnline || isPeerTyping ? styles.headerOnline : undefined}>{subtitle}</Caption>
           </View>
-          {!isReadOnly ? (
+          {canInteract ? (
             <IconButton
               icon="video"
               iconSize={18}
@@ -579,7 +586,7 @@ export default function ChatScreen() {
           <ReadReceiptRecovery pending={readReceipt.isPending} onRetry={readReceipt.retry} />
         ) : null}
 
-        {!isReadOnly && other ? (
+        {canInteract && other ? (
           <ChatApproximateProximityHint
             key={other.id}
             name={displayName(other)}
@@ -588,7 +595,7 @@ export default function ChatScreen() {
           />
         ) : null}
 
-        {!isReadOnly && profile && other ? <View style={styles.meetupAction}><ChatMeetupAcknowledgement accountId={profile.id} peerId={other.id} threadId={threadId} onPlanAgain={() => setPlanComposerOpen(true)} /></View> : null}
+        {canInteract && profile && other ? <View style={styles.meetupAction}><ChatMeetupAcknowledgement accountId={profile.id} peerId={other.id} threadId={threadId} onPlanAgain={() => setPlanComposerOpen(true)} /></View> : null}
 
         <View style={styles.messageListWrap}>
           <FlatList
@@ -644,9 +651,17 @@ export default function ChatScreen() {
           ) : null}
         </View>
 
-        {isReadOnly && !editingMessage ? (
+        {isReadOnly ? (
           <View style={[styles.readOnlyNotice, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
             <Caption style={styles.readOnlyText}>This account was deleted. The conversation history is read-only.</Caption>
+          </View>
+        ) : !access.canInteract ? (
+          <View accessibilityLiveRegion="polite" style={[styles.readOnlyNotice, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
+            <Text style={styles.emptyTitle}>{access.isError ? "Conversation access is unavailable." : access.expired ? "This Poke conversation has ended." : "Checking conversation access…"}</Text>
+            {access.expired && !access.isError ? <>
+              <Body style={styles.emptyBody}>Your history and draft are saved. A new accepted Poke opens another 24 hours.</Body>
+              <Button onPress={() => setPokeOpen(true)}>Send a new Poke</Button>
+            </> : access.isError ? <Button disabled={access.isFetching} onPress={() => void access.refetch()}>Retry conversation access</Button> : null}
           </View>
         ) : (
           <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
@@ -728,7 +743,7 @@ export default function ChatScreen() {
                     if (!value.trim() || !sendAttempts.matches(nextDraft)) sendAttempts.cancel();
                   }
                   setDraft(threadId, value);
-                  if (value.trim() && !editingMessage) notifyTyping();
+                  if (canInteract && value.trim() && !editingMessage) notifyTyping();
                 }}
                 placeholder={editingMessage ? "Edit message..." : "Message..."}
                 placeholderTextColor={colors.ink[5]}
@@ -755,7 +770,7 @@ export default function ChatScreen() {
       <MessageContextMenu
         message={contextMessage}
         isOwn={contextMessage?.sender_id === profile?.id}
-        canEdit={contextCanEdit}
+        canEdit={canInteract && contextCanEdit}
         onClose={() => setContextMessage(null)}
         onEdit={() => contextMessage && beginEdit(contextMessage)}
         onCopy={() => {
@@ -764,7 +779,8 @@ export default function ChatScreen() {
         }}
         onDelete={() => contextMessage && void deleteMessage(contextMessage)}
       />
-      <PlanComposer open={planComposerOpen} onClose={() => setPlanComposerOpen(false)} sourceThreadId={threadId} initialPlaceText={planPlacePrefill} onCreated={(planId) => router.push(`/plans/${planId}` as never)} />
+      {pokeOpen && other && !isReadOnly ? <PokeComposer recipientId={other.id} name={displayName(other)} onClose={() => setPokeOpen(false)} onSent={() => { setPokeOpen(false); void access.refetch(); }} /> : null}
+      <PlanComposer key={`${profile?.id ?? "unknown"}:${threadId}`} open={planComposerOpen} onClose={() => setPlanComposerOpen(false)} sourceThreadId={threadId} initialPlaceText={planPlacePrefill} onCreated={(planId) => router.push(`/plans/${planId}` as never)} />
       </SafeAreaView>
   );
 }

@@ -214,6 +214,8 @@ export function useRealtimeUserSync({
       delayMs: FRIENDS_REFETCH_DEBOUNCE_MS,
       onError: (error) => console.error("Friendship realtime recovery failed", error),
       onFlush: async (_batch, signal) => {
+        if (signal.aborted) return;
+        await queryClient.invalidateQueries({ queryKey: ["conversation-access", userId] });
         await queryClient.invalidateQueries({
           queryKey: webQueryKeys.friends,
           exact: true,
@@ -281,6 +283,8 @@ export function useRealtimeUserSync({
       delayMs: POKES_REFETCH_DEBOUNCE_MS,
       onError: (error) => console.error("Accepted Poke realtime recovery failed", error),
       onFlush: async (_batch, signal) => {
+        if (signal.aborted) return;
+        await queryClient.invalidateQueries({ queryKey: ["conversation-access", userId] });
         await queryClient.invalidateQueries({
           queryKey: webQueryKeys.threads,
           exact: true,

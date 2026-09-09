@@ -58,7 +58,7 @@ jobs:
 
   sql:
     name: Embedded SQL fixtures
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -71,6 +71,17 @@ jobs:
       - run: npm ci
       - run: npm run test:product-db
       - run: node test/sql/legacy-sql-special-forms.mjs
+      - name: Install PostgreSQL 17 for real concurrency checks
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-17
+      - name: Verify actual lock waits and transaction ordering
+        run: npm run test:postgres-concurrency
+        env:
+          POSTGRES_BIN: /usr/lib/postgresql/17/bin
 
   native:
     name: Native typecheck, lint, and tests

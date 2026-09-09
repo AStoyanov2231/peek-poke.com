@@ -6,6 +6,100 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
+The goal remains active and incomplete.
+The temporary-conversation migration is now deployed as `20260909002222`, with 184 migration entries.
+All eight CI checks passed on `41a2a5fe5` before activation.
+The exact original functions, grants, and 183-entry history matched the saved preflight immediately before deployment.
+Live verification found the existing `poke_status` enum rendered the new index differently from the minimal text fixture.
+The fixture now uses the exact hosted enum, and a separate deployed rollback package matches all six functions, grants, two triggers, and index and passes 25 reversal assertions.
+The original candidate and twenty-migration archives remain unchanged; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) now identifies the correct deployed package and reversal order.
+Security advisors remain at the pre-existing thirteen service-table information notices and one leaked-password-protection warning, with no new notice.
+Both hosted product journeys now pass in 36.8 seconds after correcting the test request contract and repairing a real history-query defect.
+The deployed message table has `reply_to_id`, not a `reply_to` column; its self-relationship is also absent from the PostgREST cache.
+History now loads reply previews in one bounded lookup restricted to the same thread, hides deleted preview content, and retains the existing DTO.
+The hosted regression verifies an actual reply preview alongside expiry, replay, call cancellation, renewal, owner-only Plans, friendship, and block precedence.
+Seventy-one focused mapping/message tests and scoped lint pass; the exact enum fixture passes 49 SQL assertions and four real PostgreSQL concurrency cases.
+Hosted cleanup returns to 50 profiles, 11 Auth users, 96 Storage objects, no accepted Pokes, and no queued events.
+The isolated hosted server stopped after its runner completed.
+The source and documentation follow-up still needs its matching CI run and web release.
+The web release remains on master `d3e452101178c9a36d51e78c30a4414d05573ae5`; PR #17 is still a draft and not merged.
+
+## Earlier continuation checkpoints
+
+The goal remains active and incomplete.
+The release-hardening source checkpoint is `6420debfc` on `product-redesign`, published in [PR #17](https://github.com/AStoyanov2231/peek-poke.com/pull/17).
+A read-only Expo follow-up found no project or account environment variables in production, preview, or development, and no cloud builds.
+Actual Expo config evaluation reproduced development builds accepting production services; the guard now rejects production API or Supabase origins for both development and preview while allowing isolated services.
+The complete native logic suite passes 535 tests, including ten release-environment tests; native typecheck and root lint also pass.
+The PostgreSQL concurrency harness now uses a short cross-platform `/tmp` socket path, and both real concurrency suites pass after that change.
+The existing SQL CI gate now installs PostgreSQL 17 and runs those suites; the corresponding hosted CI gate now passes.
+The workflow YAML parses successfully, and [product operations](docs/product-operations.md) records the verified EAS configuration gaps and required next release evidence.
+The publication gate was resolved by recovering the earlier explicit user approval for this branch and verifying the configured repository is public.
+Automatic review accepted that evidence, the branch was pushed, and draft PR #17 was created.
+Web, native, and browser CI passed; the initial SQL job failed because the runner lacked the PostgreSQL APT repository.
+The workflow now installs the official signing key and explicitly configures the PostgreSQL repository before installing version 17.
+All eight CI checks passed on `8c1203735`, including the actual PostgreSQL 17 concurrency suites on Linux.
+The next browser flow reproduced an already-open Plan composer unmounting and losing its draft when the conversation expired.
+Web and native now keep that independent composer mounted, with account/thread keys resetting its data on identity changes.
+The new browser regression passes in 6.4 seconds.
+Screenshot inspection exposed that the initial iOS draft-retention test did not prove cancellation: its Cancel tap left the modal open behind the keyboard.
+The native composer now avoids the keyboard on iOS and dismisses it on scroll.
+Android retains its native modal resizing; adding a second height adjustment reproduced clipped actions and was removed.
+The strengthened iOS XCUITest verifies exact title retention, scrolls to the actions, and asserts the modal disappears after Cancel; it passes in 30.3 seconds.
+Fresh screenshots under `test-results/native/plan-keyboard-ios/` show the retained title, accessible actions, and closed modal.
+The corrected Android bundle separately retains `Picnic` through expiry and closes after Cancel, with history visible and send/call controls absent.
+Android verification covered the emulator hardware/floating input method, not physical-device docked keyboards.
+Native typecheck and native lint pass.
+Creating a Plan does not enroll or message the conversation peer; the hosted journey now verifies owner-only membership after expiry.
+All eight CI checks passed on `3347a5315`.
+On `6420debfc`, both web, native, and browser jobs passed; both SQL jobs reproduced a second UTC-midnight fixture issue.
+A prior one-hour-old Plan entered yesterday's cohort, invalidating an absolute expected count.
+The SQL fixture now asserts the new Plan adds exactly one scheduled and mutually confirmed outcome, even with two confirmed participant pairs.
+The failure reproduced locally before this correction, and the complete product SQL suite passes afterward.
+The matching CI rerun remains required before migration activation.
+React Doctor reports 91/100 with six warnings and no errors: four existing component-complexity warnings including the newly scanned Plan form, related-state guidance, and a small environment-validation array-chain warning.
+No detector suppression was added.
+The hosted product suite now includes a dedicated temporary-conversation journey with synthetic accounts, actual accepted renewal, message replay/denial, call replay/cancellation/delayed-delivery denial, readable history, friendship, and block precedence.
+Its call, message, outbox, and user cleanup is explicitly scoped; this new hosted journey is not yet executed, and remains skipped without authorized integration configuration.
+The pre-deployment baseline had 183 migrations, 50 profiles, 11 Auth users, and 96 Storage objects.
+A fresh read exactly matches all saved original function definitions, owners, ACLs, migration history, and absent new objects; the candidate SQL hash still matches the sealed rollback package.
+The final native fixture receipt records zero message sends.
+Synthetic API, auth, Metro, test apps, and the task-started Android emulator were stopped; the pre-existing iOS Simulator remains available.
+The Android keyboard setting was restored to its original value.
+Expo login is verified as `andy2231`, and EAS created and linked `@andy2231/peek-poke`, project ID `e0631d17-11c0-47e9-a4fe-d577f0e6e06e`.
+Project creation did not start a build or submission; release signing, distribution, and physical-device verification remain open.
+Temporary Poke conversations are in local implementation using a working default of 24 hours after the latest acceptance, with readable history preserved.
+The duration is an implementation assumption, not a user-confirmed policy.
+The new shared access contract, service-owned facts endpoint, database message/call guards, delayed-call delivery check, and API expiry responses are implemented locally.
+Web and native now hide new interaction controls when access is loading, unavailable, or expired, while retaining readable history, drafts, and deletion controls.
+The expired state offers the existing Poke composer; sending alone does not reopen the conversation.
+The browser regression first reproduced the missing expiry UI, then passed history retention, hidden composer/call controls, opening the new Poke dialog, timer expiry, access-service failure, draft recovery after renewal, and zero message sends.
+That journey exposed the global disabled focus-refresh default; this permission query now explicitly refreshes on web focus, while native refreshes on screen focus and foreground activation.
+Desktop/mobile visual inspection corrected missing size classes on the new Poke action, and the final screenshots are retained under `test-results/e2e/expired-chat-*.png`.
+The SQL harness now passes 49 assertions using the exact deployed message-send, edit, call-start, and call-transition RPC bodies.
+Four PostgreSQL 17 concurrency cases observe real lock waits and verify expiry after waiting, same-key deduplication, renewed acceptance, and friendship removal without extra messages or outbox events.
+The real call-start RPC reproduced SQLSTATE 42P10 against the existing partial outbox index; the candidate migration adds the missing conflict predicate.
+The exact old call-start and delivery functions, owners, grants, absent-object inventory, and 183-entry history were captured before any production change.
+A separate private rollback package passes 25 assertions, and all eleven archived payloads verify against their hashes.
+The original twenty-migration archive remains unchanged; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) points to both packages and their reversal order.
+The full product-database suite initially reproduced a timezone-sensitive test failure after Sofia midnight while UTC was still on the previous day.
+The fixture now explicitly uses UTC for its UTC cohort assertions, and the complete product-database suite passes.
+The focused API/contract suite passes 106 tests, and the native hook passes six iOS/Android tests covering expiry, refreshed renewal, access failure, and account-switch isolation.
+The complete local suites pass 1,387 web tests, 531 native logic tests, 126 platform renderer tests, and fifteen browser journeys; ten hosted-only tests remain intentionally skipped outside their explicit runner.
+Accepted-Poke and friendship realtime recovery now invalidate account-scoped conversation access on both clients, keeping the database response authoritative rather than trusting event payloads.
+The focused realtime transport rerun passes four tests.
+A fresh hosted read confirms authenticated users have only SELECT on messages, no direct call/Poke table writes, and no client write-column grants.
+The pre-deployment database had no accepted Pokes and 183 migrations; the deployment update above supersedes this earlier checkpoint.
+React Doctor reports 92/100 with four chat-component complexity/state warnings and no errors; the scoped design detector reports no findings, and no new suppression was added.
+The installed iOS development app passes an XCUITest journey for retained history, missing message/call actions, new Poke opening/cancellation, timer expiry while typing, access failure, and restored draft after renewal.
+Android development-app inspection independently confirms the expired state, new Poke dialog/cancellation, unavailable access, and restored `Android draft` with call/send controls after retry.
+Screenshots were visually inspected and retained under `test-results/native/temporary-chat-android-*.png`; the iOS result bundle is recorded in the local native receipt.
+The shared synthetic fixture still reports zero message sends after both journeys.
+Android's production-release guard caught missing Google/Firebase provider configuration, so runtime checks used a development build without weakening release checks.
+Signed native distribution, physical-device acceptance, hosted verification, source CI, and production activation remain open.
+The new candidate migration has not changed the production database.
+Root lint, the complete product-database suite, both PostgreSQL concurrency suites, and diff whitespace checks pass for this follow-up.
+
 The next packaged Android check reproduced profile invitation links losing their token on cold launch while the same warm link reached Connect.
 The invitation entry route now survives session hydration, while a screen-level boundary withholds all preview reads and Connect until an adult account is resolved.
 Signed-out warm invitations explicitly retain their token through sign-in routing.
@@ -19,6 +113,12 @@ Inspected screenshots are saved locally as `test-results/native/android-invitati
 The final local checks pass 531 native logic tests, 120 platform renderer tests, native typecheck, and lint.
 React Doctor reports 91/100 with no errors and the two previously recorded root-navigator structure warnings; no suppression was added.
 The preview uses the existing deployed endpoint and requires no database migration or provider configuration change.
+[PR #16](https://github.com/AStoyanov2231/peek-poke.com/pull/16) passed all eight required checks, including thirteen browser journeys, and merged into master as `d3e452101178c9a36d51e78c30a4414d05573ae5`.
+The matching production deployment is Ready in Dublin and serves both canonical domains.
+Both homepages, Terms, Privacy, and the iOS association endpoint returned HTTP 200; the initial deployment-scoped error/fatal query returned no entries.
+The local fixture services and emulator were stopped, and their temporary port forwards and UI dump were removed.
+The sealed twenty-migration rollback archive retains its recorded SHA-256.
+The native changes still require a signed binary release, and the full goal remains open against the recorded feature and launch requirements.
 The navigation behavior matches [Expo's documented protected-route redirection](https://docs.expo.dev/router/advanced/authentication/); the fix preserves invitation intent without exposing adult-only actions during hydration.
 
 The Android packaged-build review found an obsolete generated manifest with invitation links but no Plan links, despite both being present in app.json.

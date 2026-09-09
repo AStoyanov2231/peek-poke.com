@@ -1,3 +1,4 @@
+import { isConversationExpiryError } from "@/lib/dm-conversation-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -198,6 +199,9 @@ async function executeMutation({
     p_request_hash: requestHash,
     p_request_id: currentRequestId() ?? null,
   });
+  if (isConversationExpiryError(error)) {
+    return idempotencyError(key, "This Poke conversation has ended. Send a new Poke to reconnect.", 409, "POKE_CONVERSATION_EXPIRED");
+  }
   if (error) {
     console.error("dm/[threadId]/[messageId]: idempotent RPC unavailable", error);
     return idempotencyError(

@@ -51,6 +51,39 @@ describe("native release environment", () => {
     })).toThrow("GOOGLE_SERVICES_JSON");
   });
 
+  it.each(["development", "preview"])("rejects either production dependency in %s", (profile) => {
+    for (const overrides of [
+      { EXPO_PUBLIC_API_BASE_URL: productionApiOrigin },
+      { EXPO_PUBLIC_SUPABASE_URL: productionSupabaseOrigin },
+    ]) {
+      expect(() => assertNativeBuildEnvironment({
+        profile,
+        platform: "ios",
+        env: {
+          ...productionEnv(),
+          EXPO_PUBLIC_API_BASE_URL: "https://staging.example.test",
+          EXPO_PUBLIC_SUPABASE_URL: "https://staging.supabase.co",
+          ...overrides,
+        },
+        productionApiOrigin,
+        productionSupabaseOrigin,
+      })).toThrow("must not target production API or Supabase origins");
+    }
+  });
+
+  it.each(["development", "preview"])("accepts isolated %s services", (profile) => {
+    expect(() => assertNativeBuildEnvironment({
+      profile,
+      platform: "ios",
+      env: productionEnv({
+        EXPO_PUBLIC_API_BASE_URL: "https://staging.example.test",
+        EXPO_PUBLIC_SUPABASE_URL: "https://staging.supabase.co",
+      }),
+      productionApiOrigin,
+      productionSupabaseOrigin,
+    })).not.toThrow();
+  });
+
   it("rejects production origins that do not match the canonical services", () => {
     expect(() => verify("ios", productionEnv({ EXPO_PUBLIC_API_BASE_URL: "https://example.com" })))
       .toThrow(`must use ${productionApiOrigin}`);

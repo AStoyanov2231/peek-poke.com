@@ -24,6 +24,8 @@ try {
   // This fixture contains only metadata verified from the hosted schema. It is
   // intentionally not a substitute for the legacy friendship/outbox baseline.
   await db.exec(`
+    -- Metric cohorts use UTC days; PGlite otherwise inherits the Mac's timezone.
+    SET TIME ZONE 'UTC';
     create role anon; create role authenticated; create role service_role;
     create schema app_private; create schema auth; create schema realtime;
     create table realtime.messages (id bigint primary key, topic text, extension text, private boolean);
@@ -470,6 +472,9 @@ try {
   const retainedPlanAttribution = await db.query("select count(*)::int count from public.plan_meetup_acknowledgements where plan_id=$1::uuid and confirmed_at is not null", [pastPlanId]);
   assert(cancelledPlanMeetup.rows[0].payload.canConfirm === false && cancelledPlanMeetup.rows[0].payload.acknowledgements.length === 0 && retainedPlanAttribution.rows[0].count === 1, "cancelling a Plan must hide further confirmation state without erasing completed attribution");
 
+  // Other recent-Plan fixtures can fall in yesterday's UTC cohort near midnight.
+  // Measure this Plan's contribution without depending on the wall-clock hour.
+  const previousConversionCohort = await db.query("select * from public.product_plan_conversion_metrics(current_date-1,current_date-1)");
   const cohortPlanId = (await db.query("select gen_random_uuid() id")).rows[0].id;
   await db.query("insert into public.plans(id,owner_id,activity,starts_at,place_text,visibility,participant_limit,status) values ($1::uuid,$2::uuid,'walk',(date_trunc('day',now() at time zone 'UTC')-interval '1 day') at time zone 'UTC','Park','private',3,'active')", [cohortPlanId, ids.alex]);
   await db.query("insert into public.plan_members(plan_id,user_id,role) values ($1::uuid,$2::uuid,'owner'),($1::uuid,$3::uuid,'member'),($1::uuid,$4::uuid,'member')", [cohortPlanId, ids.alex, ids.blair, ids.casey]);
@@ -480,7 +485,9 @@ try {
   await db.query("update public.plans set status='cancelled' where id=$1::uuid", [cohortPlanId]);
   const conversionCohort = await db.query("select * from public.product_plan_conversion_metrics(current_date-1,current_date-1)");
   const emptyConversionCohort = await db.query("select * from public.product_plan_conversion_metrics(current_date-4,current_date-4)");
-  assert(conversionCohort.rows[0].scheduled_plans === 1 && conversionCohort.rows[0].mutually_confirmed_plans === 1 && Number(conversionCohort.rows[0].conversion_rate) === 1 && conversionCohort.rows[0].confirmation_window_closed === false, "a next-day mutual confirmation must count one cancelled Plan cohort outcome even with two confirmed participant pairs");
+  const previousCohort = previousConversionCohort.rows[0];
+  const currentCohort = conversionCohort.rows[0];
+  assert(currentCohort.scheduled_plans === previousCohort.scheduled_plans + 1 && currentCohort.mutually_confirmed_plans === previousCohort.mutually_confirmed_plans + 1 && Number(currentCohort.conversion_rate) === currentCohort.mutually_confirmed_plans / currentCohort.scheduled_plans && currentCohort.confirmation_window_closed === false, "a next-day mutual confirmation must add exactly one cancelled Plan cohort outcome even with two confirmed participant pairs");
   assert(emptyConversionCohort.rows[0].scheduled_plans === 0 && emptyConversionCohort.rows[0].conversion_rate === null, "empty Plan conversion cohorts must return a null rate");
 
   await db.query("insert into public.pokes(sender_id,recipient_id,activity,status,expires_at,created_at,responded_at) values ($1::uuid,$2::uuid,'coffee','declined',now()-interval '8 days',now()-interval '8 days',now()-interval '8 days')", [ids.alex, ids.casey]);
@@ -492,7 +499,7 @@ try {
   const privateMetrics = await db.query("select * from public.product_private_activity_metrics(current_date,current_date)");
   const activationAfterAvailability = await db.query("select source, activated_at = $2::timestamptz unchanged from public.product_first_activations where user_id=$1::uuid", [ids.alex, activationBeforeAvailability.rows[0].activated_at]);
   assert(activationBeforeAvailability.rows[0].source === 'poke' && activationAfterAvailability.rows[0].unchanged === true, "Poke trigger must retain the original first activation when availability changes");
-  assert(privateMetrics.rows[0].first_activations === 1 && privateMetrics.rows[0].opportunities_2km === 2 && privateMetrics.rows[0].opportunities_10km === 4 && privateMetrics.rows[0].opportunities_25km === 12 && privateMetrics.rows[0].plan_confirmation_started_pairs === 3 && privateMetrics.rows[0].plan_to_mutual_confirmed === 3 && privateMetrics.rows[0].plan_conversion_attribution_available === true, "private activity metrics must retain first activation, daily maxima, and explicit Plan confirmation event counts");
+  assert(privateMetrics.rows[0].first_activations === 1 && privateMetrics.rows[0].opportunities_2km === 2 && privateMetrics.rows[0].opportunities_10km === 4 && privateMetrics.rows[0].opportunities_25km === 12 && privateMetrics.rows[0].plan_confirmation_started_pairs === 3 && privateMetrics.rows[0].plan_to_mutual_confirmed === 3 && privateMetrics.rows[0].plan_conversion_attribution_available === true, `private activity metrics must retain first activation, daily maxima, and explicit Plan confirmation event counts: ${JSON.stringify(privateMetrics.rows[0])}`);
   await db.query("insert into public.product_activity_days(user_id,activity_day,kind) values($1::uuid,current_date-32,'discovery')", [ids.casey]);
   await db.query("select public.purge_product_daily_activity_v1(31)");
   const expiredActivity = await db.query("select count(*)::int count from public.product_activity_days where activity_day < current_date-31");

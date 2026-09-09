@@ -1,5 +1,23 @@
 # Supabase rollback instructions
 
+## Deployed temporary-conversation layer
+
+Migration `temporary_poke_conversations` was applied as `20260909002222`, taking MyaouDB from 183 to 184 migration entries.
+The exact old function definitions, owners, grants, absent-object inventory, and 183-entry history were saved before deployment.
+Use `.supabase-backups/temporary-chat-deployed-20260909/README.md` and its guarded `rollback.sql` to reverse this layer first.
+The sealed archive is `.supabase-backups/MyaouDB-temporary-chat-deployed-rollback-20260909.tar.gz`, with its `.sha256` sidecar.
+SHA-256: `1258b1856acc708c391e995bd920c8079d3bc33e85332d59631730b3903b90a6`.
+All twelve payloads are hashed, and twenty-five local rollback assertions pass using the exact hosted `poke_status` enum.
+The six deployed function definitions, owners, grants, two triggers, and index match this package's manifest exactly.
+The package restores the old call-start and delayed-delivery functions, removes the added conversation objects, and preserves message, call, Poke, and Plan rows.
+The exact deployed version and object receipt are included; this is not a full hosted restore.
+
+The earlier candidate archive remains unchanged with SHA-256 `670c46b7f5e61af5873cab7af565dbcaf55718b95a37d57bea92355766bc77c0`.
+It is superseded for rollback because its minimal rehearsal used a text status column, making its strict index guard refuse the live enum-backed index.
+Use the deployed package above, then the unchanged twenty-migration package below if returning further back.
+
+## Deployed twenty-migration package
+
 The saved Supabase application state and recovery instructions for all twenty deployed migrations are in `.supabase-backups/MyaouDB-deployed-20-migration-rollback-20260908/`.
 Start with that folder's `README.md`.
 The package belongs to MyaouDB, project `ttojvnwpnpuhkyjncwxn`, and nests the unchanged nineteen-migration archive with the original application records, all 96 original Storage files, exact changed database definitions and permissions, the pre-correction photo records, and scheduler reversal instructions.

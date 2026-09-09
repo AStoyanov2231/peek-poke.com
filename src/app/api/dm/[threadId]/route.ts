@@ -1,3 +1,4 @@
+import { conversationExpiredResponse, isConversationExpiryError } from "@/lib/dm-conversation-access";
 import { NextResponse } from "next/server";
 import {
   API_VERSION,
@@ -122,7 +123,21 @@ export const GET = withAuth<{ threadId: string }>(async (request, { user, supaba
     pagination.data.limit,
   );
   const pageRows = page.items;
-  let messages = (await signPrivateMessageMedia(service, pageRows))
+  const replyIds = [...new Set(pageRows.flatMap((row) => typeof row.reply_to_id === "string" ? [row.reply_to_id] : []))];
+  const replies = new Map<string, Record<string, unknown>>();
+  if (replyIds.length > 0) {
+    const { data, error } = await service.from("dm_messages")
+      .select("id, thread_id, sender_id, content, is_deleted")
+      .eq("thread_id", threadId)
+      .in("id", replyIds);
+    if (error) {
+      console.error("dm/[threadId] reply previews:", error);
+      return apiError("Internal server error", 500, "THREAD_NOT_FOUND");
+    }
+    for (const reply of data ?? []) replies.set(reply.id, reply);
+  }
+  const rowsWithReplies = pageRows.map((row) => ({ ...row, reply_to: typeof row.reply_to_id === "string" ? replies.get(row.reply_to_id) ?? null : null }));
+  let messages = (await signPrivateMessageMedia(service, rowsWithReplies))
     .map(mapMessage)
     .reverse();
   const { data: peerCursor, error: cursorError } = await service
@@ -272,6 +287,8 @@ export const POST = withAuth<{ threadId: string }>(async (request, { user, supab
 
   // Migration-first invariant: never fall back to the non-idempotent legacy
   // RPC. The durable migration must be promoted before application traffic.
+  if (isConversationExpiryError(error)) return conversationExpiredResponse();
+
   if (error?.code === "PGRST202") {
     return messageSendUnavailable();
   }

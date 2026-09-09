@@ -71,8 +71,8 @@ function assertNativeBuildEnvironment({
     }
     assertProductionBillingEnvironment({ platform, env, productionApiOrigin });
   }
-  if (profile === "preview" && (apiOrigin === productionApiOrigin || supabaseOrigin === productionSupabaseOrigin)) {
-    throw new Error("Preview native builds must not target production API or Supabase origins");
+  if (["development", "preview"].includes(profile) && (apiOrigin === productionApiOrigin || supabaseOrigin === productionSupabaseOrigin)) {
+    throw new Error(`${profile === "preview" ? "Preview" : "Development"} native builds must not target production API or Supabase origins`);
   }
 }
 

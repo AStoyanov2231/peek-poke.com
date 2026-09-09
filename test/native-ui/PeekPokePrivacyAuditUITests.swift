@@ -44,6 +44,127 @@ final class PeekPokePrivacyAuditUITests: XCTestCase {
     add(attachment)
   }
 
+  // This endpoint exists only in the loopback native test fixture.
+  private func setConversationMode(_ mode: String, durationMs: Int = 86_400_000) {
+    var request = URLRequest(url: URL(string: "http://127.0.0.1:3002/__test/conversation-state")!)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try! JSONSerialization.data(withJSONObject: ["mode": mode, "duration_ms": durationMs])
+    let done = expectation(description: "Set synthetic conversation mode")
+    URLSession.shared.dataTask(with: request) { _, response, error in
+      XCTAssertNil(error)
+      XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+      done.fulfill()
+    }.resume()
+    wait(for: [done], timeout: 8)
+  }
+
+  private func foregroundConversation() {
+    XCUIDevice.shared.press(.home)
+    app.activate()
+  }
+
+  func testExpiredConversationRetainsHistoryAndOffersNewPoke() {
+    setConversationMode("expired")
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    if springboard.buttons["Open"].waitForExistence(timeout: 2) {
+      springboard.buttons["Open"].tap()
+    }
+    app.activate()
+    let server = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "http://127.0.0.1:8081")).firstMatch
+    if server.waitForExistence(timeout: 3) { server.tap() }
+    if !app.staticTexts["This Poke conversation has ended."].exists {
+      requireButton("Inbox", timeout: 60).tap()
+      if app.buttons["I'm in"].waitForExistence(timeout: 3) {
+        app.buttons["I'm in"].tap()
+      } else {
+        requireButton("Chats").tap()
+        let conversation = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Mila, Now, Coffee after work?")).firstMatch
+        XCTAssertTrue(conversation.waitForExistence(timeout: 8))
+        conversation.tap()
+      }
+    }
+    XCTAssertTrue(app.staticTexts["This Poke conversation has ended."].waitForExistence(timeout: 15), app.debugDescription)
+    XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "See you by the café.")).firstMatch.waitForExistence(timeout: 8), app.debugDescription)
+    XCTAssertFalse(app.buttons["Start video call"].exists)
+    XCTAssertFalse(app.buttons["Send message"].exists)
+    attachScreenshot("conversation-expired")
+    requireButton("Send a new Poke").tap()
+    XCTAssertTrue(app.buttons["Send Poke"].waitForExistence(timeout: 8), app.debugDescription)
+    attachScreenshot("conversation-new-poke")
+    requireButton("Cancel").tap()
+    XCTAssertTrue(app.staticTexts["This Poke conversation has ended."].waitForExistence(timeout: 8))
+
+    setConversationMode("active", durationMs: 25_000)
+    foregroundConversation()
+    let composer = app.textFields["Message..."]
+    XCTAssertTrue(composer.waitForExistence(timeout: 10), app.debugDescription)
+    composer.tap()
+    composer.typeText("Keep this draft")
+    XCTAssertTrue(app.buttons["Send message"].exists)
+    XCTAssertTrue(app.staticTexts["This Poke conversation has ended."].waitForExistence(timeout: 35), app.debugDescription)
+    XCTAssertFalse(app.buttons["Send message"].exists)
+    attachScreenshot("conversation-draft-expired")
+
+    setConversationMode("unavailable")
+    foregroundConversation()
+    XCTAssertTrue(app.buttons["Retry conversation access"].waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["Send message"].exists)
+    setConversationMode("active")
+    requireButton("Retry conversation access").tap()
+    let recovered = app.textFields.matching(NSPredicate(format: "value == %@", "Keep this draft")).firstMatch
+    XCTAssertTrue(recovered.waitForExistence(timeout: 10), app.debugDescription)
+    XCTAssertTrue(app.buttons["Start video call"].exists)
+    attachScreenshot("conversation-draft-recovered")
+  }
+
+  func testConversationExpiryPreservesOpenPlanDraft() {
+    setConversationMode("active")
+    foregroundConversation()
+    if app.textFields["Title (optional)"].exists {
+      app.descendants(matching: .any)["plan-composer-scroll"].swipeUp()
+      requireButton("Cancel").tap()
+      XCTAssertTrue(app.textFields["Title (optional)"].waitForNonExistence(timeout: 5))
+    }
+    let server = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "http://127.0.0.1:8081")).firstMatch
+    if server.waitForExistence(timeout: 3) { server.tap() }
+    if !app.buttons["Turn this into a plan"].exists {
+      requireButton("Inbox", timeout: 60).tap()
+      if app.buttons["I'm in"].waitForExistence(timeout: 3) {
+        app.buttons["I'm in"].tap()
+      } else {
+        requireButton("Chats").tap()
+        let conversation = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Mila, Now, Coffee after work?")).firstMatch
+        XCTAssertTrue(conversation.waitForExistence(timeout: 8))
+        conversation.tap()
+      }
+    }
+    requireButton("Turn this into a plan", timeout: 15).tap()
+    let title = app.textFields["Title (optional)"]
+    XCTAssertTrue(title.waitForExistence(timeout: 8), app.debugDescription)
+    title.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+    for character in "Picnic" {
+      title.typeText(String(character))
+      RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+    }
+    XCTAssertEqual(title.value as? String, "Picnic")
+    setConversationMode("active", durationMs: 4_000)
+    foregroundConversation()
+    // The refreshed window must expire while the Plan modal stays mounted.
+    RunLoop.current.run(until: Date().addingTimeInterval(6))
+    XCTAssertEqual(title.value as? String, "Picnic", app.debugDescription)
+    attachScreenshot("conversation-expired-plan-draft")
+    app.descendants(matching: .any)["plan-composer-scroll"].swipeUp()
+    attachScreenshot("conversation-plan-actions")
+    requireButton("Cancel").tap()
+    XCTAssertTrue(app.textFields["Title (optional)"].waitForNonExistence(timeout: 5), "Plan composer did not close after Cancel")
+    XCTAssertTrue(app.staticTexts["This Poke conversation has ended."].waitForExistence(timeout: 8), app.debugDescription)
+    XCTAssertFalse(app.buttons["Send message"].exists)
+    XCTAssertFalse(app.buttons["Start video call"].exists)
+    attachScreenshot("conversation-plan-cancelled")
+  }
+
   func testDiscoveryVisibilitySelectionPersistsAfterCloseAndReopen() {
     app.activate()
 
