@@ -15,6 +15,8 @@ These read-only checks close the first scheduled daily-purge verification requir
 A physical iPhone is paired and has an older Peek Poke app installed, but no matching local Peek & Poke provisioning profile was found; no Android device is connected.
 The available development identity is not evidence of App Store membership or release signing, and no provisioning, enrollment, billing, or device app was changed.
 The support/privacy and operational-alert inbox question is pending.
+Firebase Console is signed in and its creation form is prepared for a `Peek Poke` project with optional Google Developer Program enrollment switched off.
+No Firebase terms were accepted and no project was created; accepting the displayed terms requires the user's action-time confirmation under the browser tool policy.
 
 ## Completed web release
 
