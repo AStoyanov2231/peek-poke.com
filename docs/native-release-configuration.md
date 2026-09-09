@@ -21,6 +21,11 @@ No Supabase service-role key, database password, or other server credential was 
 An `eas env:exec production` verification compared all four values with the approved sources without printing keys and evaluated production iOS configuration successfully.
 The Mapbox style API returned HTTP 200 with the configured public token.
 Preview and development project environments remain empty and need isolated services before those profiles can build.
+The Android configuration guard now parses a supplied Firebase client file and selects the entry matching `android.package`, following the [Firebase client selection contract](https://firebase.google.com/docs/android/google-services-plugin-and-file).
+It rejects malformed JSON, server service-account credentials, unrelated packages, missing client keys, and inconsistent project/app identifiers without printing file contents.
+The original existence-only guard accepted an unrelated Android package through the actual production Expo config command.
+That command now rejects the same fixture and accepts a matching multi-field client configuration.
+This validation checks local configuration consistency; live Firebase ownership and push delivery still require provider and device verification.
 
 To return the EAS environment to its previously empty state, run the following from `apps/native` after confirming the linked project and checking for any later replacement values.
 These commands remove only the four project-scoped production variables created in this change.

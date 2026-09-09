@@ -7,6 +7,15 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
+The latest continuation reproduced production Expo configuration accepting a Firebase file registered to an unrelated Android application.
+The build guard now validates Android client selection, project/app consistency, and required client keys, rejects misplaced service-account credentials, and keeps parser errors free of file contents.
+The actual Expo config command rejects the original wrong-package fixture and accepts the matching fixture after the fix.
+All 544 native logic tests pass, including nineteen release-environment cases, and native typecheck passes.
+Scoped lint exposed the Node app-config and build scripts being evaluated without their CommonJS directory global; their ESLint environment now declares that runtime correctly without disabling rules.
+The full native lint run also found a WebRTC test harness publishing hook state during render; it now observes committed state in an effect, and all five termination-authority regression tests pass after the change.
+Full native lint completes with zero errors and 29 existing test-style warnings, including import order, Jest mock factory imports, array notation, and an unused test import; no rule suppression was added.
+The complete lint output is retained at `/private/tmp/peek-native-full-lint-20260909.log`.
+Publication remains pending the already-requested confirmation after automatic approval review rejected the previous checkpoint.
 Expo authentication is verified as `andy2231`, and the production environment of `@andy2231/peek-poke` now has the four required public client variables at project scope.
 An EAS environment execution verifies all four values against the approved sources without printing keys and successfully evaluates the production iOS configuration.
 The canonical API origin is `https://www.peek-poke.com`; the configured Mapbox public token returns HTTP 200 from its style API.
