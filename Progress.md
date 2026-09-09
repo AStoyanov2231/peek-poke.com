@@ -12,13 +12,21 @@ GitHub verification run `34299622513` passed all four jobs on the publication jo
 The preceding failed run exposed a synthetic visibility-event mismatch in the chat-expiry browser test: the event did not bubble to Query's window listener, making refresh depend on incidental recovery work.
 Both expiry journeys now dispatch one bubbling document event, matching the [HTML visibility event contract](https://html.spec.whatwg.org/multipage/interaction.html#page-visibility).
 Both affected browser journeys passed three consecutive repetitions each, and scoped ESLint passed.
-The publication approval gate is resolved; CI for this test correction, master release, and the native/provider/operator requirements remain outstanding.
+All eight push and PR checks passed on source `a7e3c8611cc5582abd0819a591a7183716d12a52`, in runs `34299976818` and `34300012670`.
+[PR 18](https://github.com/AStoyanov2231/peek-poke.com/pull/18) merged to master at `bb5f8ac7607f730530a9636fe3e0b4e3cd3c7f6c`.
+Vercel deployment `dpl_4sS4kyx7XNacMocjsg6tnxmTxfKB` is Ready in `dub1` and serves both production domains from that exact master revision.
+Both scoped synthetic product journeys passed against `https://www.peek-poke.com` in 27.94 seconds; the public login returned HTTP 200 and the recent runtime-error check was clear.
+Cleanup at `2026-09-09 01:45:02.815817+00` restored the baseline of 50 profiles, 11 Auth users, 96 Storage objects, 184 migration records, and zero accepted Pokes.
+No database migration was required, and both saved rollback archives still match their sealed SHA-256 values.
+All four master jobs passed in run `34300270675`.
+The outbox has zero pending/processing events and zero dead events after verification.
+Publication and this web release are complete; the broader goal remains incomplete because the native/provider/operator requirements are still outstanding.
 
 ## Prior local release checkpoint
 
 The goal remains incomplete.
-The next release actions are blocked on renewed public-publication confirmation and the outstanding native/provider setup recorded in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
-The same publication gate has persisted across more than three consecutive goal turns; independent implementation and verification work has now been completed for this checkpoint.
+At this prior checkpoint, release actions were blocked on renewed public-publication confirmation and the outstanding native/provider setup recorded in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
+That publication gate had persisted across more than three consecutive goal turns; the approval and completed release above supersede this historical block.
 The combined gate on source `3ce57ed10be29617ed6ff6420ae33e3178933b4e` passes 1,390 web tests, 544 native logic tests, 144 native renderer tests, all eighteen browser fixture journeys, root/native lint, native typecheck, and the production web build.
 Eleven hosted-only web tests remain skipped without their explicit integration configuration; this local run does not replace prior hosted evidence or verify an unpublished production release.
 The build uses inert configuration after blanking all names loaded from local environment files.

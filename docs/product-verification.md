@@ -7,7 +7,17 @@ Root/native lint, native typecheck, and the production web build also pass.
 The build uses inert local configuration, compiles successfully, and generates all 67 static pages.
 Eleven explicitly gated hosted-only tests are skipped in this local run.
 The combined results include the Firebase release guard, participant profile navigation, and trusted-person Plan detail sharing.
-This checkpoint has not been pushed or deployed; its new hosted CI and release verification remain pending publication approval.
+The user renewed publication authorization on 2026-09-09, and the final source `a7e3c8611cc5582abd0819a591a7183716d12a52` passed all eight push and PR checks in runs `34299976818` and `34300012670`.
+[PR 18](https://github.com/AStoyanov2231/peek-poke.com/pull/18) merged that source to master at `bb5f8ac7607f730530a9636fe3e0b4e3cd3c7f6c`.
+The expiry browser fixtures now use one bubbling document visibility event, matching real event propagation to Query's window listener.
+Both affected journeys also passed three local repetitions each.
+Production deployment `dpl_4sS4kyx7XNacMocjsg6tnxmTxfKB` is Ready in `dub1` and serves both production domains from that exact master revision.
+The scoped deployed product suite passed both journeys in 27.94 seconds, and the public login returned HTTP 200.
+The runtime-error query for the surrounding five-minute window returned no errors.
+Cleanup restored 50 profiles, 11 Auth users, 96 Storage objects, 184 migration records, and zero accepted Pokes at `2026-09-09 01:45:02.815817+00`.
+No migration was required for this release.
+All four master checks passed in run `34300270675`, including the complete browser fixture suite.
+The post-test outbox has zero pending/processing or dead events.
 The earlier production evidence below applies only to its named deployed revisions.
 
 ## Baseline test gate
