@@ -8,8 +8,11 @@ Updated: 2026-09-09.
 
 The user renewed public-push authorization on 2026-09-09 with "Push yes".
 All six local follow-up commits through `9ecfc31ae` are now published on `origin/product-redesign`.
-GitHub verification run `34299499094` started for that revision.
-The publication approval gate is resolved; CI completion, master release, and the native/provider/operator requirements remain outstanding.
+GitHub verification run `34299622513` passed all four jobs on the publication journal commit `160a774e7`.
+The preceding failed run exposed a synthetic visibility-event mismatch in the chat-expiry browser test: the event did not bubble to Query's window listener, making refresh depend on incidental recovery work.
+Both expiry journeys now dispatch one bubbling document event, matching the [HTML visibility event contract](https://html.spec.whatwg.org/multipage/interaction.html#page-visibility).
+Both affected browser journeys passed three consecutive repetitions each, and scoped ESLint passed.
+The publication approval gate is resolved; CI for this test correction, master release, and the native/provider/operator requirements remain outstanding.
 
 ## Prior local release checkpoint
 

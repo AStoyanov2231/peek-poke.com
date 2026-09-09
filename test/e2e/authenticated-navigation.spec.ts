@@ -43,9 +43,8 @@ test.describe("redesigned social journey", () => {
     await expect(page.getByText("This Poke conversation has ended.", { exact: true })).toBeVisible({ timeout: 8_000 });
     await expect(page.getByRole("textbox", { name: "Message...", exact: true })).not.toBeVisible();
     accessMode = "error";
-    // Refocus triggers the same access refresh used when returning to the app.
-    await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    // Native visibility changes bubble to window, where Query observes focus.
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange", { bubbles: true })));
     await expect(page.getByText("Conversation access is unavailable.", { exact: true })).toBeVisible();
     accessMode = "renewed";
     await page.getByRole("button", { name: "Retry conversation access" }).click();
@@ -70,7 +69,7 @@ test.describe("redesigned social journey", () => {
     await dialog.getByLabel("Place or area", { exact: true }).fill("The public park café");
     expired = true;
     const refreshed = page.waitForResponse((response) => response.url().endsWith(`/api/dm/${threadId}/access`));
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange", { bubbles: true })));
     await refreshed;
     await expect(page.getByText("This Poke conversation has ended.", { exact: true })).toBeVisible();
     await expect(dialog).toBeVisible();
