@@ -1,6 +1,6 @@
 # Production launch requirements
 
-- [ ] Publish the local release follow-up through `3ce57ed10`, pass hosted CI, merge to master, and verify the resulting web deployment; automatic approval review requires renewed confirmation for the public push despite the earlier publication approval.
+- [ ] Pass hosted CI for the release follow-up, merge to master, and verify the resulting web deployment; the user renewed publication approval and `product-redesign` is published through `9ecfc31ae`.
 - [x] Save the pre-migration recovery package and verify its guarded rollback locally; [SUPABASE_ROLLBACK.md](SUPABASE_ROLLBACK.md) describes the private archive and its limits.
 - [x] Verify the native Now radius and low-density empty state, Inbox priority, editable chat suggestions and draft safety, removal of disabled Map coin controls, and the core Now-to-Poke-to-accepted-chat Simulator journey.
 - [x] Verify direct native discovery-privacy selection, save, close, and reopen against a fixture account in the installed iPhone Simulator app using the [standalone XCTest runner](test/native-ui/README.md).

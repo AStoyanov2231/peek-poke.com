@@ -6,6 +6,13 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
+The user renewed public-push authorization on 2026-09-09 with "Push yes".
+All six local follow-up commits through `9ecfc31ae` are now published on `origin/product-redesign`.
+GitHub verification run `34299499094` started for that revision.
+The publication approval gate is resolved; CI completion, master release, and the native/provider/operator requirements remain outstanding.
+
+## Prior local release checkpoint
+
 The goal remains incomplete.
 The next release actions are blocked on renewed public-publication confirmation and the outstanding native/provider setup recorded in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
 The same publication gate has persisted across more than three consecutive goal turns; independent implementation and verification work has now been completed for this checkpoint.
