@@ -7,6 +7,17 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
+Expo authentication is verified as `andy2231`, and the production environment of `@andy2231/peek-poke` now has the four required public client variables at project scope.
+An EAS environment execution verifies all four values against the approved sources without printing keys and successfully evaluates the production iOS configuration.
+The canonical API origin is `https://www.peek-poke.com`; the configured Mapbox public token returns HTTP 200 from its style API.
+Development and preview project environments remain empty and require isolated services.
+Read-only credential inspection confirms no iOS or Android signing credentials are configured; the Apple Developer team and Firebase project are still awaiting user identification.
+No cloud build or store submission was started.
+The native app had no configured icon, and its existing generated iOS icon was blank.
+A new opaque terracotta/ivory asset based on the existing mark is now configured through Expo.
+An isolated prebuild with synthetic service configuration succeeds for both platforms and generates a nonblank opaque 1024-pixel iOS icon and Android launcher assets; the largest legacy Android icon is 192 pixels.
+Generated icons were visually inspected, but installation and store acceptance remain pending signed native builds.
+[Native release configuration](docs/native-release-configuration.md) records the EAS changes, exact variable rollback scope, and asset verification.
 The temporary-conversation migration is now deployed as `20260909002222`, with 184 migration entries.
 All eight CI checks passed on `41a2a5fe5` before activation.
 The exact original functions, grants, and 183-entry history matched the saved preflight immediately before deployment.
