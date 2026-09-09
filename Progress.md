@@ -18,6 +18,9 @@ A new opaque terracotta/ivory asset based on the existing mark is now configured
 An isolated prebuild with synthetic service configuration succeeds for both platforms and generates a nonblank opaque 1024-pixel iOS icon and Android launcher assets; the largest legacy Android icon is 192 pixels.
 Generated icons were visually inspected, but installation and store acceptance remain pending signed native builds.
 [Native release configuration](docs/native-release-configuration.md) records the EAS changes, exact variable rollback scope, and asset verification.
+The native release checkpoint is committed locally as `9b1c55be1`.
+Automatic approval review rejected publication twice, including after the earlier explicit public-publication approval was recovered from the session transcript.
+The reviewer did not accept that transcript as trusted authorization; this checkpoint is not pushed, and its hosted CI remains pending renewed publication approval.
 The temporary-conversation migration is now deployed as `20260909002222`, with 184 migration entries.
 All eight CI checks passed on `41a2a5fe5` before activation.
 The exact original functions, grants, and 183-entry history matched the saved preflight immediately before deployment.
