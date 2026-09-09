@@ -6,6 +6,18 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
+The user resumed the goal on 2026-09-09 and confirmed that neither an Apple Developer membership nor a Firebase project has been set up.
+The first scheduled daily-metrics purge succeeded at `2026-09-09 03:17:00.028656+00`, completing at `03:17:00.05216+00`.
+The eight-hour scheduler audit through 10:54 UTC found 480 successful location-retention runs, 480 successful outbox scheduling runs, and the successful daily-metrics run, with no failed runs in those results.
+The retained six-hour HTTP response window contains 360 responses, all HTTP 200 with no timeout.
+The outbox still contains only the 31 completed original events, with no pending, processing, or dead events.
+These read-only checks close the first scheduled daily-purge verification requirement; external alert delivery and hosted load limits remain open.
+A physical iPhone is paired and has an older Peek Poke app installed, but no matching local Peek & Poke provisioning profile was found; no Android device is connected.
+The available development identity is not evidence of App Store membership or release signing, and no provisioning, enrollment, billing, or device app was changed.
+The support/privacy and operational-alert inbox question is pending.
+
+## Completed web release
+
 The user renewed public-push authorization on 2026-09-09 with "Push yes".
 All six local follow-up commits through `9ecfc31ae` are now published on `origin/product-redesign`.
 GitHub verification run `34299622513` passed all four jobs on the publication journal commit `160a774e7`.

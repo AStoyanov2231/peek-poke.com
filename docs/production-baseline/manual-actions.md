@@ -11,7 +11,7 @@
 - Keep Vercel Function compute in the configured single-region Hobby `dub1` region and reverify it after deployment configuration changes.
 - Enable Supabase leaked-password protection and rerun security advisors. Record the previous setting and rollback action before changing it.
 - Exact-location retention is active through cron job 5 every minute, with a successful scheduled run at 14:33 UTC.
-  The product-activity metrics cron job 6 is active for 03:17 UTC daily; its manual proof passed and its first scheduled run is not yet due.
+  The product-activity metrics cron job 6 is active for 03:17 UTC daily; its first scheduled run succeeded on 2026-09-09.
   Alert on missed runs and purge failures using the reversible scheduler runbook in `../product-operations.md`.
 - Configure Vercel WAF/rate-limit rules for authentication-related traffic. Supabase Auth is a direct client integration and needs provider/edge coverage.
 - Enable/verify Supabase backups and PITR; rehearse restore into an isolated non-production project and record RTO/RPO, gaps, and rollback steps.

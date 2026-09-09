@@ -17,7 +17,7 @@
 - [x] Prove erasure lock ordering and bounded stale-location cleanup with a deterministic local PostgreSQL 17 two-session harness using real lock-wait evidence and synthetic data.
 - [x] Merge PR #7 into master and deploy the matching web contract after the verified database changes.
 - [x] Pass the scoped deployed age-admission and social API suites, including production Redis-backed rate limiting and exact fixture cleanup.
-- [ ] Release and verify the matching native binary on physical devices; Expo login, the `@andy2231/peek-poke` project link, and four project-scoped production client variables are verified; neither platform has signing credentials, and Android Firebase configuration and distribution remain unfinished.
+- [ ] Release and verify the matching native binary on physical devices; Expo project and production client variables are configured, but the user confirmed on 2026-09-09 that Apple Developer membership and the Firebase project have not been set up.
 - [ ] Configure isolated Preview and Development environments before using them; Production has 22 production-only variables, while Preview and Development remain unconfigured following the shared-variable recovery described in [environment-isolation-recovery.md](docs/production-baseline/environment-isolation-recovery.md).
 - [x] Configure a generated production-only `CRON_SECRET` and verify its matching Supabase Vault value without exporting either secret.
 - [x] Authorize processing the 31 existing queued events and verify the authenticated Supabase-to-Vercel worker request.
@@ -30,7 +30,8 @@
 - [x] Schedule the bounded stale-location cleanup directly in Supabase each minute and verify a successful scheduled run.
 - [x] Schedule `purge_product_daily_activity_v1(31)` directly in Supabase daily and verify its manual execution.
 - [x] Test stale-coordinate deletion under synthetic local load, including concurrent committed updates and a stale-row refresh race; [location-retention-load.md](docs/production-baseline/location-retention-load.md) records the scope and measurements.
-- [ ] Verify the first daily-metrics scheduled run, configure retention failure alerts, and establish hosted load limits in an approved environment.
+- [x] Verify the first daily-metrics scheduled run; job 6 succeeded at 03:17 UTC on 2026-09-09, and the eight-hour audit found successful location and worker scheduling without failed runs.
+- [ ] Configure retention failure alerts and establish hosted load limits in an approved environment.
 - [ ] Exercise the complete journey on physical iOS and Android devices, including denied permissions, camera Scan, push delivery/navigation, media/video calls, relaunch, and sign-out/account-switch isolation.
 - [ ] Enable Supabase leaked-password protection after confirming the Auth plan supports it; the live security advisor reports it disabled.
 - [ ] Complete an operator-specific privacy notice, supported privacy contact, formal terms, retention policy, age policy, and moderation/support response process.

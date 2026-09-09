@@ -59,6 +59,14 @@ Expo's [icon guidance](https://docs.expo.dev/develop/user-interface/splash-scree
 
 ## Remaining release gates
 
+The user confirmed on 2026-09-09 that Apple Developer membership and the Firebase project have not been set up.
+For iOS distribution, complete [Apple Developer enrollment](https://developer.apple.com/programs/enroll/) using the intended owner identity, then provide the resulting team name.
+Enrollment includes Apple identity verification, agreement acceptance, and membership purchase; no enrollment or purchase has been performed by the agent.
+For Android push configuration, create the intended owner's Firebase project on the [no-cost Spark plan](https://firebase.google.com/pricing), then register Android package `com.peekpoke.app` and keep its downloaded `google-services.json` in an ignored local location.
+Adding a billing account upgrades a Firebase project to Blaze, so billing is unnecessary for this initial project setup; see [Firebase project and billing behavior](https://firebase.google.com/docs/projects/learn-more).
+The paired iPhone has an older development app installed, but no matching local provisioning profile was found during the current read-only check.
+No Android device is currently connected.
+
 - Identify the Apple Developer team and configure iOS distribution credentials.
 - Identify the Firebase project, register the matching Android application, and configure `GOOGLE_SERVICES_JSON` plus FCM delivery credentials.
 - Configure Android signing and verify the distributed certificate fingerprint against app links.

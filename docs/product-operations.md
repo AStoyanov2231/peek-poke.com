@@ -33,6 +33,12 @@ It preserves the nested eighteen-migration recovery archive and includes guarded
 
 ## Required scheduler design
 
+The follow-up read-only audit on 2026-09-09 verified the first daily job 6 run, from `03:17:00.028656+00` to `03:17:00.05216+00`, with status `succeeded`.
+The eight-hour window through 10:54 UTC contained 480 successful runs each for jobs 5 and 7, one successful run for job 6, and no failed runs.
+The retained six-hour `pg_net` window contained 360 HTTP 200 responses with no timeout.
+The outbox contained only the original 31 completed events.
+This establishes observed overnight operation, not external alert delivery or a future uptime guarantee.
+
 Use direct `pg_cron` jobs for database-only, bounded cleanup.
 These jobs do not need an HTTP endpoint, Vercel deployment, `pg_net`, or a decrypted secret.
 
