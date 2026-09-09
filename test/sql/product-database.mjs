@@ -472,6 +472,9 @@ try {
   const retainedPlanAttribution = await db.query("select count(*)::int count from public.plan_meetup_acknowledgements where plan_id=$1::uuid and confirmed_at is not null", [pastPlanId]);
   assert(cancelledPlanMeetup.rows[0].payload.canConfirm === false && cancelledPlanMeetup.rows[0].payload.acknowledgements.length === 0 && retainedPlanAttribution.rows[0].count === 1, "cancelling a Plan must hide further confirmation state without erasing completed attribution");
 
+  // Other recent-Plan fixtures can fall in yesterday's UTC cohort near midnight.
+  // Measure this Plan's contribution without depending on the wall-clock hour.
+  const previousConversionCohort = await db.query("select * from public.product_plan_conversion_metrics(current_date-1,current_date-1)");
   const cohortPlanId = (await db.query("select gen_random_uuid() id")).rows[0].id;
   await db.query("insert into public.plans(id,owner_id,activity,starts_at,place_text,visibility,participant_limit,status) values ($1::uuid,$2::uuid,'walk',(date_trunc('day',now() at time zone 'UTC')-interval '1 day') at time zone 'UTC','Park','private',3,'active')", [cohortPlanId, ids.alex]);
   await db.query("insert into public.plan_members(plan_id,user_id,role) values ($1::uuid,$2::uuid,'owner'),($1::uuid,$3::uuid,'member'),($1::uuid,$4::uuid,'member')", [cohortPlanId, ids.alex, ids.blair, ids.casey]);
@@ -482,7 +485,9 @@ try {
   await db.query("update public.plans set status='cancelled' where id=$1::uuid", [cohortPlanId]);
   const conversionCohort = await db.query("select * from public.product_plan_conversion_metrics(current_date-1,current_date-1)");
   const emptyConversionCohort = await db.query("select * from public.product_plan_conversion_metrics(current_date-4,current_date-4)");
-  assert(conversionCohort.rows[0].scheduled_plans === 1 && conversionCohort.rows[0].mutually_confirmed_plans === 1 && Number(conversionCohort.rows[0].conversion_rate) === 1 && conversionCohort.rows[0].confirmation_window_closed === false, "a next-day mutual confirmation must count one cancelled Plan cohort outcome even with two confirmed participant pairs");
+  const previousCohort = previousConversionCohort.rows[0];
+  const currentCohort = conversionCohort.rows[0];
+  assert(currentCohort.scheduled_plans === previousCohort.scheduled_plans + 1 && currentCohort.mutually_confirmed_plans === previousCohort.mutually_confirmed_plans + 1 && Number(currentCohort.conversion_rate) === currentCohort.mutually_confirmed_plans / currentCohort.scheduled_plans && currentCohort.confirmation_window_closed === false, "a next-day mutual confirmation must add exactly one cancelled Plan cohort outcome even with two confirmed participant pairs");
   assert(emptyConversionCohort.rows[0].scheduled_plans === 0 && emptyConversionCohort.rows[0].conversion_rate === null, "empty Plan conversion cohorts must return a null rate");
 
   await db.query("insert into public.pokes(sender_id,recipient_id,activity,status,expires_at,created_at,responded_at) values ($1::uuid,$2::uuid,'coffee','declined',now()-interval '8 days',now()-interval '8 days',now()-interval '8 days')", [ids.alex, ids.casey]);

@@ -7,7 +7,7 @@ Updated: 2026-09-09.
 ## Current continuation
 
 The goal remains active and incomplete.
-The release-hardening source checkpoint is `3347a5315` on `product-redesign`, published in [PR #17](https://github.com/AStoyanov2231/peek-poke.com/pull/17).
+The release-hardening source checkpoint is `6420debfc` on `product-redesign`, published in [PR #17](https://github.com/AStoyanov2231/peek-poke.com/pull/17).
 A read-only Expo follow-up found no project or account environment variables in production, preview, or development, and no cloud builds.
 Actual Expo config evaluation reproduced development builds accepting production services; the guard now rejects production API or Supabase origins for both development and preview while allowing isolated services.
 The complete native logic suite passes 535 tests, including ten release-environment tests; native typecheck and root lint also pass.
@@ -31,7 +31,12 @@ The corrected Android bundle separately retains `Picnic` through expiry and clos
 Android verification covered the emulator hardware/floating input method, not physical-device docked keyboards.
 Native typecheck and native lint pass.
 Creating a Plan does not enroll or message the conversation peer; the hosted journey now verifies owner-only membership after expiry.
-All eight CI checks passed on `3347a5315`; the subsequent native keyboard fix still requires its matching CI run.
+All eight CI checks passed on `3347a5315`.
+On `6420debfc`, both web, native, and browser jobs passed; both SQL jobs reproduced a second UTC-midnight fixture issue.
+A prior one-hour-old Plan entered yesterday's cohort, invalidating an absolute expected count.
+The SQL fixture now asserts the new Plan adds exactly one scheduled and mutually confirmed outcome, even with two confirmed participant pairs.
+The failure reproduced locally before this correction, and the complete product SQL suite passes afterward.
+The matching CI rerun remains required before migration activation.
 React Doctor reports 91/100 with six warnings and no errors: four existing component-complexity warnings including the newly scanned Plan form, related-state guidance, and a small environment-validation array-chain warning.
 No detector suppression was added.
 The hosted product suite now includes a dedicated temporary-conversation journey with synthetic accounts, actual accepted renewal, message replay/denial, call replay/cancellation/delayed-delivery denial, readable history, friendship, and block precedence.
