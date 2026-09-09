@@ -1,5 +1,15 @@
 # Product redesign verification
 
+## Latest combined local gate
+
+Source `3ce57ed10be29617ed6ff6420ae33e3178933b4e` passes 1,390 web tests, 544 native logic tests, 144 native iOS/Android renderer tests, and all eighteen browser fixture journeys.
+Root/native lint, native typecheck, and the production web build also pass.
+The build uses inert local configuration, compiles successfully, and generates all 67 static pages.
+Eleven explicitly gated hosted-only tests are skipped in this local run.
+The combined results include the Firebase release guard, participant profile navigation, and trusted-person Plan detail sharing.
+This checkpoint has not been pushed or deployed; its new hosted CI and release verification remain pending publication approval.
+The earlier production evidence below applies only to its named deployed revisions.
+
 ## Baseline test gate
 
 Run `npm test` for the browser-independent suite.

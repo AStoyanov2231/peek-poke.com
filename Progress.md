@@ -6,7 +6,17 @@ Updated: 2026-09-09.
 
 ## Current continuation
 
-The goal remains active and incomplete.
+The goal remains incomplete.
+The next release actions are blocked on renewed public-publication confirmation and the outstanding native/provider setup recorded in [PRODUCT_LAUNCH_BLOCKERS.md](PRODUCT_LAUNCH_BLOCKERS.md).
+The same publication gate has persisted across more than three consecutive goal turns; independent implementation and verification work has now been completed for this checkpoint.
+The combined gate on source `3ce57ed10be29617ed6ff6420ae33e3178933b4e` passes 1,390 web tests, 544 native logic tests, 144 native renderer tests, all eighteen browser fixture journeys, root/native lint, native typecheck, and the production web build.
+Eleven hosted-only web tests remain skipped without their explicit integration configuration; this local run does not replace prior hosted evidence or verify an unpublished production release.
+The build uses inert configuration after blanking all names loaded from local environment files.
+The initial sandbox build failed on Turbopack's internal worker port; an approved run with a fresh generated output directory completed successfully, compiling in 6.1 seconds and generating all 67 static pages.
+The full logs are `/private/tmp/peek-final-web-tests.log`, `/private/tmp/peek-final-native-tests.log`, `/private/tmp/peek-final-browser.log`, and `/private/tmp/peek-final-build.log`, with separate lint/type logs beside them.
+All tracked verification processes completed, and the browser runner stopped its fixture services.
+Both private deployed rollback archives still match their sealed SHA-256 values: temporary chat `1258b1856acc708c391e995bd920c8079d3bc33e85332d59631730b3903b90a6` and the preceding twenty-migration package `4cff473598c05a098e74f466516de81288d1a8c83e14de97bc6b68ccb3af77ab`.
+The native signing, physical-device/provider proof, isolated environments, operator contact and policies, monitoring, hosted recovery, and optional paid/reward prerequisites remain open.
 The trusted-person sharing requirement now has a dedicated flow on web and native, after a browser reproduction confirmed participants had no way to share meetup details.
 Any current participant in an active Plan can review and share or copy its title/activity, date with timezone, place, and attendee count, including after the scheduled start.
 This action creates no invitation capability and adds no internal Plan, account, or conversation identifiers to the summary.
